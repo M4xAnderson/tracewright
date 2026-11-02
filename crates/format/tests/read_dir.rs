@@ -1,4 +1,5 @@
-//! Reading a project folder: only the files `load` reads, and none past its limit (LIM-2).
+//! Reading a project folder: only the project files (file-format §2.1), and none past its limit
+//! (LIM-2).
 
 use std::fs;
 

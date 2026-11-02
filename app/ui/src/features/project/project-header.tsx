@@ -1,11 +1,11 @@
-import { LoaderCircle, Play } from "lucide-react";
+import { LoaderCircle, Play, RefreshCw } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Kbd } from "../../components/ui/kbd";
-import { checkAll } from "../../store/actions";
+import { checkAll, reloadProject } from "../../store/actions";
 import { useAppStore } from "../../store/app-store";
 import { elementName } from "../verify/copy";
 
-// Header (flows §2.5): project name, view title and level, Check. Save, Reload, the summary
+// Header (flows §2.5): project name, view title and level, Reload and Check. Save, the summary
 // chips and Commands come with their tickets.
 export function ProjectHeader() {
   const project = useAppStore((s) => s.project);
@@ -27,6 +27,11 @@ export function ProjectHeader() {
         {title !== null && <span aria-hidden="true">· </span>}Level: Container
       </span>
       <span className="flex-1" />
+      <Button onClick={() => void reloadProject()}>
+        <RefreshCw aria-hidden="true" />
+        Reload
+        <Kbd aria-hidden="true">Ctrl+R</Kbd>
+      </Button>
       <Button variant="primary" onClick={() => void checkAll()}>
         {checking ? (
           <>

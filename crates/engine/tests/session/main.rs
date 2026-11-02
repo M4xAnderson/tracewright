@@ -4,6 +4,7 @@
 mod budget;
 mod canvas;
 mod capacity;
+mod changed_on_disk;
 mod check_key;
 mod checks;
 mod disk;
@@ -12,4 +13,5 @@ mod fixtures;
 mod lowering;
 mod pipeline;
 mod problems;
+mod reload;
 mod support;

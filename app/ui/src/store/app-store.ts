@@ -4,6 +4,7 @@ import type { CommandError } from "../ipc/bindings/command-error";
 import type { CurrentKeys } from "../ipc/bindings/current-keys";
 import type { EngineEvent } from "../ipc/bindings/engine-event";
 import type { Phase } from "../ipc/bindings/phase";
+import type { ReloadOutcome } from "../ipc/bindings/reload-outcome";
 import type { Screen } from "../ipc/bindings/screen";
 import type { VerdictDto } from "../ipc/bindings/verdict-dto";
 import type { View } from "../ipc/bindings/view";
@@ -16,11 +17,17 @@ export type OpenState =
 // The latest status bar message (flows §2.6). It keeps IDs; the status bar renders the words.
 export type Message =
   | { kind: "checksFinished"; properties: string[] }
+  | { kind: "reloaded"; outcome: ReloadOutcome }
+  | { kind: "openedWithProblems"; problems: number }
   | { kind: "error"; error: CommandError };
 
 // What the canvas, the behavior model pane and (later) the inspector show; one at a time in
 // slices 0–2 (flows §4.3).
 export type Selection = { kind: "element"; id: string } | { kind: "relationship"; id: string };
+
+// The open tab of the bottom pane (flows §2.2). Open and Reload open Problems when there are
+// problems to see (flows §4.1, §4.5).
+export type BottomTab = "behavior" | "problems";
 
 export interface AppState {
   screen: Screen;
@@ -40,6 +47,7 @@ export interface AppState {
   message: Message | null;
   // Shared view state (R-1).
   selection: Selection | null;
+  bottomTab: BottomTab;
 }
 
 const initialState: AppState = {
@@ -54,6 +62,7 @@ const initialState: AppState = {
   finishedInRun: [],
   message: null,
   selection: null,
+  bottomTab: "behavior",
 };
 
 // The model itself never lives here; it stays in the Rust core.

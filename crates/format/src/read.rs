@@ -12,8 +12,8 @@ use crate::ELEMENTS_MAX;
 use crate::LAYOUT_FILE_BYTES_MAX;
 use crate::ProjectFile;
 
-/// The files of the project folder `root` that `load` reads: `arch.toml`, `elements/*.toml` and
-/// `layouts/*.toml` (dotfiles, such as the writer's temp files, are skipped). A missing
+/// The files of the project folder `root` that `load` reads and the Session hashes: `arch.toml`,
+/// `elements/*.toml` and `layouts/*.toml` (dotfiles, such as the writer's temp files, are skipped). A missing
 /// `arch.toml`, `elements` or `layouts` folder is not an error here; `load` reports what it needs.
 ///
 /// LIM-2: no file is read past its limit plus one byte, so `load` reports an oversized file
@@ -49,6 +49,51 @@ pub fn read_dir(root: &Path) -> io::Result<Vec<ProjectFile>> {
     Ok(files)
 }
 
+/// The bytes of the project file `path`, relative to `root` with `/` separators, or `None` when
+/// it does not exist. Read like `read_dir` reads it, so the two give the same bytes.
+///
+/// # Errors
+///
+/// `InvalidInput` when `path` is not a project file `read_dir` reads (SEC-1: nothing outside
+/// them, no `..`), else the IO error that stopped the read.
+pub fn read_file(root: &Path, path: &str) -> io::Result<Option<Vec<u8>>> {
+    let Some(max_bytes) = project_file_limit(path) else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{path} is not a project file"),
+        ));
+    };
+    match read_bounded(&root.join(path), max_bytes) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+// The byte limit of a project file `read_dir` reads; `None` for any other path.
+fn project_file_limit(path: &str) -> Option<usize> {
+    if path == "arch.toml" {
+        return Some(ARCH_FILE_BYTES_MAX);
+    }
+    let (folder, name) = path.split_once('/')?;
+    let max_bytes = match folder {
+        "elements" => ELEMENT_FILE_BYTES_MAX,
+        "layouts" => LAYOUT_FILE_BYTES_MAX,
+        _ => return None,
+    };
+    if !is_project_file_name(name) || name.contains(['/', '\\']) {
+        return None;
+    }
+    Some(max_bytes)
+}
+
+// A `*.toml` name that is not a dotfile. Case-sensitive like `load`, which reads
+// `<folder>/<id>.toml` with a lowercase ID.
+fn is_project_file_name(name: &str) -> bool {
+    let toml = Path::new(name).extension().is_some_and(|e| e == "toml");
+    !name.starts_with('.') && toml
+}
+
 // The `*.toml` files directly in `root/folder`, at most `ELEMENTS_MAX + 1` of them.
 fn read_folder(
     root: &Path,
@@ -67,9 +112,7 @@ fn read_folder(
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        // Case-sensitive like `load`, which reads `<folder>/<id>.toml` with a lowercase ID.
-        let toml = Path::new(&name).extension().is_some_and(|e| e == "toml");
-        if name.starts_with('.') || !toml || !entry.file_type()?.is_file() {
+        if !is_project_file_name(&name) || !entry.file_type()?.is_file() {
             continue;
         }
         read += 1;

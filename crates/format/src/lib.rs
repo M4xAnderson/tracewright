@@ -28,6 +28,7 @@ use tracewright_model::PropertyId;
 pub use layout::LAYOUT_FILE_BYTES_MAX;
 pub use property::PREDICATE_BYTES_MAX;
 pub use read::read_dir;
+pub use read::read_file;
 
 /// The format version this build reads and writes (file-format §3.2).
 pub const FORMAT_VERSION: u32 = 1;

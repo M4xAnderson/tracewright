@@ -1,5 +1,5 @@
 {
-  "cause": "this folder is not a project: it has no arch.toml",
+  "cause": "arch.toml: format is missing; add `format = 1`",
   "kind": "openFailed",
   "path": "/home/designer/notes"
 }

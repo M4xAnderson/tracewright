@@ -41,14 +41,37 @@ export async function openProjectFromDialog(): Promise<void> {
       running: [],
       progress: {},
       finishedInRun: [],
-      message: null,
+      message:
+        opened.view.problems.length === 0
+          ? null
+          : { kind: "openedWithProblems", problems: opened.view.problems.length },
       selection: null,
+      bottomTab: opened.view.problems.length === 0 ? "behavior" : "problems",
     });
   } catch (rejection) {
     useAppStore.setState({ open: { kind: "failed", error: commands.toCommandError(rejection) } });
     return;
   }
   await checkAll();
+}
+
+// Reload (flows §4.5): the files changed on disk replace what the app loaded. The keys of the new
+// revision arrive as an event; a changed scope shows no verdict until the next Check.
+export async function reloadProject(): Promise<void> {
+  if (useAppStore.getState().screen !== "project") {
+    return;
+  }
+  try {
+    const reply = await commands.reloadProject();
+    const notLoaded = reply.outcome.kind === "reloaded" && reply.outcome.notLoaded.length > 0;
+    useAppStore.setState({
+      view: reply.view,
+      message: { kind: "reloaded", outcome: reply.outcome },
+      ...(notLoaded ? { bottomTab: "problems" as const } : {}),
+    });
+  } catch (rejection) {
+    useAppStore.setState({ message: { kind: "error", error: commands.toCommandError(rejection) } });
+  }
 }
 
 // Check (flows §4.7): every property of the view's scope. Keys already running are not
