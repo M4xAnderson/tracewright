@@ -145,7 +145,7 @@ M₀ [t₁⟩ M₁ [t₂⟩ … [tₙ⟩ Mₙ is a **run** of length n. By (E1) 
 
 ---
 
-## 5. Linear marking predicates [S1 for the final predicate; S4 for user properties] (evaluation code is shared with nothing)
+## 5. Linear marking predicates [S1 for the final predicate and the T5 `pool-share` expansion; S4 for user properties] (evaluation code is shared with nothing)
 
 ### 5.1 Abstract syntax (what explorers receive)
 
@@ -350,7 +350,7 @@ Holds iff O = ∅.
 
 There is no Unknown of kind `CapacityExceededFirst` for this property. A net with no `overflow` place cannot violate it (3.2); `verify` emits the certificate without exploring, and the verdict names the drop places so "the queue never overflows" is never read as "no message is ever lost" (D-03). A scope that contains a state machine has `overflow` state places and therefore explores (D-14).
 
-### 8.3 Never p [S4]
+### 8.3 Never p [S1 for T5 `pool-share` only (D-60); S4 for user properties]
 
 Holds iff ∀M ∈ R ∪ O: ¬p(M). p **is** evaluated on overflow markings (D-02, ADR 0017): their counts are defined by the firing rule, and a p-marking reached as an overflow marking is Disproved by its run, which ADR 0010's replay rule allows (a run may end in an overflow marking, never start a step from one).
 
@@ -708,7 +708,7 @@ Shared nets:
 | V54 | `x/p(MAX − 1, overflow)`, `x/t: ∅ → 2·x/p` | any | Unknown ModelIncomplete [`x/p: capacity 4294967294 plus largest post weight 2 exceeds u32`] | rule 7 | — | — | — | S0 |
 | V55 | E5 `case1_ebs_fixed` | deadlock-free, final `api_b/done = 2` | Proved | — (the V49 marking is proper termination) | — | 99 | 0 | S1 |
 | V56 | PC(block), own scope of `c` without a behavior model, or a combined scope whose children all lack one | any | key state `nothingToCheck`; no verdict | 6.6 | — | — | — | S0 |
-| V57 | PC(block) with `[[property]] kind = "never"` in slice 0 | never `r >= 3` | Unknown PropertyNotCheckable [`user properties are checked from slice 4`] | D-25; no worker | — | — | — | S0 |
+| V57 | PC(block) with `[[property]] kind = "never"` in slice 0 | never `r >= 3` | Unknown PropertyNotCheckable [`user properties are checked from slice 4`] | D-25; no worker. A `pool-share` template entry instead gets [`never holds the whole pool is checked from slice 1`] in slice 0 and is checked from slice 1 (PL S-06, D-60) | — | — | — | S0 |
 
 ### 14.2 Budget vectors [S0]
 
@@ -890,12 +890,12 @@ Inputs are `OpenNets` values; the expected result is the exact canonical encodin
 | 2 structure, weights, IDs, one namespace, validation incl. rule 7 | all | — |
 | 3 markings | initial, overflow; F = none | final predicate, minimal form in the editor (S1, D-05) |
 | 4 enabling and firing, block/drop/overflow | all three (TOML authors must pick `when_full`) | — |
-| 5 predicates | strings opaque (D-25) | lexer, parser, resolution, evaluation for the final predicate (S1); user properties and templates (S4) |
+| 5 predicates | strings opaque (D-25) | lexer, parser, resolution, evaluation for the final predicate and the T5 `pool-share` expansion (S1, D-60); user properties and the other templates (S4) |
 | 6 ports, bindings (sets, per-pair direction), flattening, L1–L13, assumptions, nothingToCheck | all except L9 for user properties and L14–L16 | L9 for the final predicate (S1); L14–L16 (S2) |
 | 7 deadlock, global-stop wording | with F = none | final predicate (S1) |
-| 8 properties | 8.1 (F = none), 8.2 (certificate and exhaustive) | 8.1 with F (S1); 8.3–8.5 (S4) |
+| 8 properties | 8.1 (F = none), 8.2 (certificate and exhaustive) | 8.1 with F and 8.3 for T5 `pool-share` only (S1, D-60); 8.3 for user properties, 8.4, 8.5 (S4) |
 | 9 evidence | 9.1–9.4, 9.5 NoOverflowPlace, 9.6 | sm_replay step 3b (S2); P-invariant certificates (later; pulled forward if E9 shows I2 < 80 %) |
-| 10 budget, Unknown | all seven reasons (Cancelled produced internally, shown from S1; PropertyNotCheckable for user properties present in files) | — |
+| 10 budget, Unknown | all seven reasons (Cancelled produced internally, shown from S1; PropertyNotCheckable for user properties present in files, and for a `pool-share` entry in slice 0 only) | — |
 | 11 encoding, CheckKey | all (`final none` in every deadlock-free line) | — |
 | 12 exploration order | both explorers | verify may deviate once it has reductions |
 | 14 vectors | V01–V29, V43, V45, V48–V54, V56, V57, B1–B13, C1–C16, C21, C22, encoding (a)–(h) | V30, V31, V55 and the parser vectors (S1); C17–C20 (S2); V32–V42, V44, V46, V47 (S4) |
@@ -957,7 +957,7 @@ Revision 2's ten open questions are decided; the table maps each to its decision
 | 7 | Initial marking above capacity | D-08: `ModelIncomplete` |
 | 8 | Structural Proved for no capacity exceeded | D-03: yes, as the `NoOverflowPlace` certificate checked by recheck; ADR 0017 |
 | 9 | Deadlock replay highlight | D-34: the 6.7 rule is the slice 0 rule; UX may replace it with V13 as the test |
-| 10 | Differential corpus encoding | D-35: adopted as written; the researcher checks V08 and V12 against TAPAAL before E1 |
+| 10 | Differential corpus encoding | D-35: adopted as written; checked by spike E1 against TAPAAL verifypn 4.2.3 (`docs/product/experiments/e1-state-space.md`): the net-effect complement is required (V08), drop nets stay excluded (V12). Queries: on a net with an overflow place, deadlock-free is `E[inb U (inb ∧ deadlock)]` (a deadlock reachable through in-bounds markings only) followed by `AG inb`, never a plain `EF deadlock`, which explores past overflow markings; no capacity exceeded is `AG inb`, where `inb` is M(p) ≤ cap(p) for every overflow place. The export emits no inhibitor arcs (a verifypn 4.2.3 defect), skips nets with counts near 2³¹ (TAPAAL counts are signed 32-bit), and CI pins the verifypn build by checksum |
 
 ---
 

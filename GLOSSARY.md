@@ -181,7 +181,7 @@ The places that count as one holder's share of a pool in a "never holds the whol
 _Avoid_: Owned by, allocated to, in use by
 
 **Vacuity guard**:
-From slice 4, "no dead transitions" runs next to user properties and every Proved shows how many reachable markings it covered, so a Proved that holds only because almost nothing can happen is noticed.
+From slice 4, "no dead transitions" runs next to user properties and next to deadlock-free with a final predicate, and every Proved shows how many reachable markings it covered, so a Proved that holds only because almost nothing can happen is noticed.
 _Avoid_: Sanity check, coverage
 
 **Check**:

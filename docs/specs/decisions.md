@@ -98,11 +98,19 @@ Product-owner calls (A, B), one team call and the must-fix and should-fix items 
 
 - **D-69 Confirmed by the product owner:** T5 in slice 1 unconditionally (D-60); the vacuity guard also next to deadlock-free when a final predicate is set (from slice 4, because it needs no dead transitions); slice 0 reports a finished workload as a deadlock until done when arrives in slice 1 (D-05), and the dogfooding plan expects Disproved at the end in slice 0; an asynchronous request and its asynchronous reply need two relationships in v1, the dependency-cycle rule reports the pair, the user suppresses it as accepted, and E8 counts these suppressions to decide whether to revisit.
 
-## Open follow-ups before slice 0 code
+## H. Spike results (2026-11-02)
 
-- `docs/specs/net-semantics.md`: slice tags in the §5 heading, §8.3, §15 and the V57 note, for T5 in slice 1 (D-60).
-- `docs/specs/file-format.md` §6.8: slice gating table for T5 in slice 1 (D-60).
-- `GLOSSARY.md`: add Vacuity guard.
-- `docs/ux/flows.md`: copy that still quotes the old T1 and T4 lines (D-67), and the slice 1 property picker with T5.
-- `docs/ux/mockups/option-1…3`: historical, still use the invented rule IDs REL-SHARED-DB and REL-CALLBACK; leave as is or delete.
-- D-35/D-59: the TAPAAL check of NS V08 and V12 for the E1 corpus (spike E1).
+- **D-70 One layout file per element, and every file ends with an empty line** (product owner, 2026-11-02; spike E2, `docs/product/experiments/e2-toml-merge.md`). `layouts/<element-id>.toml` holds `[position]` (the element's place in its parent's view; for a top-level element, the landscape), the bend points of its outgoing relationships and its `[behavior.*]` layout; `layouts/_landscape.toml` is gone, and the landscape is drawn from the top-level elements' files. A layout-only Save still touches only `layouts/`; creating an element writes its first position into its own layout file. Every file ends with a newline and one empty line (FF §11.1 rule 1); that the in-place writer keeps it when it appends is a slice 0 test (FF §11.2 rule 9, §16). FF §15's "keep both blocks" becomes "rebuild both blocks from the two sides", because git can move a shared line out of the hunk; a layout file that then does not load leaves positions unplaced, never a wrong verdict. Two new relationships from one source (E2 3c) still conflict until the D-19 merge driver; no further split (FF §6.7). Open time is measured at about 4,000 files in slice 0. ADR 0024 amends ADR 0001 and ADR 0020. Changes: FF revision 4 (done); design §3, §7 (done); v1-slices slice 0 (done); CODING_STANDARDS FMT-3 (done).
+- **D-71 The E1 corpus queries are fixed** (spike E1, `docs/product/experiments/e1-state-space.md`; closes D-35/D-59). The D-35 encoding holds. On a net with an overflow place, deadlock-free is queried as `E[inb U (inb ∧ deadlock)]` followed by `AG inb`, never a plain `EF deadlock`; no capacity exceeded is `AG inb` over the overflow places; the export emits no inhibitor arcs. Changes: NS §18 item 10 (done).
+- **D-72 Keep `panic = "unwind"`; ADR 0006 holds; open the log before `tauri::Builder`** (spike E3, `docs/product/experiments/e3-tauri-panic.md`). Under `abort` a worker panic kills the app, so unwind is a precondition of the crash policy, not a choice. The panic-hook allowlist stays "our thread prefixes unwind, everything else aborts", never a list of foreign thread names. Slice 0 opens the log file before `tauri::Builder` runs, in `dirs::data_local_dir()/<identifier>/logs`, and warns in `setup` if Tauri's `app_log_dir()` differs (it does on macOS). E3 stays partial until both window checklists pass. Changes: none to ADRs or `CODING_STANDARDS.md` SAFE-4, which already require unwind; slice 0 code follows the log rule.
+
+## Follow-ups before slice 0 code
+
+Closed on 2026-11-02 unless marked open.
+
+- Closed: `docs/specs/net-semantics.md` slice tags for T5 in slice 1 (D-60): the §5 and §8.3 headings, the §15 rows for predicates, properties and Unknown, and the V57 note on a `pool-share` entry in slice 0.
+- Closed: `docs/specs/file-format.md` §6.8: the heading and the slice gating table parse, expand and check `pool-share` from slice 1; slice 0 gives PL S-06's line (D-60).
+- Closed: `GLOSSARY.md` Vacuity guard: also next to deadlock-free with a final predicate (D-61).
+- Closed: `docs/ux/flows.md`: the T1 headline, Disproved sentence and "does not mean" line now come from the catalog (`V-PRO-T1`, `V-DIS-T1`, `V-DNM-T1`; T2 alike), replacing "Deadlock: no step is possible."; the T4 preview and "does not mean" line follow D-67; §4.13 offers T5 alone in slice 1 with "make it a port" and its preconditions (D-60).
+- Closed: `docs/ux/mockups/option-1…3` stay unchanged as the record the mockup reviews cite; `docs/ux/mockups/README.md` says their rule IDs are invented and points to `scan-rules.md`.
+- Closed: D-35/D-59: spike E1 checked NS V08 and V12 against TAPAAL verifypn 4.2.3 (`docs/product/experiments/e1-state-space.md`). The net-effect complement reproduces (E3) on V08, where the textbook complement gives a false Disproved; drop nets must stay excluded (V12). The exact corpus queries, the no-inhibitor-arc rule and the checksum pin are in NS §18 item 10.

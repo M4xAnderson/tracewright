@@ -456,8 +456,8 @@ Rows have a fixed position. A row's height never changes between pending and cur
 | no-verdict | none | Property only | `V-NOV-1`, or `V-NOV-2` after a behavior edit | Check | S0 |
 | pending | neutral placeholder | Property and scope stay | After 1 s: `V-PEND` | Check | S0 |
 | running | spinner (static with reduced motion) | "Checking…" | `V-RUN` | [S1] Cancel | S0/S1 |
-| proved | `circle-check` | "Proved" | `V-PRO-1`, assumptions `V-PRO-ASM`, scope `V-PRO-SCOPE` | Check again | S0 |
-| disproved | `circle-x` | "Disproved" | Violation sentence `V-DIS-*`; on deadlock-free, the caveat `V-DIS-NOFINAL-S0` / `-S1` when no final predicate is defined and the run ended with no token in any pre set (NS §9.6, [contract R18]) | **Replay counterexample** (primary in the row); [S1] "Define done when" (secondary) with the S1 caveat | S0 |
+| proved | `circle-check` | "Proved" | Headline `V-PRO-T1` / `V-PRO-T2`, its "does not mean" line `V-DNM-T1` / `V-DNM-T2`, then `V-PRO-1`, assumptions `V-PRO-ASM`, scope `V-PRO-SCOPE` | Check again | S0 |
+| disproved | `circle-x` | "Disproved" | On deadlock-free, `V-DIS-T1` first; then the violation sentence `V-DIS-*`; on deadlock-free, the caveat `V-DIS-NOFINAL-S0` / `-S1` when no final predicate is defined and the run ended with no token in any pre set (NS §9.6, [contract R18]) | **Replay counterexample** (primary in the row); [S1] "Define done when" (secondary) with the S1 caveat | S0 |
 | unknown | `circle-help`, neutral | "Unknown" | Reason and next step, §4.9 | Per reason | S0 |
 | stale | `history` badge "Stale" first, then the previous icon and verdict word in `--verdict-stale`, subordinate | "Stale · Proved" | `V-STALE` | Check; Replay counterexample (opens with `R-STALE`) | S1 |
 | files-not-loaded | banner above the rows | — | `V-BANNER-FNL` | "Show problem" | S0 |
@@ -575,17 +575,17 @@ Without R3, both budget rows use `U-BUD` (no phase). R2 and R4 have no shippable
 - **Large model:** the `large-model` capture uses ≥ 1,000 elements in the project (UX_STANDARDS); U10 is measured on that seed from S3.
 - **Replay** navigates to the scope's view first. Selecting an element whose inside has properties shows their verdicts in its inspector, through the same selector.
 
-### 4.13 Choose and add a property from a template [S4, outline, draft copy]
+### 4.13 Choose and add a property from a template [S1 for T5 only; S4 for the others; outline, draft copy]
 
 **Job.** When I have a concrete design question, I want to state it without learning a logic, so I get a decisive answer.
 
-"Add property" in the Verdicts tab opens a dialog with three templates, each with a plain-language preview:
+"Add property" in the Verdicts tab opens a dialog with the templates of the current slice, each with a plain-language preview. **Slice 1 offers only "Never holds the whole pool" (T5)**, alone and unconditionally (D-60, PL §8.3); the dialog lists no other template and no disabled placeholders before slice 4. Its place blanks use the place picker with "make it a port" inline for an internal place, and the T5 preconditions (E304, E305, E308) are checked before the property is added. From slice 4 the dialog adds the rows below:
 
 | Template | Form | Preview |
 |---|---|---|
-| Never more than | Places (combobox over `element/port` places), "more than" a number | "Never more than 2 in total in Billing: inflight and Shipping: inflight." |
-| Can always get back to | A condition on places | "From every reachable marking, the system can get back to Billing: idle = 1." Note: "This says recovery is possible, not that it will happen under load." (E5 implication 5) |
-| Never holds the whole pool | An element, a pool place, the places that count as held | "Order API never holds all 3 tokens of Control plane: threads_free." (E5 implication 1) |
+| Never more than [S4] | Places (combobox over `element/port` places), "more than" a number | "Billing: inflight and Shipping: inflight together never hold more than 2." Does not mean: "A bound for this initial marking only; more callers may exceed it." (catalog T4, D-67) |
+| Can always get back to [S4] | A condition on places | "From every reachable marking, the system can get back to Billing: idle = 1." Note: "This says recovery is possible, not that it will happen under load." (E5 implication 5) |
+| Never holds the whole pool [S1] | An element, a pool place, the places that count as held; K defaults to the initial tokens of the pool and the held-by places | "Order API never holds all 3 tokens of Control plane: threads_free." (E5 implication 1) Does not mean: "Others may still hold the rest; waiting calls may never be served." (catalog T5) |
 
 - **Done when [S1, final copy; not part of this dialog]:** done when ships in slice 1, before templates (D-05). "Define done when" (on a deadlock-free row with `V-DIS-NOFINAL-S1`, in the inspector of a scope element, and in the palette) opens a form for that element's own or combined behavior with the help `V-DONE-HELP`. The form offers a conjunction of `place = n` rows ("Billing: idle = 1 and Shipping: idle = 1"); [S2] for a state machine with several final states, the single sum atom over them. Hand-written `[final]` text may be any predicate. Saving changes only the deadlock-free key of that behavior, which turns stale (ADR 0018). Once done when is defined and checked, the caveat no longer appears. **Slice 0 has no form and never advises a workaround:** a `[final]` table in a file shows `PR-FINAL-S0` and checks run without it (D-25); the panel never suggests looping back to the initial marking, because a reset transition hides real deadlocks (D-23, PT T1).
 - States: no ports in scope ("Properties refer to ports. No element in this view offers a port yet."); invalid inline ("Choose at least one place."); duplicate ("This property already exists: <name>."). A new row starts as no-verdict, with Check.
@@ -662,10 +662,15 @@ S0–S2 strings are final; S3–S5 strings (in §4.12–4.14) are draft. Sentenc
 | V-NOV-2 | "Behavior changed since the last check." |
 | V-PEND | "Updating checks…" |
 | V-RUN | With R11: "Exploring… 120,400 markings" / "Re-checking… 48,100 markings". Without: "Checking…". [S1] adds " · 0:07" |
+| V-PRO-T1 | "Order platform never deadlocks." (catalog T1, D-67) |
+| V-DNM-T1 | "No deadlock does not mean done: a timeout or retry loop can run forever." (catalog T1, exact string) |
+| V-PRO-T2 | "Order platform never goes over any capacity." (catalog T2) |
+| V-DNM-T2 | "Places that block or drop can still make senders wait or lose messages." (catalog T2, exact string) |
 | V-PRO-1 | Exhaustive: "Checked all 1,970 reachable markings; re-checked by a second explorer." Certificate: "Proved with a certificate; a second explorer re-checked the certificate." |
 | V-PRO-ASM | "Assumes: Order API → Audit (logs to) binds no ports, so it adds no behavior." (one line per relationship) |
 | V-PRO-SCOPE | "Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled." |
-| V-DIS-DL | "Deadlock: no step is possible." followed by one line per waiting step (below) |
+| V-DIS-T1 | "Order platform can deadlock: after 6 steps, no step can happen." (catalog T1, D-67; replaces "Deadlock: no step is possible.") |
+| V-DIS-DL | One line per waiting step (below), after `V-DIS-T1` |
 | V-DIS-DL-EMPTY (R1) | "Billing waits at take_lock for a token in lock_b." / "Billing waits at take_lock for 2 tokens in lock_b; it holds 1." A place in another element is qualified: "…for a token in Order API: lock_b." |
 | V-DIS-DL-FULL (R1) | "Order API waits at send for room in Order API → Billing (publishes to): 3 of 3 messages, when full: block." / "Billing waits at take_lock for room in queue: 5 of 5 tokens, when full: block." |
 | V-DIS-DL-SYNC (R1) | "Order API → Billing (calls): reserve waits for a token in Billing: lock_b." |

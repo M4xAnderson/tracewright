@@ -35,3 +35,17 @@ Already decided; do not reopen. Reasons are in `docs/adr/`.
 
 - Work on a feature branch with a PR, never directly on `main`.
 - Keep this file under 200 lines and limited to what every session needs. Put reasons in an ADR, terms in `GLOSSARY.md`, rules in the standards files, and link them from here.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues in the private `M4xAnderson/tracewright-planning` repo, not this one; pass `-R` on every `gh issue` call. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md`, `docs/adr/` and `docs/specs/` at the repo root. See `docs/agents/domain.md`.

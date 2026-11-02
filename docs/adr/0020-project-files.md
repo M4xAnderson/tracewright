@@ -12,3 +12,5 @@ Amends ADR 0001. The project root also holds `suppressions.toml` (the user's dec
 
 - The slice 4 acceptance text and every fixture use lowercase element IDs.
 - `docs/specs/file-format.md` §4, §10, §13, §18 and `docs/specs/decisions.md` D-12, D-19, D-26 carry the rules.
+
+Amended by ADR 0024.
