@@ -1,6 +1,7 @@
 import { useAppStore } from "../../store/app-store";
 import type { AppState, Message } from "../../store/app-store";
 import { assertNever } from "../../store/app-store";
+import { reloadText } from "../project/reload-text";
 import { commandErrorText } from "../start/command-error-text";
 import { propertyName } from "../verify/copy";
 import { verdictView } from "../verify/verdict-view";
@@ -22,6 +23,8 @@ function messageText(state: AppState, message: Message): string {
       });
       return parts.length === 0 ? "" : `Checks finished: ${parts.join(", ")}.`;
     }
+    case "reloaded":
+      return state.view === null ? "" : reloadText(state.view, message.outcome);
     case "error":
       return commandErrorText(message.error);
     default:

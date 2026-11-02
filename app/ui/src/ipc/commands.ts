@@ -4,6 +4,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { CommandError } from "./bindings/command-error";
 import type { EngineEvent } from "./bindings/engine-event";
 import type { Opened } from "./bindings/opened";
+import type { ReloadReply } from "./bindings/reload-reply";
 import type { UiReady } from "./bindings/ui-ready";
 
 export function uiReady(ready: UiReady): Promise<void> {
@@ -25,11 +26,17 @@ export function runChecks(): Promise<void> {
   return invoke("run_checks");
 }
 
+// The new keys arrive as an event on the open project's Channel.
+export function reloadProject(): Promise<ReloadReply> {
+  return invoke("reload_project");
+}
+
 const COMMAND_ERROR_KINDS: ReadonlySet<string> = new Set<CommandError["kind"]>([
   "notAProject",
   "permissionDenied",
   "newerFormat",
   "openFailed",
+  "reloadFailed",
   "invalidArgument",
   "noProjectOpen",
   "internal",

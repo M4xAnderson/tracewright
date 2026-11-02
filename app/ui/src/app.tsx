@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ProjectScreen } from "./features/project/project-screen";
 import { StartScreen } from "./features/start/start-screen";
 import type { Screen } from "./ipc/bindings/screen";
-import { checkAll, openProjectFromDialog, reportScreenShown } from "./store/actions";
+import { checkAll, openProjectFromDialog, reloadProject, reportScreenShown } from "./store/actions";
 import { assertNever, useAppStore } from "./store/app-store";
 
 export function App() {
@@ -15,7 +15,8 @@ export function App() {
     void reportScreenShown(screen);
   }, [screen]);
 
-  // Global shortcuts (flows §6.2): Ctrl+O everywhere, Ctrl+Enter with a project open.
+  // Global shortcuts (flows §6.2): Ctrl+O everywhere; Ctrl+Enter and Ctrl+R with a project open.
+  // Ctrl+R is claimed even without a project, so it never reloads the webview.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey) {
@@ -27,6 +28,9 @@ export function App() {
       } else if (event.key === "Enter" && useAppStore.getState().screen === "project") {
         event.preventDefault();
         void checkAll();
+      } else if (event.key === "r") {
+        event.preventDefault();
+        void reloadProject();
       }
     }
     window.addEventListener("keydown", handleKeyDown);

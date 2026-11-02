@@ -4,6 +4,7 @@ import type { CommandError } from "../ipc/bindings/command-error";
 import type { CurrentKeys } from "../ipc/bindings/current-keys";
 import type { EngineEvent } from "../ipc/bindings/engine-event";
 import type { Phase } from "../ipc/bindings/phase";
+import type { ReloadOutcome } from "../ipc/bindings/reload-outcome";
 import type { Screen } from "../ipc/bindings/screen";
 import type { VerdictDto } from "../ipc/bindings/verdict-dto";
 import type { View } from "../ipc/bindings/view";
@@ -16,6 +17,7 @@ export type OpenState =
 // The latest status bar message (flows §2.6). It keeps IDs; the status bar renders the words.
 export type Message =
   | { kind: "checksFinished"; properties: string[] }
+  | { kind: "reloaded"; outcome: ReloadOutcome }
   | { kind: "error"; error: CommandError };
 
 export interface AppState {

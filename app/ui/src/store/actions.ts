@@ -50,6 +50,23 @@ export async function openProjectFromDialog(): Promise<void> {
   await checkAll();
 }
 
+// Reload (flows §4.5): the files changed on disk replace what the app loaded. The keys of the new
+// revision arrive as an event; a changed scope shows no verdict until the next Check.
+export async function reloadProject(): Promise<void> {
+  if (useAppStore.getState().screen !== "project") {
+    return;
+  }
+  try {
+    const reply = await commands.reloadProject();
+    useAppStore.setState({
+      view: reply.view,
+      message: { kind: "reloaded", outcome: reply.outcome },
+    });
+  } catch (rejection) {
+    useAppStore.setState({ message: { kind: "error", error: commands.toCommandError(rejection) } });
+  }
+}
+
 // Check (flows §4.7): every property of the view's scope. Keys already running are not
 // restarted, so pressing Check again while checks run does nothing.
 export async function checkAll(): Promise<void> {

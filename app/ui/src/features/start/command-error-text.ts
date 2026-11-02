@@ -12,6 +12,8 @@ export function commandErrorText(error: CommandError): string {
       return `${error.path} was saved by a newer version of this app (format ${error.format}). Update the app to open it.`;
     case "openFailed":
       return `Could not open ${error.path}: ${error.cause}. Check that the folder is readable, then open it again.`;
+    case "reloadFailed":
+      return `Could not reload: ${error.cause}. The app keeps the last version that loaded.`;
     case "invalidArgument":
     case "noProjectOpen":
     case "internal":
