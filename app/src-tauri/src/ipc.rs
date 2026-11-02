@@ -311,6 +311,7 @@ mod tests {
         opened_fixture("opened-worker-pool.json", "e1c-worker-pool");
         opened_fixture("opened-ns-v08.json", "ns-v08");
         opened_fixture("opened-one-job.json", "one-job");
+        opened_fixture("opened-producer-consumer.json", "producer-consumer");
         opened_fixture("opened-half-done.json", "half-done");
         opened_fixture("opened-broken-file.json", "broken-file");
         opened_fixture("opened-no-behavior.json", "no-behavior");

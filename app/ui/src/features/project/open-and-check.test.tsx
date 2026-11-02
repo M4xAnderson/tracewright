@@ -24,9 +24,16 @@ import { useAppStore } from "../../store/app-store";
 // JSON imports widen string literals; the fixtures were serialized from typed Rust values.
 const events = (json: unknown) => json as EngineEvent[];
 
-// The first event of a fixture with this kind; progress events come between queue and verdict.
-function first(json: unknown, kind: EngineEvent["kind"]): EngineEvent | undefined {
-  return events(json).find((event) => event.kind === kind);
+// The first events of a check run of no-deadlock: the key set, its checkQueued and its verdict.
+function deadlockFreeRun(json: unknown) {
+  const all = events(json);
+  const currentKeys = all.find((e) => e.kind === "currentKeys");
+  const queued = all.find((e) => e.kind === "checkQueued" && e.property === "no-deadlock");
+  const verdict = all.find((e) => e.kind === "verdict" && e.property === "no-deadlock");
+  if (currentKeys?.kind !== "currentKeys" || queued === undefined || verdict?.kind !== "verdict") {
+    throw new Error("the fixture holds currentKeys, checkQueued and a verdict for no-deadlock");
+  }
+  return { currentKeys, queued, verdict };
 }
 
 interface Shell {
@@ -167,7 +174,7 @@ describe("open a project and see the verdict", () => {
     ]);
     expect(disproved).not.toHaveTextContent("no final predicate");
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Checks finished: Deadlock-free Disproved.",
+      "Checks finished: Deadlock-free Disproved, No capacity exceeded Proved.",
     );
   });
 
@@ -216,13 +223,26 @@ describe("open a project and see the verdict", () => {
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1c-worker-pool", opened: openedWorkerPool }),
     );
+    const { currentKeys } = deadlockFreeRun(eventsWorkerPool);
 
-    shell.emit(...events(eventsWorkerPool));
+    // The key state the Session sends for a user property in slice 0 (NS V57).
+    shell.emit({
+      ...currentKeys,
+      keys: {
+        ...currentKeys.keys,
+        "no-overflow": {
+          unknown: {
+            category: "propertyNotCheckable",
+            details: ["user properties are checked from slice 4"],
+          },
+        },
+      },
+    });
 
     const unknown = row("No capacity exceeded");
     expect(within(unknown).getByText("Unknown")).toBeInTheDocument();
     expect(unknown).toHaveTextContent("Property cannot be checked:");
-    expect(unknown).toHaveTextContent("no capacity exceeded is not checked yet");
+    expect(unknown).toHaveTextContent("user properties are checked from slice 4");
     expect(unknown).not.toHaveTextContent("Proved");
   });
 
@@ -231,10 +251,7 @@ describe("open a project and see the verdict", () => {
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued] = events(eventsOppositeLocks);
-    if (currentKeys === undefined || queued === undefined) {
-      throw new Error("the fixture starts with currentKeys and checkQueued");
-    }
+    const { currentKeys, queued } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(currentKeys, queued);
 
@@ -248,9 +265,12 @@ describe("open a project and see the verdict", () => {
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued, progress] = events(eventsOppositeLocks);
-    if (currentKeys === undefined || queued?.kind !== "checkQueued" || progress === undefined) {
-      throw new Error("the fixture starts with currentKeys, checkQueued and checkProgress");
+    const { currentKeys, queued } = deadlockFreeRun(eventsOppositeLocks);
+    const progress = events(eventsOppositeLocks).find(
+      (e) => e.kind === "checkProgress" && e.property === "no-deadlock",
+    );
+    if (queued.kind !== "checkQueued" || progress === undefined) {
+      throw new Error("the fixture holds checkQueued and checkProgress for no-deadlock");
     }
 
     shell.emit(currentKeys, queued, progress);
@@ -272,11 +292,7 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued] = events(eventsOppositeLocks);
-    const verdict = first(eventsOppositeLocks, "verdict");
-    if (currentKeys === undefined || queued === undefined || verdict === undefined) {
-      throw new Error("the fixture holds currentKeys, checkQueued and verdict");
-    }
+    const { currentKeys, queued, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(queued, verdict);
 
@@ -294,11 +310,7 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued] = events(eventsOppositeLocks);
-    const verdict = first(eventsOppositeLocks, "verdict");
-    if (currentKeys?.kind !== "currentKeys" || queued === undefined || verdict === undefined) {
-      throw new Error("the fixture holds currentKeys, checkQueued and verdict");
-    }
+    const { currentKeys, queued, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit({ ...currentKeys, rev: currentKeys.rev + 1 }, queued, verdict);
 
@@ -314,11 +326,7 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys] = events(eventsOppositeLocks);
-    const verdict = first(eventsOppositeLocks, "verdict");
-    if (currentKeys === undefined || verdict?.kind !== "verdict") {
-      throw new Error("the fixture holds currentKeys and a verdict");
-    }
+    const { currentKeys, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(currentKeys, { ...verdict, key: "0".repeat(64) });
 

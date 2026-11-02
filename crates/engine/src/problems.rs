@@ -32,8 +32,9 @@ impl Blocking {
     }
 
     /// Unknown "model incomplete" with one line per problem that blocks `scope`, ordered by rule,
-    /// then by line (NS §6.6); `None` when nothing blocks it.
-    pub(crate) fn incomplete(&self, scope: &Scope) -> Option<UnknownDto> {
+    /// then by line (NS §6.6), followed by the lines only lowering found (`lowering`, for example
+    /// L7); `None` when no problem blocks the scope.
+    pub(crate) fn incomplete(&self, scope: &Scope, lowering: &[String]) -> Option<UnknownDto> {
         let mut causes: Vec<&Problem> = self
             .problems
             .iter()
@@ -44,12 +45,28 @@ impl Blocking {
             return None;
         }
         causes.sort_by_key(|problem| (rule(problem), detail_line(problem)));
-        let details: Vec<String> = causes.iter().map(|problem| detail_line(problem)).collect();
+        let mut details: Vec<String> = causes.iter().map(|problem| detail_line(problem)).collect();
         assert_eq!(
             details.len(),
             causes.len(),
-            "incomplete: one detail line per cause"
+            "incomplete: the first lines are one per cause"
         );
+        // When a file or a behavior did not load, lowering sees less than the files
+        // describe, and its further lines ("w/acquire not found") are consequences, not causes.
+        let something_missing = causes.iter().any(|problem| {
+            matches!(
+                problem.kind,
+                ProblemKind::Parse
+                    | ProblemKind::Schema
+                    | ProblemKind::TooLarge
+                    | ProblemKind::BehaviorNotLoaded
+            )
+        });
+        let only_lowering: Vec<&String> = lowering
+            .iter()
+            .filter(|line| !something_missing && !details.contains(line))
+            .collect();
+        details.extend(only_lowering.into_iter().cloned());
         Some(UnknownDto::ModelIncomplete {
             details,
             causes: causes.into_iter().map(problem_dto).collect(),

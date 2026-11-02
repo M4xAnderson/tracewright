@@ -26,7 +26,11 @@ use super::support::budget_vectors;
 use super::support::q;
 
 fn explore(net: &Net, budget: &Budget) -> NetVerdict {
-    tracewright_recheck::explore(net, &NetProperty::DeadlockFree, budget)
+    explore_for(net, &NetProperty::DeadlockFree, budget)
+}
+
+fn explore_for(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    tracewright_recheck::explore(net, property, budget)
 }
 
 fn markings(max_markings: u64, cancel: bool) -> Budget {
@@ -43,9 +47,14 @@ fn the_budget_vectors_hold_on_the_main_share_and_recheck_completes_on_its_own() 
     // phase; on its own share N − ⌊N/2⌋ it completes every exploration the main phase completed.
     let file = budget_vectors();
     for vector in &file.vector {
+        // recheck never emits a certificate; it checks one (certificate.rs).
+        if vector.expect == "certificate" {
+            continue;
+        }
         let net = file.nets[&vector.net].to_net();
         let id = &vector.id;
-        let verdict = explore(&net, &markings(vector.n / 2, vector.cancel));
+        let property = vector.property();
+        let verdict = explore_for(&net, &property, &markings(vector.n / 2, vector.cancel));
         match vector.expect.as_str() {
             "exhausted" => assert_eq!(
                 verdict,
@@ -62,7 +71,11 @@ fn the_budget_vectors_hold_on_the_main_share_and_recheck_completes_on_its_own() 
                 };
                 assert_eq!(verdict, proved, "{id}");
                 let rest = vector.n - vector.n / 2;
-                assert_eq!(explore(&net, &markings(rest, false)), proved, "{id}");
+                assert_eq!(
+                    explore_for(&net, &property, &markings(rest, false)),
+                    proved,
+                    "{id}"
+                );
             }
             "disproved" => {
                 let NetVerdict::Disproved(Evidence::Counterexample(cx)) = verdict else {

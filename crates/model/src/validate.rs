@@ -493,7 +493,7 @@ fn relationship_problems(model: &Model, relationship: &Relationship, problems: &
             relationship,
             ProblemKind::BindingAsync,
             "L8",
-            format!("{rel} binds two asynchronous port pairs"),
+            format!("{rel} binds {asynchronous} asynchronous port pairs"),
         ));
     }
 }

@@ -20,6 +20,8 @@ pub fn canonical(net: &Net) -> Vec<u8> {
         let initial = net.initial.0.get(&place.id).copied().unwrap_or(0);
         let when_full = match place.when_full {
             WhenFull::Block => "block",
+            WhenFull::Drop => "drop",
+            WhenFull::Overflow => "overflow",
         };
         out.push(format!(
             "place {} {} {when_full} {initial}\n",
@@ -46,6 +48,7 @@ pub fn canonical(net: &Net) -> Vec<u8> {
 pub fn canonical_property(property: &NetProperty) -> Vec<u8> {
     let line = match property {
         NetProperty::DeadlockFree => "property deadlock-free final none\n",
+        NetProperty::CapacityNeverExceeded => "property capacity-never-exceeded\n",
     };
     line.as_bytes().to_vec()
 }

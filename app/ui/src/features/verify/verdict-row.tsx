@@ -4,6 +4,7 @@ import { CircleCheck, CircleHelp, CircleX, LoaderCircle } from "lucide-react";
 import { type CSSProperties, useId } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { DisprovedDto } from "../../ipc/bindings/disproved-dto";
+import type { PropertyKind } from "../../ipc/bindings/property-kind";
 import type { PropertyView } from "../../ipc/bindings/property-view";
 import type { ProvedDto } from "../../ipc/bindings/proved-dto";
 import type { View } from "../../ipc/bindings/view";
@@ -12,11 +13,13 @@ import { assertNever, useAppStore } from "../../store/app-store";
 import { incompleteLines } from "../problems/copy";
 import {
   assumptionLine,
+  CERTIFICATE_LINE,
   deadlockHeadline,
   doesNotMean,
   elementName,
   exhaustiveLine,
   NO_FINAL_S0,
+  overflowLine,
   progressLine,
   propertyName,
   provedHeadline,
@@ -114,11 +117,12 @@ function Word({ kind }: { kind: "proved" | "disproved" | "unknown" }) {
 }
 
 // A model-incomplete reason names its causes in the user's terms (U-INC-*, flows R2).
-function reasonLines(view: View, reason: UnknownDto): string[] {
+function reasonLines(view: View, kind: PropertyKind, reason: UnknownDto): string[] {
   if (reason.category === "modelIncomplete" && reason.causes.length > 0) {
-    return incompleteLines(view, reason.causes);
+    // Lines after the causes are what only lowering found; they have no problem kind.
+    return [...incompleteLines(view, reason.causes), ...reason.details.slice(reason.causes.length)];
   }
-  return unknownLines(reason);
+  return unknownLines(view, kind, reason);
 }
 
 function Lines({ lines }: { lines: string[] }) {
@@ -158,7 +162,7 @@ function Detail({
         </p>
       );
     case "unknownKey":
-      return <Lines lines={reasonLines(view, state.reason)} />;
+      return <Lines lines={reasonLines(view, property.kind, state.reason)} />;
     case "current": {
       const { verdict } = state;
       const assumptions = verdict.assumptions.map((r) => assumptionLine(view, r));
@@ -182,7 +186,9 @@ function Detail({
             />
           );
         case "unknown":
-          return <Lines lines={[...reasonLines(view, verdict.reason), ...assumptions]} />;
+          return (
+            <Lines lines={[...reasonLines(view, property.kind, verdict.reason), ...assumptions]} />
+          );
         default:
           return assertNever(verdict);
       }
@@ -206,7 +212,9 @@ function ProvedDetail(props: {
     <>
       {headline !== null && <p className="text-text-primary">{headline}</p>}
       {limits !== null && <p>{limits}</p>}
-      <p>{exhaustiveLine(proved.markings)}</p>
+      <p>
+        {proved.technique === "exhaustive" ? exhaustiveLine(proved.markings) : CERTIFICATE_LINE}
+      </p>
       <Lines lines={assumptions} />
       <p>{SCOPE_LINE}</p>
     </>
@@ -220,25 +228,10 @@ function DisprovedDetail(props: {
   assumptions: string[];
 }) {
   const { view, property, disproved, assumptions } = props;
-  const scope = elementName(view, property.scope.element);
-  const deadlock = disproved.violation;
   const frames = disproved.frames;
-  const scrolls = deadlock.waiting.length >= WAITING_SCROLL_FROM;
   return (
     <>
-      <p className="text-text-primary">{deadlockHeadline(scope, frames.length)}</p>
-      <ul
-        aria-label="Waiting steps"
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a list that scrolls inside its row must be reachable by keyboard (flows §4.8, A11Y-2)
-        tabIndex={scrolls ? 0 : undefined}
-        className={scrolls ? "max-h-[18em] space-y-1 overflow-y-auto" : "space-y-1"}
-      >
-        {deadlock.waiting.map((waiting) => {
-          const text = waitingLine(view, waiting);
-          return <li key={text}>{text}</li>;
-        })}
-      </ul>
-      {deadlock.finished && <p>{NO_FINAL_S0}</p>}
+      <Violation view={view} property={property} disproved={disproved} />
       <Lines lines={assumptions} />
       <p className="pt-1 font-medium text-text-primary">Counterexample</p>
       <ol aria-label="Counterexample steps" className="font-mono text-[12px]">
@@ -248,4 +241,38 @@ function DisprovedDetail(props: {
       </ol>
     </>
   );
+}
+
+// The violation sentence of flows §4.8: on deadlock-free V-DIS-T1, the waiting lines and the
+// done-when caveat; on no capacity exceeded V-DIS-CAP-*.
+function Violation(props: { view: View; property: PropertyView; disproved: DisprovedDto }) {
+  const { view, property, disproved } = props;
+  const violation = disproved.violation;
+  switch (violation.kind) {
+    case "overflow":
+      return <p className="text-text-primary">{overflowLine(view, violation)}</p>;
+    case "deadlock": {
+      const scope = elementName(view, property.scope.element);
+      const scrolls = violation.waiting.length >= WAITING_SCROLL_FROM;
+      return (
+        <>
+          <p className="text-text-primary">{deadlockHeadline(scope, disproved.frames.length)}</p>
+          <ul
+            aria-label="Waiting steps"
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a list that scrolls inside its row must be reachable by keyboard (flows §4.8, A11Y-2)
+            tabIndex={scrolls ? 0 : undefined}
+            className={scrolls ? "max-h-[18em] space-y-1 overflow-y-auto" : "space-y-1"}
+          >
+            {violation.waiting.map((waiting) => {
+              const text = waitingLine(view, waiting);
+              return <li key={text}>{text}</li>;
+            })}
+          </ul>
+          {violation.finished && <p>{NO_FINAL_S0}</p>}
+        </>
+      );
+    }
+    default:
+      return assertNever(violation);
+  }
 }

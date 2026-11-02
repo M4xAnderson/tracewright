@@ -47,6 +47,13 @@ pub enum ReplayError {
     /// Rule 3: the last marking is not a deadlock.
     #[error("the last marking is not a deadlock")]
     NotADeadlock,
+    /// Rule 3: the last marking is not an overflow marking.
+    #[error("the last marking is not an overflow marking")]
+    NotAnOverflow,
+    /// Rule 3: the recorded violation is of another kind than the property's, or an overflow
+    /// names another place, capacity or count than the smallest-ID exceeded place.
+    #[error("the recorded violation differs")]
+    ViolationDiffers,
     /// Rule 3: the recorded waiting list is not waits(M, t) for every transition.
     #[error("the recorded waiting list differs")]
     WaitingDiffers,
@@ -102,6 +109,25 @@ pub fn replay(net: &Net, cx: &Counterexample, property: &NetProperty) -> Result<
     }
     match property {
         NetProperty::DeadlockFree => last_is_deadlock(&dense, &m, &cx.violation),
+        NetProperty::CapacityNeverExceeded => last_is_overflow(&dense, &m, &cx.violation),
+    }
+}
+
+// NS §9.3 rule 3 for no capacity exceeded: an overflow marking, and the violation names its
+// smallest-ID exceeded place with that place's capacity and count.
+fn last_is_overflow(dense: &Dense, m: &[u64], violation: &Violation) -> Result<(), ReplayError> {
+    let Some((p, capacity, count)) = dense.smallest_exceeded(m) else {
+        return Err(ReplayError::NotAnOverflow);
+    };
+    let expected = Violation::Overflow {
+        place: dense.places[p].clone(),
+        capacity,
+        count,
+    };
+    if *violation == expected {
+        Ok(())
+    } else {
+        Err(ReplayError::ViolationDiffers)
     }
 }
 
@@ -113,7 +139,9 @@ fn last_is_deadlock(dense: &Dense, m: &[u64], violation: &Violation) -> Result<(
     if (0..dense.transitions.len()).any(|t| dense.enabled(m, t)) {
         return Err(ReplayError::NotADeadlock);
     }
-    let Violation::Deadlock { waiting } = violation;
+    let Violation::Deadlock { waiting } = violation else {
+        return Err(ReplayError::ViolationDiffers);
+    };
     let expected = dense.waiting(m).ok_or(ReplayError::WaitingDiffers)?;
     if *waiting == expected {
         Ok(())

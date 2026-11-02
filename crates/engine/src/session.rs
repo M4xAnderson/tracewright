@@ -273,9 +273,9 @@ impl Session {
 }
 
 impl Session {
-    // The key state of one property (design §3). A problem that blocks the scope wins over
-    // lowering, also over nothing to check: the scope could have more behavior than what loaded
-    // (file-format §10.5). A keyed property adds its check to `requests`.
+    // The key state of one property (design §3). A problem that blocks the scope wins over a
+    // lowered net, also over nothing to check: the scope could have more behavior than what
+    // loaded (file-format §10.5). A keyed property adds its check to `requests`.
     fn key_state(
         &self,
         blocking: &Blocking,
@@ -284,19 +284,20 @@ impl Session {
         scope: Scope,
         requests: &mut Vec<Request>,
     ) -> KeyState {
-        if let Some(incomplete) = blocking.incomplete(&scope) {
-            return KeyState::Unknown(incomplete);
-        }
         let lowering = lowered
             .entry(scope.clone())
             .or_insert_with(|| lower::lower(&self.model, &scope).map(Arc::new));
+        let lowering_lines = match &*lowering {
+            Err(LowerError::ModelIncomplete(lines)) => lines.as_slice(),
+            Err(LowerError::NothingToCheck) | Ok(_) => &[],
+        };
+        if let Some(incomplete) = blocking.incomplete(&scope, lowering_lines) {
+            return KeyState::Unknown(incomplete);
+        }
         match lowering {
             Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
             Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(origin::unknown_dto(
                 &UnknownReason::ModelIncomplete(lines.clone()),
-            )),
-            Err(LowerError::NotCheckedYet(lines)) => KeyState::Unknown(origin::unknown_dto(
-                &UnknownReason::PropertyNotCheckable(lines.clone()),
             )),
             Ok(scope_net) => match checked_property(property) {
                 Ok(net_property) => {
@@ -352,13 +353,12 @@ fn checked_property(property: &Property) -> Result<NetProperty, Vec<String>> {
 }
 
 // The property of a scope that lowered (D-64). Slice 0 checks deadlock-free with `final none`
-// (D-25); the other kinds are not checked yet, with the line the user sees.
+// (D-25) and no capacity exceeded; user properties wait for slice 4, with the line the user sees
+// (V57).
 fn lower_property(kind: &PropertyKind) -> Result<NetProperty, Vec<String>> {
     match kind {
         PropertyKind::DeadlockFree => Ok(NetProperty::DeadlockFree),
-        PropertyKind::NoCapacityExceeded => {
-            Err(vec!["no capacity exceeded is not checked yet".to_owned()])
-        }
+        PropertyKind::NoCapacityExceeded => Ok(NetProperty::CapacityNeverExceeded),
         PropertyKind::NoDeadTransitions
         | PropertyKind::Never { .. }
         | PropertyKind::AlwaysReachable { .. } => {

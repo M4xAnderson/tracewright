@@ -51,6 +51,7 @@
               {
                 "place": {
                   "element": "job",
+                  "kind": "own",
                   "place": "done"
                 },
                 "reason": {
@@ -62,6 +63,7 @@
               {
                 "place": {
                   "element": "job",
+                  "kind": "own",
                   "place": "todo"
                 },
                 "reason": {

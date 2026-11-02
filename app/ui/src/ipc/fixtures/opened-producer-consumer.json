@@ -1,0 +1,52 @@
+{
+  "name": "producer-consumer",
+  "path": "/home/designer/producer-consumer",
+  "view": {
+    "elements": [
+      {
+        "id": "api",
+        "name": "Order API"
+      },
+      {
+        "id": "billing",
+        "name": "Billing"
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-overflow",
+        "kind": "noCapacityExceeded",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      },
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [
+      {
+        "id": "orders",
+        "meaning": "publishes to",
+        "source": "api",
+        "target": "billing"
+      }
+    ],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "Order platform"
+    }
+  }
+}

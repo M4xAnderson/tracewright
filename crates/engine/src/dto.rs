@@ -123,7 +123,7 @@ pub enum Outcome {
     Unknown(UnknownVerdict),
 }
 
-/// A Proved: how and over how many markings (VER-5, `V-PRO-1`).
+/// A Proved: how and over how many markings (VER-5, `V-PRO-1`). A certificate has 0 markings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "proved-dto.ts")]
@@ -135,13 +135,24 @@ pub struct ProvedDto {
     pub markings: u64,
 }
 
-/// How a Proved was reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+/// How a Proved was reached: the two paths of ADR 0008.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "technique.ts")]
 pub enum Technique {
     /// Both explorers explored every reachable marking and agreed.
     Exhaustive,
+    /// No place overflows when full; the second explorer checked the certificate (NS §9.5).
+    NoOverflowPlace(NoOverflowPlaceDto),
+}
+
+/// The `NoOverflowPlace` certificate of a Proved no capacity exceeded (D-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "no-overflow-place-dto.ts")]
+pub struct NoOverflowPlaceDto {
+    /// The places that drop when full: messages can still be lost there.
+    pub drop_places: Vec<PlaceOrigin>,
 }
 
 /// A Disproved with its counterexample.
@@ -207,6 +218,21 @@ pub struct PlaceRef {
     pub place: String,
 }
 
+/// Where a place of the flattened net comes from (NS §6.7): a place of an element's Petri net, or
+/// the generated place of a relationship's asynchronous binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "place-origin.ts")]
+pub enum PlaceOrigin {
+    /// A place of one element.
+    Own(PlaceRef),
+    /// The queue of an asynchronous binding; its ID is the relationship's.
+    Generated {
+        /// The relationship.
+        relationship: String,
+    },
+}
+
 /// What the last marking of a counterexample violates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -214,6 +240,21 @@ pub struct PlaceRef {
 pub enum ViolationDto {
     /// No transition is enabled (NS §7).
     Deadlock(DeadlockDto),
+    /// A place holds more than its capacity (NS §8.2, `V-DIS-CAP-*`).
+    Overflow(OverflowDto),
+}
+
+/// An overflow marking: the smallest-ID place above its capacity.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "overflow-dto.ts")]
+pub struct OverflowDto {
+    /// The place.
+    pub place: PlaceOrigin,
+    /// Its capacity.
+    pub capacity: u32,
+    /// What it holds in the last marking.
+    pub count: u32,
 }
 
 /// A deadlock: who waits for what (flows R1, `V-DIS-DL-*`).
@@ -245,7 +286,7 @@ pub struct WaitingDto {
 #[ts(export, export_to = "wait-dto.ts")]
 pub struct WaitDto {
     /// The place.
-    pub place: PlaceRef,
+    pub place: PlaceOrigin,
     /// Why.
     pub reason: WaitReason,
 }
@@ -289,8 +330,9 @@ pub enum UnknownDto {
     ModelIncomplete {
         /// The causes.
         details: Vec<String>,
-        /// The problems behind the lines, so the UI can render each in the user's terms
-        /// (`U-INC-*`, flows R2); empty when only lowering itself found the cause.
+        /// The problems behind the first `causes.len()` lines, so the UI can render each in the
+        /// user's terms (`U-INC-*`, flows R2). Lines after them are causes only lowering found
+        /// (for example L7), which have no problem kind.
         causes: Vec<ProblemDto>,
     },
     /// The property cannot be checked (yet); one line per cause.
@@ -312,10 +354,16 @@ pub enum UnknownDto {
         #[ts(type = "number")]
         markings: u64,
     },
-    /// An overflow place exceeded its capacity before the property was decided.
+    /// An overflow place exceeded its capacity before the property was decided (`U-CEF-*`).
     CapacityExceededFirst {
-        /// The place, as a qualified ID until its ticket maps it to an element.
-        place: String,
+        /// The smallest-ID exceeded place of the first overflow marking (contract R4).
+        place: PlaceOrigin,
+        /// Its capacity.
+        capacity: u32,
+        /// What it holds at the end of the run.
+        count: u32,
+        /// The run to that overflow marking, replayed by the second explorer.
+        frames: Vec<ReplayFrame>,
     },
 }
 

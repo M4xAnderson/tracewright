@@ -1,5 +1,6 @@
-//! `verify::check` on its own against the NS §14.1 slice 0 vectors with block places and
-//! synchronous fusion (seam B). The harness is this crate's own; `recheck` has a separate one.
+//! `verify::check` on its own against the NS §14.1 slice 0 vectors (seam B): block, drop and
+//! overflow places, deadlock-free and no capacity exceeded. The harness is this crate's own;
+//! `recheck` has a separate one.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use std::time::Instant;
 
 use serde::Deserialize;
 use tracewright_net::Budget;
+use tracewright_net::Certificate;
 use tracewright_net::Clock;
 use tracewright_net::Counterexample;
 use tracewright_net::Deadline;
@@ -42,6 +44,7 @@ struct File {
 #[derive(Deserialize)]
 struct NetSpec {
     places: Vec<PlaceSpec>,
+    #[serde(default)]
     transitions: Vec<TransitionSpec>,
 }
 
@@ -51,6 +54,7 @@ struct PlaceSpec {
     capacity: u32,
     #[serde(default)]
     initial: u32,
+    when_full: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -66,11 +70,41 @@ struct TransitionSpec {
 struct Vector {
     id: String,
     net: String,
+    property: Option<String>,
     expect: String,
     markings: Option<u64>,
     stored: Option<u64>,
     fired: Option<Vec<String>>,
     waiting: Option<Vec<WaitingSpec>>,
+    overflow: Option<OverflowSpec>,
+    drop_places: Option<Vec<String>>,
+    place: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OverflowSpec {
+    place: String,
+    capacity: u32,
+    count: u32,
+}
+
+impl Vector {
+    fn property(&self) -> NetProperty {
+        match self.property.as_deref() {
+            None | Some("deadlock-free") => NetProperty::DeadlockFree,
+            Some("no-capacity-exceeded") => NetProperty::CapacityNeverExceeded,
+            Some(other) => panic!("{}: unknown property {other}", self.id),
+        }
+    }
+
+    fn fired(&self) -> Vec<&str> {
+        self.fired
+            .as_ref()
+            .expect("a run has fired")
+            .iter()
+            .map(String::as_str)
+            .collect()
+    }
 }
 
 #[derive(Deserialize)]
@@ -99,7 +133,12 @@ fn build(spec: &NetSpec) -> Net {
             .map(|p| Place {
                 id: q(&p.id),
                 capacity: p.capacity,
-                when_full: WhenFull::Block,
+                when_full: match p.when_full.as_deref() {
+                    None | Some("block") => WhenFull::Block,
+                    Some("drop") => WhenFull::Drop,
+                    Some("overflow") => WhenFull::Overflow,
+                    Some(other) => panic!("unknown when_full {other}"),
+                },
             })
             .collect(),
         transitions: spec
@@ -147,12 +186,12 @@ fn waiting(spec: &[WaitingSpec]) -> Vec<TransitionWaits> {
         .collect()
 }
 
-fn check(net: &Net, max_markings: u64) -> NetVerdict {
+fn check(net: &Net, property: &NetProperty, max_markings: u64) -> NetVerdict {
     let budget = Budget {
         max_markings,
         ..Budget::default()
     };
-    tracewright_verify::check(net, &NetProperty::DeadlockFree, &budget)
+    tracewright_verify::check(net, property, &budget)
 }
 
 fn vectors() -> (BTreeMap<String, Net>, Vec<Vector>) {
@@ -173,7 +212,7 @@ fn every_proved_vector_is_proved_with_its_marking_count() {
     for vector in vectors.iter().filter(|v| v.expect == "proved") {
         let markings = vector.markings.expect("a proved vector has markings");
         assert_eq!(
-            check(&nets[&vector.net], ENOUGH),
+            check(&nets[&vector.net], &vector.property(), ENOUGH),
             NetVerdict::Proved {
                 technique: Technique::Exhaustive,
                 markings
@@ -185,25 +224,22 @@ fn every_proved_vector_is_proved_with_its_marking_count() {
 }
 
 #[test]
-fn every_disproved_vector_has_its_counterexample_and_waiting_list() {
+fn every_certificate_vector_is_proved_by_no_overflow_place_without_exploring() {
+    // B13: no exploration happens, so even a budget of 0 markings is enough.
     let (nets, vectors) = vectors();
-    for vector in vectors.iter().filter(|v| v.expect == "disproved") {
-        let NetVerdict::Disproved(Evidence::Counterexample(Counterexample { steps, violation })) =
-            check(&nets[&vector.net], ENOUGH)
-        else {
-            panic!("{}: not Disproved by a counterexample", vector.id);
-        };
-        let fired: Vec<&str> = steps.iter().map(|step| step.fired.0.as_str()).collect();
+    for vector in vectors.iter().filter(|v| v.expect == "certificate") {
+        let drop_places = vector
+            .drop_places
+            .as_ref()
+            .expect("a certificate vector has drop_places")
+            .iter()
+            .map(|id| q(id))
+            .collect();
         assert_eq!(
-            fired,
-            *vector.fired.as_ref().expect("fired"),
-            "{}",
-            vector.id
-        );
-        assert_eq!(
-            violation,
-            Violation::Deadlock {
-                waiting: waiting(vector.waiting.as_ref().expect("waiting"))
+            check(&nets[&vector.net], &vector.property(), 0),
+            NetVerdict::Proved {
+                technique: Technique::Certificate(Certificate::NoOverflowPlace { drop_places }),
+                markings: 0
             },
             "{}",
             vector.id
@@ -212,22 +248,79 @@ fn every_disproved_vector_has_its_counterexample_and_waiting_list() {
 }
 
 #[test]
-fn every_vector_holds_with_exactly_its_stored_count_and_runs_out_with_one_fewer() {
-    // NS §10.1 (c) and (d): the budget counts stored markings, M0 included.
+fn every_disproved_vector_has_its_counterexample_and_violation() {
     let (nets, vectors) = vectors();
-    for vector in vectors.iter().filter(|v| v.expect != "rejected") {
+    for vector in vectors.iter().filter(|v| v.expect == "disproved") {
+        let NetVerdict::Disproved(Evidence::Counterexample(Counterexample { steps, violation })) =
+            check(&nets[&vector.net], &vector.property(), ENOUGH)
+        else {
+            panic!("{}: not Disproved by a counterexample", vector.id);
+        };
+        let fired: Vec<&str> = steps.iter().map(|step| step.fired.0.as_str()).collect();
+        assert_eq!(fired, vector.fired(), "{}", vector.id);
+        let expected = match (&vector.waiting, &vector.overflow) {
+            (Some(spec), None) => Violation::Deadlock {
+                waiting: waiting(spec),
+            },
+            (None, Some(spec)) => Violation::Overflow {
+                place: q(&spec.place),
+                capacity: spec.capacity,
+                count: spec.count,
+            },
+            _ => panic!("{}: waiting or overflow", vector.id),
+        };
+        assert_eq!(violation, expected, "{}", vector.id);
+    }
+}
+
+#[test]
+fn every_capacity_exceeded_first_vector_names_its_place_and_the_run_to_it() {
+    let (nets, vectors) = vectors();
+    for vector in vectors
+        .iter()
+        .filter(|v| v.expect == "capacity-exceeded-first")
+    {
+        let NetVerdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps }) =
+            check(&nets[&vector.net], &vector.property(), ENOUGH)
+        else {
+            panic!("{}: not capacity exceeded first", vector.id);
+        };
+        assert_eq!(
+            place,
+            q(vector.place.as_ref().expect("place")),
+            "{}",
+            vector.id
+        );
+        let fired: Vec<&str> = steps.iter().map(|step| step.fired.0.as_str()).collect();
+        assert_eq!(fired, vector.fired(), "{}", vector.id);
+    }
+}
+
+#[test]
+fn every_explored_vector_holds_with_exactly_its_stored_count_and_runs_out_with_one_fewer() {
+    // NS §10.1 (c) and (d): the budget counts stored markings, overflow markings and M0
+    // included (B1, B2, B11, B12 among them).
+    let (nets, vectors) = vectors();
+    for vector in vectors
+        .iter()
+        .filter(|v| v.expect != "rejected" && v.expect != "certificate")
+    {
         let needed = vector
             .stored
             .or(vector.markings)
             .expect("stored or markings");
         let net = &nets[&vector.net];
+        let property = vector.property();
         assert!(
-            !matches!(check(net, needed), NetVerdict::Unknown(_)),
+            !matches!(
+                check(net, &property, needed),
+                NetVerdict::Unknown(UnknownReason::BudgetExhausted { .. })
+            ),
             "{} with {needed}",
             vector.id
         );
         assert_eq!(
-            check(net, needed - 1),
+            check(net, &property, needed - 1),
             NetVerdict::Unknown(UnknownReason::BudgetExhausted {
                 phase: Phase::Main,
                 markings: needed - 1
@@ -243,12 +336,17 @@ fn every_vector_holds_with_exactly_its_stored_count_and_runs_out_with_one_fewer(
 fn a_structurally_invalid_net_is_rejected_as_an_internal_error() {
     let (nets, vectors) = vectors();
     for vector in vectors.iter().filter(|v| v.expect == "rejected") {
-        assert_eq!(
-            check(&nets[&vector.net], ENOUGH),
-            NetVerdict::Unknown(UnknownReason::InternalError),
-            "{}",
-            vector.id
-        );
+        for property in [
+            NetProperty::DeadlockFree,
+            NetProperty::CapacityNeverExceeded,
+        ] {
+            assert_eq!(
+                check(&nets[&vector.net], &property, ENOUGH),
+                NetVerdict::Unknown(UnknownReason::InternalError),
+                "{}",
+                vector.id
+            );
+        }
     }
 }
 
@@ -256,7 +354,8 @@ fn a_structurally_invalid_net_is_rejected_as_an_internal_error() {
 fn every_step_carries_the_marking_after_it() {
     // V24: start, fail, start, fail from c/idle = 3, w/free = 2.
     let (nets, _) = vectors();
-    let NetVerdict::Disproved(Evidence::Counterexample(cx)) = check(&nets["POOL_LEAK"], ENOUGH)
+    let NetVerdict::Disproved(Evidence::Counterexample(cx)) =
+        check(&nets["POOL_LEAK"], &NetProperty::DeadlockFree, ENOUGH)
     else {
         panic!("V24 is Disproved");
     };
@@ -282,6 +381,35 @@ fn every_step_carries_the_marking_after_it() {
     }
 }
 
+#[test]
+fn a_drop_place_keeps_at_most_its_capacity_after_subtracting_first() {
+    // NS §4.2: V12 fires x/t from x/p = 1 to min(1, 1 − 1 + 2) = 1, so M0 is its own successor.
+    let (nets, _) = vectors();
+    assert_eq!(
+        check(&nets["V12"], &NetProperty::DeadlockFree, ENOUGH),
+        NetVerdict::Proved {
+            technique: Technique::Exhaustive,
+            markings: 1
+        }
+    );
+}
+
+#[test]
+fn the_overflow_run_records_the_marking_above_capacity() {
+    // V16: the fourth produce puts r at 4 of 3; the overflow marking is the last step's marking.
+    let (nets, _) = vectors();
+    let NetVerdict::Disproved(Evidence::Counterexample(cx)) = check(
+        &nets["PC_overflow"],
+        &NetProperty::CapacityNeverExceeded,
+        ENOUGH,
+    ) else {
+        panic!("V16 is Disproved");
+    };
+    let last = cx.steps.last().expect("four steps");
+    assert_eq!(last.marking.0.get(&q("r")), Some(&4));
+    assert_eq!(last.marking.0.get(&q("p/items")), Some(&1));
+}
+
 // NS §14.2: the main phase of a check with budget N gets ⌊N/2⌋ markings.
 #[derive(Deserialize)]
 struct BudgetFile {
@@ -293,6 +421,7 @@ struct BudgetFile {
 struct BudgetVector {
     id: String,
     net: String,
+    property: Option<String>,
     n: u64,
     #[serde(default)]
     cancel: bool,
@@ -310,13 +439,25 @@ fn the_budget_vectors_hold_for_the_main_phase() {
             cancel: Arc::new(AtomicBool::new(vector.cancel)),
             ..Budget::default()
         };
-        let verdict = tracewright_verify::check(
-            &build(&file.nets[&vector.net]),
-            &NetProperty::DeadlockFree,
-            &budget,
-        );
+        let property = match vector.property.as_deref() {
+            None | Some("deadlock-free") => NetProperty::DeadlockFree,
+            Some("no-capacity-exceeded") => NetProperty::CapacityNeverExceeded,
+            Some(other) => panic!("{}: unknown property {other}", vector.id),
+        };
+        let verdict =
+            tracewright_verify::check(&build(&file.nets[&vector.net]), &property, &budget);
         let id = &vector.id;
         match vector.expect.as_str() {
+            "certificate" => assert!(
+                matches!(
+                    verdict,
+                    NetVerdict::Proved {
+                        technique: Technique::Certificate(_),
+                        markings: 0
+                    }
+                ),
+                "{id}: {verdict:?}"
+            ),
             "exhausted" => assert_eq!(
                 verdict,
                 NetVerdict::Unknown(UnknownReason::BudgetExhausted {
