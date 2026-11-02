@@ -34,6 +34,7 @@ use crate::lower;
 use crate::lower::LowerError;
 use crate::lower::Lowered;
 use crate::origin;
+use crate::projection;
 
 /// The engine's markings budget per check until `arch.toml`'s `[budget]` is read: the
 /// `max_markings` of the file-format §5 example. Spike E1 measured 0.2–1.3 million markings per
@@ -142,12 +143,7 @@ impl Session {
             .relationships
             .values()
             .filter(|r| is_child(&r.source) || is_child(&r.target))
-            .map(|r| dto::RelationshipView {
-                id: r.id.to_string(),
-                source: r.source.to_string(),
-                target: r.target.to_string(),
-                meaning: r.meaning.clone(),
-            })
+            .map(projection::relationship_view)
             .collect();
         let properties = std::iter::once(system)
             .chain(children.iter().copied())
@@ -168,8 +164,11 @@ impl Session {
             .collect();
         View {
             rev: self.rev,
-            system: Some(element_view(system)),
-            elements: children.iter().map(|child| element_view(child)).collect(),
+            system: Some(projection::element_view(&self.model, system)),
+            elements: children
+                .iter()
+                .map(|child| projection::element_view(&self.model, child))
+                .collect(),
             relationships,
             properties,
         }
@@ -246,13 +245,6 @@ impl Session {
                 verdict: origin::verdict_dto(&checked.verdict, scope_net),
             }));
         }
-    }
-}
-
-fn element_view(element: &Element) -> dto::ElementView {
-    dto::ElementView {
-        id: element.id.to_string(),
-        name: element.name.clone(),
     }
 }
 

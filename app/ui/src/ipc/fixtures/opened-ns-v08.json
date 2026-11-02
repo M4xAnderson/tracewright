@@ -4,8 +4,43 @@
   "view": {
     "elements": [
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "p",
+              "initial": 1,
+              "name": "p",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "t",
+              "name": "t",
+              "port": false,
+              "post": [
+                {
+                  "place": "p",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "p",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "x",
-        "name": "x"
+        "kind": "container",
+        "name": "x",
+        "position": null,
+        "technology": null
       }
     ],
     "properties": [
@@ -31,8 +66,12 @@
     "relationships": [],
     "rev": 0,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "sys"
+      "kind": "softwareSystem",
+      "name": "sys",
+      "position": null,
+      "technology": null
     }
   }
 }

@@ -336,6 +336,132 @@ pub struct ElementView {
     pub id: String,
     /// The display name.
     pub name: String,
+    /// What sort of element it is; decides its shape and icon on the canvas (UX CNV-3).
+    pub kind: ElementKind,
+    /// Display only.
+    pub technology: Option<String>,
+    /// Where its layout file puts it in this view; `None` when it is unplaced (file-format §7).
+    pub position: Option<PositionView>,
+    /// Its behavior model, shown read-only in the behavior model pane; its ports are the canvas's
+    /// port handles (flows §4.4, §4.5).
+    pub behavior: Option<BehaviorView>,
+}
+
+/// The element kinds of format 1 (file-format §6.2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "element-kind.ts")]
+pub enum ElementKind {
+    /// A person.
+    Person,
+    /// A software system.
+    SoftwareSystem,
+    /// A container.
+    Container,
+    /// A database.
+    Database,
+    /// A queue.
+    Queue,
+    /// A component.
+    Component,
+    /// A code element.
+    Code,
+}
+
+/// A behavior model as the behavior model pane draws it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "behavior-view.ts")]
+pub enum BehaviorView {
+    /// A Petri net.
+    PetriNet(PetriNetView),
+}
+
+/// A Petri net: places and transitions by name, as in the element's file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "petri-net-view.ts")]
+pub struct PetriNetView {
+    /// The places, by name.
+    pub places: Vec<PlaceView>,
+    /// The transitions, by name.
+    pub transitions: Vec<TransitionView>,
+}
+
+/// A place with what the pane prints next to it: tokens, capacity and when full.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "place-view.ts")]
+pub struct PlaceView {
+    /// The name in the element's net, as `PlaceRef` names it.
+    pub name: String,
+    /// The display name; the name when the file states none.
+    pub display_name: String,
+    /// `None` when the file states none (a model problem, L10).
+    pub capacity: Option<u32>,
+    /// `None` when the file states none (a model problem, L2).
+    pub when_full: Option<WhenFull>,
+    /// Tokens in the initial marking.
+    pub initial: u32,
+    /// Whether the place is a place port.
+    pub port: bool,
+}
+
+/// A transition with its arcs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "transition-view.ts")]
+pub struct TransitionView {
+    /// The name in the element's net, as `TransitionRef` names it.
+    pub name: String,
+    /// The display name; the name when the file states none.
+    pub display_name: String,
+    /// Whether the transition is a transition port.
+    pub port: bool,
+    /// Arcs from places, by place name.
+    pub pre: Vec<ArcView>,
+    /// Arcs to places, by place name.
+    pub post: Vec<ArcView>,
+}
+
+/// One arc between a transition and a place of the same net.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "arc-view.ts")]
+pub struct ArcView {
+    /// The place's name.
+    pub place: String,
+    /// Tokens the arc moves.
+    pub weight: u32,
+}
+
+/// What a place does at its capacity (ADR 0014).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "when-full.ts")]
+pub enum WhenFull {
+    /// The sender waits.
+    Block,
+    /// The token is discarded.
+    Drop,
+    /// Exceeding the capacity is a violation.
+    Overflow,
+}
+
+/// An element's position in integer canvas units: the top-left corner, and a size when the layout
+/// file states one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "position-view.ts")]
+pub struct PositionView {
+    /// The left edge.
+    pub x: i32,
+    /// The top edge.
+    pub y: i32,
+    /// The width; `None` means the default size of the element's kind.
+    pub w: Option<u32>,
+    /// The height; `None` means the default size of the element's kind.
+    pub h: Option<u32>,
 }
 
 /// A relationship as the view shows it.
@@ -351,6 +477,49 @@ pub struct RelationshipView {
     pub target: String,
     /// What it means, for example "calls".
     pub meaning: Option<String>,
+    /// Its binding pairs, in file order; a bound relationship attaches to its port handles.
+    pub bindings: Vec<BindingView>,
+}
+
+/// One binding pair of a relationship.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "binding-view.ts")]
+pub struct BindingView {
+    /// Sync: the caller. Async: the sender.
+    pub from: PortRefView,
+    /// Sync: the callee. Async: the receiver.
+    pub to: PortRefView,
+    /// Synchronous or asynchronous.
+    pub mode: BindingMode,
+}
+
+/// A port of an element, written `element/name` in the files.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "port-ref-view.ts")]
+pub struct PortRefView {
+    /// The element ID.
+    pub element: String,
+    /// The transition's name in the element's net.
+    pub name: String,
+}
+
+/// The mode of a binding pair (glossary Binding).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "binding-mode.ts")]
+pub enum BindingMode {
+    /// The two transitions fire as one fused transition.
+    Sync,
+    /// Messages wait in the relationship's generated place.
+    Async {
+        /// `None` when the file states none (a model problem, L13).
+        capacity: Option<u32>,
+        /// When full; overflow when the file states none (ADR 0014).
+        #[serde(rename = "whenFull")]
+        when_full: WhenFull,
+    },
 }
 
 /// A property as the verdict panel lists it.

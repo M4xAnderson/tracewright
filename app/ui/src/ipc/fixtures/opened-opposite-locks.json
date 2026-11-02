@@ -4,16 +4,262 @@
   "view": {
     "elements": [
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "has_1",
+              "initial": 0,
+              "name": "has_1",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "has_2",
+              "initial": 0,
+              "name": "has_2",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "idle",
+              "initial": 1,
+              "name": "idle",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "release",
+              "name": "release",
+              "port": true,
+              "post": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "has_2",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "take_x",
+              "name": "take_x",
+              "port": true,
+              "post": [
+                {
+                  "place": "has_1",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "take_y",
+              "name": "take_y",
+              "port": true,
+              "post": [
+                {
+                  "place": "has_2",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "has_1",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "a",
-        "name": "Component A"
+        "kind": "container",
+        "name": "Component A",
+        "position": {
+          "h": null,
+          "w": null,
+          "x": 0,
+          "y": 0
+        },
+        "technology": null
       },
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "has_1",
+              "initial": 0,
+              "name": "has_1",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "has_2",
+              "initial": 0,
+              "name": "has_2",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "idle",
+              "initial": 1,
+              "name": "idle",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "release",
+              "name": "release",
+              "port": true,
+              "post": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "has_2",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "take_x",
+              "name": "take_x",
+              "port": true,
+              "post": [
+                {
+                  "place": "has_2",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "has_1",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "take_y",
+              "name": "take_y",
+              "port": true,
+              "post": [
+                {
+                  "place": "has_1",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "b",
-        "name": "Component B"
+        "kind": "container",
+        "name": "Component B",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "x",
+              "initial": 1,
+              "name": "x",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "y",
+              "initial": 1,
+              "name": "y",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "acq_x",
+              "name": "acq_x",
+              "port": true,
+              "post": [],
+              "pre": [
+                {
+                  "place": "x",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "acq_y",
+              "name": "acq_y",
+              "port": true,
+              "post": [],
+              "pre": [
+                {
+                  "place": "y",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "rel_xy",
+              "name": "rel_xy",
+              "port": true,
+              "post": [
+                {
+                  "place": "x",
+                  "weight": 1
+                },
+                {
+                  "place": "y",
+                  "weight": 1
+                }
+              ],
+              "pre": []
+            }
+          ]
+        },
         "id": "l",
-        "name": "Lock service"
+        "kind": "container",
+        "name": "Lock service",
+        "position": {
+          "h": null,
+          "w": null,
+          "x": 440,
+          "y": 120
+        },
+        "technology": null
       }
     ],
     "properties": [
@@ -38,36 +284,126 @@
     ],
     "relationships": [
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "a",
+              "name": "take_x"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "acq_x"
+            }
+          }
+        ],
         "id": "ra1",
         "meaning": null,
         "source": "a",
         "target": "l"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "a",
+              "name": "take_y"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "acq_y"
+            }
+          }
+        ],
         "id": "ra2",
         "meaning": null,
         "source": "a",
         "target": "l"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "a",
+              "name": "release"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "rel_xy"
+            }
+          }
+        ],
         "id": "ra3",
         "meaning": null,
         "source": "a",
         "target": "l"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "b",
+              "name": "take_y"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "acq_y"
+            }
+          }
+        ],
         "id": "rb1",
         "meaning": null,
         "source": "b",
         "target": "l"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "b",
+              "name": "take_x"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "acq_x"
+            }
+          }
+        ],
         "id": "rb2",
         "meaning": null,
         "source": "b",
         "target": "l"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "b",
+              "name": "release"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "l",
+              "name": "rel_xy"
+            }
+          }
+        ],
         "id": "rb3",
         "meaning": null,
         "source": "b",
@@ -76,8 +412,12 @@
     ],
     "rev": 0,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "Two components, two locks"
+      "kind": "softwareSystem",
+      "name": "Two components, two locks",
+      "position": null,
+      "technology": null
     }
   }
 }
