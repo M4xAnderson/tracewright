@@ -98,11 +98,13 @@ Product-owner calls (A, B), one team call and the must-fix and should-fix items 
 
 - **D-69 Confirmed by the product owner:** T5 in slice 1 unconditionally (D-60); the vacuity guard also next to deadlock-free when a final predicate is set (from slice 4, because it needs no dead transitions); slice 0 reports a finished workload as a deadlock until done when arrives in slice 1 (D-05), and the dogfooding plan expects Disproved at the end in slice 0; an asynchronous request and its asynchronous reply need two relationships in v1, the dependency-cycle rule reports the pair, the user suppresses it as accepted, and E8 counts these suppressions to decide whether to revisit.
 
-## Open follow-ups before slice 0 code
+## Follow-ups before slice 0 code
 
-- `docs/specs/net-semantics.md`: slice tags in the §5 heading, §8.3, §15 and the V57 note, for T5 in slice 1 (D-60).
-- `docs/specs/file-format.md` §6.8: slice gating table for T5 in slice 1 (D-60).
-- `GLOSSARY.md`: add Vacuity guard.
-- `docs/ux/flows.md`: copy that still quotes the old T1 and T4 lines (D-67), and the slice 1 property picker with T5.
-- `docs/ux/mockups/option-1…3`: historical, still use the invented rule IDs REL-SHARED-DB and REL-CALLBACK; leave as is or delete.
-- D-35/D-59: the TAPAAL check of NS V08 and V12 for the E1 corpus (spike E1).
+Closed on 2026-11-02 unless marked open.
+
+- Closed: `docs/specs/net-semantics.md` slice tags for T5 in slice 1 (D-60): the §5 and §8.3 headings, the §15 rows for predicates, properties and Unknown, and the V57 note on a `pool-share` entry in slice 0.
+- Closed: `docs/specs/file-format.md` §6.8: the heading and the slice gating table parse, expand and check `pool-share` from slice 1; slice 0 gives PL S-06's line (D-60).
+- Closed: `GLOSSARY.md` Vacuity guard: also next to deadlock-free with a final predicate (D-61).
+- Closed: `docs/ux/flows.md`: the T1 headline, Disproved sentence and "does not mean" line now come from the catalog (`V-PRO-T1`, `V-DIS-T1`, `V-DNM-T1`; T2 alike), replacing "Deadlock: no step is possible."; the T4 preview and "does not mean" line follow D-67; §4.13 offers T5 alone in slice 1 with "make it a port" and its preconditions (D-60).
+- Closed: `docs/ux/mockups/option-1…3` stay unchanged as the record the mockup reviews cite; `docs/ux/mockups/README.md` says their rule IDs are invented and points to `scan-rules.md`.
+- Open: D-35/D-59: the TAPAAL check of NS V08 and V12 for the E1 corpus encoding. Spike E1 runs it; its result is recorded in `docs/product/experiments/`.

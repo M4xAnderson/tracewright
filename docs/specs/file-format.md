@@ -538,7 +538,7 @@ to = "api_a/reply"
 
 The pairs are part of the relationship entity, not entities of their own. The glossary says the generated place "belongs to the relationship", and ADR 0002 says "a relationship … binds their ports".
 
-### 6.8 Properties and final predicates [S0 built-ins; S1 final predicates; S4 user properties and templates]
+### 6.8 Properties and final predicates [S0 built-ins; S1 final predicates and T5 `pool-share`; S4 user properties and the other templates]
 
 Properties are stored exactly as PL §9 specifies; this section only adds what storage needs.
 
@@ -573,8 +573,10 @@ own = "job/done = 1"                  # optional: final predicate of this elemen
   | Slice | `[final]` | `never`, `always_reachable`, `no_dead_transitions`, templates |
   |---|---|---|
   | S0 | Stored and written back verbatim, never parsed. A `[final]` table that holds any key is the warning `finalNotChecked` ("done when is not checked until slice 1"); deadlock-free lowers with `final none`. | Stored verbatim, never parsed. The property's key state is Unknown `PropertyNotCheckable` ["user properties are checked from slice 4"] (NS V57). Only `deadlock_free` and `no_capacity_exceeded` are checked. |
-  | S1–S3 | `model::property` parses and resolves it (E1xx, E2xx, L9) and lowering copies it into deadlock-free. | as S0 |
+  | S1–S3 | `model::property` parses and resolves it (E1xx, E2xx, L9) and lowering copies it into deadlock-free. | as S0, except `pool-share`: its parameters are parsed and resolved (E2xx, L9, E412), it is expanded at lowering with its preconditions E304, E305 and E308, and checked (PL §8.3, D-60) |
   | S4 | as S1 | parsed, resolved and checked; E1xx, E2xx, E3xx reported |
+
+  A `pool-share` entry in slice 0 is Unknown `PropertyNotCheckable` with the line "never holds the whole pool is checked from slice 1" instead (PL S-06).
 
   `no_dead_transitions` is in the right-hand column because NS §8.5 is a slice 4 property (NS §15).
 - **Which places a predicate may name** (NS L9, ADR 0015, D-01):
