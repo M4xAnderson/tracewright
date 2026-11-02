@@ -41,6 +41,7 @@ export async function openProjectFromDialog(): Promise<void> {
       running: [],
       finishedInRun: [],
       message: null,
+      selection: null,
     });
   } catch (rejection) {
     useAppStore.setState({ open: { kind: "failed", error: commands.toCommandError(rejection) } });
