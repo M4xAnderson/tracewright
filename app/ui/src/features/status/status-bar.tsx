@@ -23,6 +23,10 @@ function messageText(state: AppState, message: Message): string {
       });
       return parts.length === 0 ? "" : `Checks finished: ${parts.join(", ")}.`;
     }
+    case "openedWithProblems": {
+      const problems = message.problems === 1 ? "1 problem" : `${message.problems} problems`;
+      return `Opened ${state.project?.name ?? ""} with ${problems}. See the Problems list.`;
+    }
     case "reloaded":
       return state.view === null ? "" : reloadText(state.view, message.outcome);
     case "error":

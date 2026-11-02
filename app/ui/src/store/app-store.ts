@@ -18,6 +18,7 @@ export type OpenState =
 export type Message =
   | { kind: "checksFinished"; properties: string[] }
   | { kind: "reloaded"; outcome: ReloadOutcome }
+  | { kind: "openedWithProblems"; problems: number }
   | { kind: "error"; error: CommandError };
 
 export interface AppState {
