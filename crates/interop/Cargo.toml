@@ -10,5 +10,13 @@ publish.workspace = true
 [dependencies]
 tracewright-net.workspace = true
 
+# The TAPAAL corpus (tests/tapaal_corpus.rs) compares both explorers with verifypn; the crate
+# itself depends on `net` only (tools/arch/crate-edges.ts).
+[dev-dependencies]
+tracewright-verify.workspace = true
+tracewright-recheck.workspace = true
+serde.workspace = true
+toml.workspace = true
+
 [lints]
 workspace = true
