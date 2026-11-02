@@ -265,12 +265,23 @@ pub struct BudgetFile {
 pub struct BudgetVector {
     pub id: String,
     pub net: String,
+    property: Option<String>,
     pub n: u64,
     #[serde(default)]
     pub cancel: bool,
     pub expect: String,
     pub markings: Option<u64>,
     pub steps: Option<usize>,
+}
+
+impl BudgetVector {
+    pub fn property(&self) -> NetProperty {
+        match self.property.as_deref() {
+            None | Some("deadlock-free") => NetProperty::DeadlockFree,
+            Some("no-capacity-exceeded") => NetProperty::CapacityNeverExceeded,
+            Some(other) => panic!("{}: unknown property {other}", self.id),
+        }
+    }
 }
 
 pub fn budget_vectors() -> BudgetFile {

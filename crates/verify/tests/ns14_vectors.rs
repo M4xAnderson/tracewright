@@ -421,6 +421,7 @@ struct BudgetFile {
 struct BudgetVector {
     id: String,
     net: String,
+    property: Option<String>,
     n: u64,
     #[serde(default)]
     cancel: bool,
@@ -438,13 +439,25 @@ fn the_budget_vectors_hold_for_the_main_phase() {
             cancel: Arc::new(AtomicBool::new(vector.cancel)),
             ..Budget::default()
         };
-        let verdict = tracewright_verify::check(
-            &build(&file.nets[&vector.net]),
-            &NetProperty::DeadlockFree,
-            &budget,
-        );
+        let property = match vector.property.as_deref() {
+            None | Some("deadlock-free") => NetProperty::DeadlockFree,
+            Some("no-capacity-exceeded") => NetProperty::CapacityNeverExceeded,
+            Some(other) => panic!("{}: unknown property {other}", vector.id),
+        };
+        let verdict =
+            tracewright_verify::check(&build(&file.nets[&vector.net]), &property, &budget);
         let id = &vector.id;
         match vector.expect.as_str() {
+            "certificate" => assert!(
+                matches!(
+                    verdict,
+                    NetVerdict::Proved {
+                        technique: Technique::Certificate(_),
+                        markings: 0
+                    }
+                ),
+                "{id}: {verdict:?}"
+            ),
             "exhausted" => assert_eq!(
                 verdict,
                 NetVerdict::Unknown(UnknownReason::BudgetExhausted {
