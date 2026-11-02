@@ -1,0 +1,4 @@
+{
+  "cause": "arch.toml: format version 2 is newer than this app supports (1)",
+  "kind": "reloadFailed"
+}

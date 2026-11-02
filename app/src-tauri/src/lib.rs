@@ -29,7 +29,8 @@ pub fn run() {
             ipc::ui_ready,
             ipc::pick_project_folder,
             ipc::open_project,
-            ipc::run_checks
+            ipc::run_checks,
+            ipc::reload_project
         ])
         .setup(|app| {
             assert_eq!(

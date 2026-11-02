@@ -1,0 +1,32 @@
+{
+  "outcome": {
+    "kind": "nothingChanged"
+  },
+  "view": {
+    "elements": [
+      {
+        "id": "job",
+        "name": "Job"
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "One job"
+    }
+  }
+}

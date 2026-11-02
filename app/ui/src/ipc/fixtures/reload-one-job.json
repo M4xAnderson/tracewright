@@ -1,0 +1,38 @@
+{
+  "outcome": {
+    "added": [],
+    "changed": [
+      "job"
+    ],
+    "kind": "reloaded",
+    "notLoaded": [],
+    "removed": []
+  },
+  "view": {
+    "elements": [
+      {
+        "id": "job",
+        "name": "Nightly job"
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 1,
+    "system": {
+      "id": "sys",
+      "name": "One job"
+    }
+  }
+}

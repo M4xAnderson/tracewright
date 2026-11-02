@@ -14,6 +14,7 @@ use tracewright_engine::EngineEvent;
 use tracewright_engine::LoadError;
 use tracewright_engine::OpenError;
 use tracewright_engine::Ports;
+use tracewright_engine::ReloadOutcome;
 use tracewright_engine::Session;
 use tracewright_engine::Sink;
 use tracewright_engine::adapters::StdDisk;
@@ -32,6 +33,9 @@ pub const PATH_BYTES_MAX: usize = 4096;
 #[derive(Default)]
 pub struct AppState {
     session: Mutex<Option<Session>>,
+    // The folder `session` was opened from, for Reload. Set and read only while holding the
+    // `session` lock, so the two always belong to the same project.
+    disk: Mutex<Option<StdDisk>>,
 }
 
 /// The error of every command, tagged by `kind` (SAFE-3); the UI matches it exhaustively.
@@ -68,6 +72,12 @@ pub enum CommandError {
         /// Why, in plain words.
         cause: String,
     },
+    /// Reload found a project that does not open; the open one stays as it was.
+    #[error("could not reload: {cause}")]
+    ReloadFailed {
+        /// Why, in plain words.
+        cause: String,
+    },
     /// The UI sent an argument outside its limits (SEC-2).
     #[error("invalid argument: {reason}")]
     InvalidArgument {
@@ -98,6 +108,17 @@ pub struct Opened {
     pub view: View,
 }
 
+/// What Reload found, with the view of the model it left (flows §4.5).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "reload-reply.ts")]
+pub struct ReloadReply {
+    /// The changed elements, or nothing changed.
+    pub outcome: ReloadOutcome,
+    /// What the canvas and the verdict panel show now.
+    pub view: View,
+}
+
 // Sends the Session's events over the UI's Channel.
 struct ChannelSink(Channel<EngineEvent>);
 
@@ -119,12 +140,12 @@ pub fn std_ports(sink: Arc<dyn Sink>) -> Ports {
     }
 }
 
-/// Opens the project folder at `path` with `ports`.
+/// Opens the project folder at `path` with `ports`; the `StdDisk` is the folder Reload reads.
 ///
 /// # Errors
 ///
 /// `InvalidArgument` for an overlong path, `OpenFailed` when the folder does not open.
-pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandError> {
+pub fn open_at(path: &str, ports: Ports) -> Result<(Session, StdDisk, Opened), CommandError> {
     if path.len() > PATH_BYTES_MAX {
         return Err(CommandError::InvalidArgument {
             reason: format!("the path is longer than {PATH_BYTES_MAX} bytes"),
@@ -140,8 +161,8 @@ pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandErr
             cause: "it is not a folder".to_owned(),
         });
     }
-    let session = Session::open(&StdDisk::new(root.clone()), ports)
-        .map_err(|error| open_error(path, &error))?;
+    let disk = StdDisk::new(root.clone());
+    let session = Session::open(&disk, ports).map_err(|error| open_error(path, &error))?;
     let name = root.file_name().map_or_else(
         || root.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
@@ -151,7 +172,7 @@ pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandErr
         path: path.to_owned(),
         view: session.view(),
     };
-    Ok((session, opened))
+    Ok((session, disk, opened))
 }
 
 // flows §4.1: the four ways a folder fails to open, each with its own copy in the UI.
@@ -188,6 +209,34 @@ fn open_error(path: &str, error: &OpenError) -> CommandError {
     }
 }
 
+/// Re-reads the folder `disk` that `session` was opened from.
+///
+/// # Errors
+///
+/// `ReloadFailed` when the folder no longer reads or opens as a project.
+pub fn reload_in(session: &mut Session, disk: &StdDisk) -> Result<ReloadReply, CommandError> {
+    let outcome = session
+        .reload(disk)
+        .map_err(|error| CommandError::ReloadFailed {
+            cause: match &error {
+                // TXT-2: the cause in plain words, not the OS error.
+                OpenError::Read(source) if source.kind() == io::ErrorKind::PermissionDenied => {
+                    "you do not have permission to read the project folder".to_owned()
+                }
+                OpenError::Read(source) if source.kind() == io::ErrorKind::NotFound => {
+                    "the project folder no longer exists".to_owned()
+                }
+                OpenError::Load(LoadError::NotAProject) => "arch.toml is missing".to_owned(),
+                OpenError::Read(source) => source.to_string(),
+                OpenError::Load(source) => source.to_string(),
+            },
+        })?;
+    Ok(ReloadReply {
+        outcome,
+        view: session.view(),
+    })
+}
+
 /// Shows the native folder dialog; `None` when the user cancels it. The path stays untrusted
 /// until `open_project` checks it.
 #[tauri::command]
@@ -214,8 +263,11 @@ pub async fn open_project(
     path: String,
     events: Channel<EngineEvent>,
 ) -> Result<Opened, CommandError> {
-    let (session, opened) = open_at(&path, std_ports(Arc::new(ChannelSink(events))))?;
-    *lock(&state.session)? = Some(session);
+    let (session, disk, opened) = open_at(&path, std_ports(Arc::new(ChannelSink(events))))?;
+    let mut guard = lock(&state.session)?;
+    *lock(&state.disk)? = Some(disk);
+    *guard = Some(session);
+    drop(guard);
     log::line(log::Level::Info, &format!("opened {}", opened.name));
     Ok(opened)
 }
@@ -232,12 +284,27 @@ pub async fn run_checks(state: State<'_, AppState>) -> Result<(), CommandError> 
     Ok(())
 }
 
+/// Reload (flows §4.5): re-reads the files changed on disk. The new keys arrive as an event;
+/// checks wait for Check.
+#[tauri::command]
+pub async fn reload_project(state: State<'_, AppState>) -> Result<ReloadReply, CommandError> {
+    let mut guard = lock(&state.session)?;
+    let Some(session) = guard.as_mut() else {
+        return Err(CommandError::NoProjectOpen);
+    };
+    let disk = lock(&state.disk)?;
+    let Some(disk) = disk.as_ref() else {
+        return Err(CommandError::NoProjectOpen);
+    };
+    let reply = reload_in(session, disk)?;
+    log::line(log::Level::Info, "reloaded");
+    Ok(reply)
+}
+
 // A poisoned lock means a command panicked while it held the Session; the panic hook aborts on
 // command threads (ADR 0012), so this is only reachable if that policy changes.
-fn lock(
-    session: &Mutex<Option<Session>>,
-) -> Result<std::sync::MutexGuard<'_, Option<Session>>, CommandError> {
-    session.lock().map_err(|_poisoned| CommandError::Internal {
+fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, CommandError> {
+    mutex.lock().map_err(|_poisoned| CommandError::Internal {
         message: "a check stopped because of a bug; see the log".to_owned(),
     })
 }
@@ -337,7 +404,7 @@ mod tests {
 
     // The path differs per checkout, so the fixture carries a stand-in the UI tests show.
     fn opened_fixture(name: &str, project: &str) -> Opened {
-        let (_session, mut opened) =
+        let (_session, _disk, mut opened) =
             open_at(&engine_project(project), std_ports(Arc::new(Dropped)))
                 .expect("the fixture opens");
         assert_eq!(
@@ -464,5 +531,122 @@ mod tests {
             open_at(&path, std_ports(Arc::new(Dropped))),
             Err(CommandError::InvalidArgument { .. })
         ));
+    }
+
+    #[derive(Default)]
+    struct Recorded(Mutex<Vec<EngineEvent>>);
+    impl Sink for Recorded {
+        fn emit(&self, event: EngineEvent) {
+            self.0.lock().expect("test sink").push(event);
+        }
+    }
+
+    // A copy of the engine fixture `project` in a temporary folder, opened, with its events
+    // recorded from then on.
+    fn open_copy(project: &str) -> (tempfile::TempDir, Session, StdDisk, Arc<Recorded>) {
+        let dir = tempfile::tempdir().expect("a temporary folder");
+        let from = PathBuf::from(engine_project(project));
+        std::fs::create_dir(dir.path().join("elements")).expect("folder");
+        for file in ["arch.toml", "elements/job.toml", "elements/sys.toml"] {
+            std::fs::copy(from.join(file), dir.path().join(file)).expect("test file");
+        }
+        let sink = Arc::new(Recorded::default());
+        let (session, disk, _opened) = open_at(
+            dir.path().to_str().expect("UTF-8 path"),
+            std_ports(Arc::clone(&sink) as Arc<dyn Sink>),
+        )
+        .expect("the copy opens");
+        (dir, session, disk, sink)
+    }
+
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "edits a test project the way a text editor would"
+    )]
+    fn edit(dir: &tempfile::TempDir, file: &str, from: &str, to: &str) {
+        let path = dir.path().join(file);
+        let text = std::fs::read_to_string(&path).expect("test file");
+        assert!(text.contains(from), "{file} contains {from:?}");
+        std::fs::write(path, text.replace(from, to)).expect("test file");
+    }
+
+    // Reloads and writes the reply as `reload-<name>.json` and the events it emitted, if any, as
+    // `reload-events-<name>.json`.
+    fn reload_fixture(
+        name: &str,
+        session: &mut Session,
+        disk: &StdDisk,
+        sink: &Recorded,
+    ) -> serde_json::Value {
+        let reply = reload_in(session, disk).expect("the project reloads");
+        let json = serde_json::to_value(&reply).expect("serializes");
+        write_fixture(&format!("reload-{name}.json"), &json);
+        let events = std::mem::take(&mut *sink.0.lock().expect("test sink"));
+        if !events.is_empty() {
+            write_fixture(
+                &format!("reload-events-{name}.json"),
+                &serde_json::to_value(&events).expect("serializes"),
+            );
+        }
+        json
+    }
+
+    #[test]
+    fn reload_reads_the_files_edited_on_disk_and_returns_the_new_view() {
+        let (dir, mut session, disk, sink) = open_copy("one-job");
+
+        let unchanged = reload_fixture("nothing-changed", &mut session, &disk, &sink);
+        assert_eq!(
+            unchanged["outcome"],
+            serde_json::json!({ "kind": "nothingChanged" })
+        );
+        assert_eq!(unchanged["view"]["rev"], 0);
+
+        edit(
+            &dir,
+            "elements/job.toml",
+            "name = \"Job\"",
+            "name = \"Nightly job\"",
+        );
+        edit(&dir, "elements/job.toml", "initial = 1", "initial = 0");
+        let changed = reload_fixture("one-job", &mut session, &disk, &sink);
+        assert_eq!(
+            changed["outcome"],
+            serde_json::json!({ "kind": "reloaded", "changed": ["job"], "added": [], "removed": [], "notLoaded": [] })
+        );
+        assert_eq!(changed["view"]["rev"], 1);
+        assert_eq!(changed["view"]["elements"][0]["name"], "Nightly job");
+
+        edit(&dir, "elements/job.toml", "initial = 0", "initial = ");
+        let broken = reload_fixture("parse-error", &mut session, &disk, &sink);
+        assert_eq!(broken["outcome"]["kind"], "reloaded");
+        assert_eq!(
+            broken["outcome"]["notLoaded"][0]["file"],
+            "elements/job.toml"
+        );
+        assert_eq!(broken["outcome"]["notLoaded"][0]["line"], 11);
+    }
+
+    #[test]
+    fn a_reload_that_finds_a_project_it_cannot_open_keeps_the_open_one() {
+        let (dir, mut session, disk, _sink) = open_copy("one-job");
+        edit(&dir, "arch.toml", "format = 1", "format = 2");
+
+        let failed = reload_in(&mut session, &disk);
+
+        let Err(error) = failed else {
+            panic!("a newer arch.toml does not reload");
+        };
+        assert_eq!(
+            error,
+            CommandError::ReloadFailed {
+                cause: "arch.toml: format version 2 is newer than this app supports (1)".to_owned()
+            }
+        );
+        write_fixture(
+            "reload-failed.json",
+            &serde_json::to_value(&error).expect("serializes"),
+        );
+        assert_eq!(session.view().rev, 0);
     }
 }

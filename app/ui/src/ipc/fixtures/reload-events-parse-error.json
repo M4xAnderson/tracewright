@@ -1,0 +1,32 @@
+[
+  {
+    "keys": {
+      "no-deadlock": {
+        "unknown": {
+          "category": "modelIncomplete",
+          "causes": [
+            {
+              "code": null,
+              "column": 11,
+              "element": "job",
+              "file": "elements/job.toml",
+              "kind": "parse",
+              "line": 11,
+              "message": "string values must be quoted, expected literal string",
+              "place": null,
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            }
+          ],
+          "details": [
+            "elements/job.toml did not load"
+          ]
+        }
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 2
+  }
+]

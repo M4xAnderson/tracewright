@@ -27,6 +27,10 @@ path: string,
 /**
  * Why, in plain words.
  */
+cause: string, } | { "kind": "reloadFailed", 
+/**
+ * Why, in plain words.
+ */
 cause: string, } | { "kind": "invalidArgument", 
 /**
  * What is wrong.
