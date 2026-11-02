@@ -18,7 +18,7 @@ function messageText(state: AppState, message: Message): string {
         if (property === undefined || row.kind !== "current") {
           return [];
         }
-        return [`${propertyName(property.kind)} ${WORD[row.verdict.kind]}`];
+        return [`${propertyName(property)} ${WORD[row.verdict.kind]}`];
       });
       return parts.length === 0 ? "" : `Checks finished: ${parts.join(", ")}.`;
     }

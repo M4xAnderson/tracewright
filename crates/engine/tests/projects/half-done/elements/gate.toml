@@ -1,0 +1,48 @@
+# Its own scope lowers: deadlock-free is checked, the properties of later slices are not.
+format = 1
+kind = "container"
+name = "Gate"
+parent = "sys"
+
+[petri_net.places.open]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.places.busy]
+capacity = 1
+when_full = "block"
+
+[petri_net.transitions.enter]
+pre = { open = 1 }
+post = { busy = 1 }
+
+[petri_net.transitions.leave]
+pre = { busy = 1 }
+post = { open = 1 }
+
+[[property]]
+id = "gate-no-deadlock"
+behavior = "own"
+kind = "deadlock_free"
+
+[[property]]
+id = "gate-never-two"
+behavior = "own"
+kind = "never"
+predicate = "gate/busy >= 2"
+
+[[property]]
+id = "gate-pool"
+behavior = "own"
+template = "pool-share"
+template_version = 1
+pool = "gate/open"
+held_by = ["gate/busy"]
+
+[[property]]
+id = "gate-fills"
+behavior = "own"
+template = "never-fills-up"
+template_version = 1
+place = "gate/busy"

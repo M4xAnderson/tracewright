@@ -456,7 +456,7 @@ Rows have a fixed position. A row's height never changes between pending and cur
 | no-verdict | none | Property only | `V-NOV-1`, or `V-NOV-2` after a behavior edit | Check | S0 |
 | pending | neutral placeholder | Property and scope stay | After 1 s: `V-PEND` | Check | S0 |
 | running | spinner (static with reduced motion) | "Checking…" | `V-RUN` | [S1] Cancel | S0/S1 |
-| proved | `circle-check` | "Proved" | Headline `V-PRO-T1` / `V-PRO-T2`, its "does not mean" line `V-DNM-T1` / `V-DNM-T2`, then `V-PRO-1`, assumptions `V-PRO-ASM`, scope `V-PRO-SCOPE` | Check again | S0 |
+| proved | `circle-check` | "Proved" | Headline `V-PRO-T1` / `V-PRO-T2`, its "does not mean" line `V-DNM-T1` / `V-DNM-T2`, then `V-PRO-1`; for the certificate `V-PRO-CERT` and `V-PRO-CERT-DROP` (or `V-PRO-CERT-NODROP`); assumptions `V-PRO-ASM`, scope `V-PRO-SCOPE` | Check again | S0 |
 | disproved | `circle-x` | "Disproved" | On deadlock-free, `V-DIS-T1` first; then the violation sentence `V-DIS-*`; on deadlock-free, the caveat `V-DIS-NOFINAL-S0` / `-S1` when no final predicate is defined and the run ended with no token in any pre set (NS §9.6, [contract R18]) | **Replay counterexample** (primary in the row); [S1] "Define done when" (secondary) with the S1 caveat | S0 |
 | unknown | `circle-help`, neutral | "Unknown" | Reason and next step, §4.9 | Per reason | S0 |
 | stale | `history` badge "Stale" first, then the previous icon and verdict word in `--verdict-stale`, subordinate | "Stale · Proved" | `V-STALE` | Check; Replay counterexample (opens with `R-STALE`) | S1 |
@@ -667,6 +667,9 @@ S0–S2 strings are final; S3–S5 strings (in §4.12–4.14) are draft. Sentenc
 | V-PRO-T2 | "Order platform never goes over any capacity." (catalog T2) |
 | V-DNM-T2 | "Places that block or drop can still make senders wait or lose messages." (catalog T2, exact string) |
 | V-PRO-1 | Exhaustive: "Checked all 1,970 reachable markings; re-checked by a second explorer." Certificate: "Proved with a certificate; a second explorer re-checked the certificate." |
+| V-PRO-CERT | "No place in Order platform can overflow: every place blocks or drops." (NS §9.6) |
+| V-PRO-CERT-DROP | "Tokens may be discarded at: Billing: idle, Order API → Billing (publishes to)." Places in certificate order (sorted by ID) (NS §9.6) |
+| V-PRO-CERT-NODROP | "No place drops, so no token is discarded." |
 | V-PRO-ASM | "Assumes: Order API → Audit (logs to) binds no ports, so it adds no behavior." (one line per relationship) |
 | V-PRO-SCOPE | "Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled." |
 | V-DIS-T1 | "Order platform can deadlock: after 6 steps, no step can happen." (catalog T1, D-67; replaces "Deadlock: no step is possible.") |

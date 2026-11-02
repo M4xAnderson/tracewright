@@ -1,0 +1,8 @@
+format = 1
+kind = "software_system"
+name = "Order platform"
+
+[[property]]
+id = "no-deadlock"
+behavior = "combined"
+kind = "deadlock_free"

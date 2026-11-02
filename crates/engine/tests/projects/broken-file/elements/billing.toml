@@ -1,0 +1,8 @@
+format = 1
+kind = "container"
+name = "Billing"
+parent = "sys"
+
+[petri_net.places.queue]
+capacity = = 3
+when_full = "block"

@@ -295,6 +295,7 @@ pub(crate) fn unknown_dto(reason: &UnknownReason) -> UnknownDto {
     match reason {
         UnknownReason::ModelIncomplete(details) => UnknownDto::ModelIncomplete {
             details: details.clone(),
+            causes: Vec::new(),
         },
         UnknownReason::PropertyNotCheckable(details) => UnknownDto::PropertyNotCheckable {
             details: details.clone(),

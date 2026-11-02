@@ -2,18 +2,28 @@
 //! properties and layout. Pure: no IO (ADR 0004).
 //!
 //! So far the model holds what slice 0 checks: elements with Petri nets, their relationships with
-//! binding pairs, and properties. State machines (slice 2), layout, commands and `validate` join it
-//! with the tickets that use them.
+//! binding pairs, and properties, plus what did not load. `validate` derives the problems from it.
+//! State machines (slice 2), layout and commands join it with the tickets that use them.
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
 
 pub mod id;
+pub mod problem;
+pub mod validate;
 
 pub use id::ElementId;
 pub use id::Name;
 pub use id::PropertyId;
 pub use id::RelationshipId;
+pub use problem::Blocks;
+pub use problem::FileNotLoaded;
+pub use problem::ParentOfNotLoaded;
+pub use problem::Problem;
+pub use problem::ProblemKind;
+pub use problem::Severity;
+pub use validate::blocks;
+pub use validate::validate;
 
 /// The whole model of one project.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -22,6 +32,12 @@ pub struct Model {
     pub elements: BTreeMap<ElementId, Element>,
     /// Every relationship, by ID. A relationship is stored in its source element's file.
     pub relationships: BTreeMap<RelationshipId, Relationship>,
+    /// Element files that did not load, by path. They contribute no entities (file-format §10.5).
+    pub files_not_loaded: BTreeMap<String, FileNotLoaded>,
+    /// Problems the loader found across files or in entities it kept out of the model: a
+    /// relationship ID used twice, a property entry it could not keep, a synchronous pair with a
+    /// capacity.
+    pub load_problems: Vec<Problem>,
 }
 
 /// The kinds of format 1 (file-format §6.2).
@@ -71,6 +87,12 @@ pub struct Element {
 pub enum BehaviorModel {
     /// A Petri net.
     PetriNet(PetriNet),
+    /// The section failed to load (file-format §3.3); its bytes stay on disk. Every scope that
+    /// contains the element fails L1.
+    Unloaded {
+        /// The `BehaviorNotLoaded` problem.
+        problem: Problem,
+    },
 }
 
 /// A Petri net inside an element (file-format §6.4). Places and transitions share one namespace;
@@ -207,6 +229,8 @@ pub struct Property {
     pub behavior: Behavior,
     /// What the property states.
     pub kind: PropertyKind,
+    /// PL E4xx and E114 problems of the entry: when there is one, the property is not checked.
+    pub problems: Vec<Problem>,
 }
 
 /// The property kinds of file-format §6.8. Predicate texts are kept verbatim (D-25).
@@ -227,6 +251,14 @@ pub enum PropertyKind {
     AlwaysReachable {
         /// The predicate as written.
         predicate: String,
+    },
+    /// A template property, stored by kind and version (D-11). Its parameters stay in the file;
+    /// slice 0 never expands it.
+    Template {
+        /// The template ID, for example `pool-share`.
+        template: String,
+        /// `template_version`, when it is an integer.
+        version: Option<i64>,
     },
 }
 

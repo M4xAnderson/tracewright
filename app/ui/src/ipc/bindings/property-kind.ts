@@ -3,4 +3,4 @@
 /**
  * The property kinds of file-format §6.8.
  */
-export type PropertyKind = "deadlockFree" | "noCapacityExceeded" | "noDeadTransitions" | "never" | "alwaysReachable";
+export type PropertyKind = "deadlockFree" | "noCapacityExceeded" | "noDeadTransitions" | "never" | "alwaysReachable" | "template";

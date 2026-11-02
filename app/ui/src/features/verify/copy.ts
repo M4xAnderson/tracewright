@@ -28,7 +28,26 @@ export function progressLine(progress: { phase: Phase; markings: number }): stri
   }
 }
 
-export function propertyName(kind: PropertyKind): string {
+// The catalog names of the templates (PL §8.2); an unknown template shows its ID.
+function templateName(template: string | null): string {
+  switch (template) {
+    case "never-overflows":
+      return "Never overflows";
+    case "never-more-than":
+      return "Never more than";
+    case "never-fills-up":
+      return "Never fills up";
+    case "pool-share":
+      return "Never holds the whole pool";
+    case "get-back-to":
+      return "Can always get back to";
+    default:
+      return template ?? "Template";
+  }
+}
+
+export function propertyName(property: Pick<PropertyView, "kind" | "template">): string {
+  const kind: PropertyKind = property.kind;
   switch (kind) {
     case "deadlockFree":
       return "Deadlock-free";
@@ -40,6 +59,8 @@ export function propertyName(kind: PropertyKind): string {
       return "Never";
     case "alwaysReachable":
       return "Always reachable";
+    case "template":
+      return templateName(property.template);
     default:
       return assertNever(kind);
   }
@@ -126,6 +147,17 @@ export function exhaustiveLine(markings: number): string {
 // V-PRO-1, certificate
 export const CERTIFICATE_LINE =
   "Proved with a certificate; a second explorer re-checked the certificate.";
+
+// The NS §9.6 fact of a NoOverflowPlace certificate (catalog T2), so "never overflows" is not read
+// as "never loses a token". The flows catalog has no ID for it yet; the wording is NS §9.6's, and
+// the line for no drop place is ours.
+export function certificateFact(view: View, scope: string, dropPlaces: PlaceOrigin[]): string[] {
+  const discarded =
+    dropPlaces.length === 0
+      ? "No place drops, so no token is discarded."
+      : `Tokens may be discarded at: ${dropPlaces.map((place) => placeName(view, place)).join(", ")}.`;
+  return [`No place in ${scope} can overflow: every place blocks or drops.`, discarded];
+}
 
 // V-PRO-ASM
 export function assumptionLine(view: View, relationship: string): string {
@@ -229,7 +261,7 @@ function capacityExceededFirstLine(
   place: PlaceOrigin,
   capacity: number,
 ): string {
-  const decided = `${propertyName(kind)} was decided only up to the first time ${placeName(view, place)} exceeds capacity ${count.format(capacity)}.`;
+  const decided = `${propertyName({ kind, template: null })} was decided only up to the first time ${placeName(view, place)} exceeds capacity ${count.format(capacity)}.`;
   switch (place.kind) {
     case "generated":
       return `${decided} Set when full to block or drop for this relationship, or raise its capacity.`;
@@ -240,14 +272,15 @@ function capacityExceededFirstLine(
   }
 }
 
+// U-INC
+export const MODEL_INCOMPLETE =
+  "Model incomplete: this view cannot be checked until these are fixed:";
+
 // Flows §4.9: the reason in the user's terms. Lines the engine sends (details) follow the first.
 export function unknownLines(view: View, kind: PropertyKind, reason: UnknownDto): string[] {
   switch (reason.category) {
     case "modelIncomplete":
-      return [
-        "Model incomplete: this view cannot be checked until these are fixed:",
-        ...reason.details,
-      ];
+      return [MODEL_INCOMPLETE, ...reason.details];
     case "propertyNotCheckable":
       return ["Property cannot be checked:", ...reason.details];
     case "internalError":

@@ -19,6 +19,10 @@ label: string | null,
  */
 kind: PropertyKind, 
 /**
+ * The template ID when `kind` is `template`, for example `pool-share`.
+ */
+template: string | null, 
+/**
  * Its scope.
  */
 scope: ScopeView, };

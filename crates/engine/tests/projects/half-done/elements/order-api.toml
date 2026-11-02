@@ -1,0 +1,29 @@
+# `calls` names a port that does not exist (L3); `logs-to` points at an element that does not
+# exist (L3).
+format = 1
+kind = "container"
+name = "Order API"
+parent = "sys"
+
+[petri_net.places.ready]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.transitions.send]
+port = true
+pre = { ready = 1 }
+post = { ready = 1 }
+
+[relationships.calls]
+to = "billing"
+meaning = "calls"
+
+[[relationships.calls.binding]]
+mode = "sync"
+from = "order-api/send"
+to = "billing/reserv"
+
+[relationships.logs-to]
+to = "audit"
+meaning = "logs to"

@@ -1,7 +1,7 @@
 //! The Session: the one authoritative model and the ports to the world (design §1, §3). So far
-//! it opens a project through `Disk`, derives the keys of every property and runs the checks on
-//! supervised workers (`Spawner`, `Clock`), emitting events to `Sink`. The budget from
-//! `arch.toml`, edits, Save and the Journal join it with their tickets.
+//! it opens a project through `Disk`, derives its problems and the keys of every property and runs
+//! the checks on supervised workers (`Spawner`, `Clock`), emitting events to `Sink`. The budget
+//! from `arch.toml`, edits, Save and the Journal join it with their tickets.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -14,6 +14,7 @@ use tracewright_model::Behavior;
 use tracewright_model::Element;
 use tracewright_model::ElementKind;
 use tracewright_model::Model;
+use tracewright_model::Property;
 use tracewright_model::PropertyId;
 use tracewright_model::PropertyKind;
 use tracewright_model::Scope;
@@ -34,6 +35,7 @@ use crate::lower;
 use crate::lower::LowerError;
 use crate::lower::Lowered;
 use crate::origin;
+use crate::problems::Blocking;
 use crate::supervise;
 use crate::supervise::Job;
 use crate::supervise::Spawner;
@@ -61,7 +63,7 @@ pub enum OpenError {
     /// The directory could not be read.
     #[error("could not read the project")]
     Read(#[source] io::Error),
-    /// A file did not load.
+    /// `arch.toml` did not load, a project-wide limit was exceeded or a file is newer.
     #[error(transparent)]
     Load(#[from] LoadError),
 }
@@ -117,7 +119,8 @@ impl Session {
     ///
     /// # Errors
     ///
-    /// The read failed or a file did not load.
+    /// The read failed or the project does not open (`LoadError`). A file that does not load
+    /// is a problem, not an error.
     pub fn open(disk: &dyn Disk, ports: Ports) -> Result<Session, OpenError> {
         let files = disk.read_tree().map_err(OpenError::Read)?;
         let model = tracewright_format::load(&files)?;
@@ -143,6 +146,7 @@ impl Session {
     /// The view of the open project at the current revision.
     #[must_use]
     pub fn view(&self) -> View {
+        let problems = Blocking::new(&self.model).dtos();
         let system = self
             .model
             .elements
@@ -155,6 +159,7 @@ impl Session {
                 elements: Vec::new(),
                 relationships: Vec::new(),
                 properties: Vec::new(),
+                problems,
             };
         };
         let children: Vec<&Element> = self
@@ -184,6 +189,14 @@ impl Session {
                     id: property.id.to_string(),
                     label: property.label.clone(),
                     kind: property_kind(&property.kind),
+                    template: match &property.kind {
+                        PropertyKind::Template { template, .. } => Some(template.clone()),
+                        PropertyKind::DeadlockFree
+                        | PropertyKind::NoCapacityExceeded
+                        | PropertyKind::NoDeadTransitions
+                        | PropertyKind::Never { .. }
+                        | PropertyKind::AlwaysReachable { .. } => None,
+                    },
                     scope: dto::ScopeView {
                         element: element.id.to_string(),
                         behavior: match property.behavior {
@@ -200,6 +213,7 @@ impl Session {
             elements: children.iter().map(|child| element_view(child)).collect(),
             relationships,
             properties,
+            problems,
         }
     }
 
@@ -211,6 +225,7 @@ impl Session {
     ///
     /// Only on a bug: a request for a scope that did not lower.
     pub fn run_checks(&self) {
+        let blocking = Blocking::new(&self.model);
         let mut lowered: BTreeMap<Scope, Result<Arc<Lowered>, LowerError>> = BTreeMap::new();
         let mut keys = BTreeMap::new();
         let mut requests = Vec::new();
@@ -220,30 +235,7 @@ impl Session {
                     element: element.id.clone(),
                     behavior: property.behavior,
                 };
-                let lowering = lowered
-                    .entry(scope.clone())
-                    .or_insert_with(|| lower::lower(&self.model, &scope).map(Arc::new));
-                let state = match lowering {
-                    Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
-                    Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(
-                        origin::unknown_dto(&UnknownReason::ModelIncomplete(lines.clone())),
-                    ),
-                    Ok(scope_net) => match lower_property(&property.kind) {
-                        Ok(net_property) => {
-                            let key = check_key(&scope_net.flat, &net_property);
-                            requests.push(Request {
-                                property: property.id.clone(),
-                                key: key.clone(),
-                                scope,
-                                net_property,
-                            });
-                            KeyState::Key(key)
-                        }
-                        Err(lines) => KeyState::Unknown(origin::unknown_dto(
-                            &UnknownReason::PropertyNotCheckable(lines),
-                        )),
-                    },
-                };
+                let state = self.key_state(&blocking, &mut lowered, property, scope, &mut requests);
                 keys.insert(property.id.to_string(), state);
             }
         }
@@ -280,6 +272,52 @@ impl Session {
     }
 }
 
+impl Session {
+    // The key state of one property (design §3). A problem that blocks the scope wins over a
+    // lowered net, also over nothing to check: the scope could have more behavior than what
+    // loaded (file-format §10.5). A keyed property adds its check to `requests`.
+    fn key_state(
+        &self,
+        blocking: &Blocking,
+        lowered: &mut BTreeMap<Scope, Result<Arc<Lowered>, LowerError>>,
+        property: &Property,
+        scope: Scope,
+        requests: &mut Vec<Request>,
+    ) -> KeyState {
+        let lowering = lowered
+            .entry(scope.clone())
+            .or_insert_with(|| lower::lower(&self.model, &scope).map(Arc::new));
+        let lowering_lines = match &*lowering {
+            Err(LowerError::ModelIncomplete(lines)) => lines.as_slice(),
+            Err(LowerError::NothingToCheck) | Ok(_) => &[],
+        };
+        if let Some(incomplete) = blocking.incomplete(&scope, lowering_lines) {
+            return KeyState::Unknown(incomplete);
+        }
+        match lowering {
+            Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
+            Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(origin::unknown_dto(
+                &UnknownReason::ModelIncomplete(lines.clone()),
+            )),
+            Ok(scope_net) => match checked_property(property) {
+                Ok(net_property) => {
+                    let key = check_key(&scope_net.flat, &net_property);
+                    requests.push(Request {
+                        property: property.id.clone(),
+                        key: key.clone(),
+                        scope,
+                        net_property,
+                    });
+                    KeyState::Key(key)
+                }
+                Err(lines) => KeyState::Unknown(origin::unknown_dto(
+                    &UnknownReason::PropertyNotCheckable(lines),
+                )),
+            },
+        }
+    }
+}
+
 fn element_view(element: &Element) -> dto::ElementView {
     dto::ElementView {
         id: element.id.to_string(),
@@ -294,7 +332,24 @@ fn property_kind(kind: &PropertyKind) -> dto::PropertyKind {
         PropertyKind::NoDeadTransitions => dto::PropertyKind::NoDeadTransitions,
         PropertyKind::Never { .. } => dto::PropertyKind::Never,
         PropertyKind::AlwaysReachable { .. } => dto::PropertyKind::AlwaysReachable,
+        PropertyKind::Template { .. } => dto::PropertyKind::Template,
     }
+}
+
+// PL §10.1: an entry with E4xx or E114 problems is not checked; its lines come first, ordered by
+// code, then the slice gate line (S-07).
+fn checked_property(property: &Property) -> Result<NetProperty, Vec<String>> {
+    let lowered = lower_property(&property.kind);
+    if property.problems.is_empty() {
+        return lowered;
+    }
+    let mut problems: Vec<_> = property.problems.iter().collect();
+    problems.sort_by_key(|problem| (problem.code, &problem.message));
+    let mut lines: Vec<String> = problems.iter().map(|p| p.message.clone()).collect();
+    if let Err(gate) = lowered {
+        lines.extend(gate);
+    }
+    Err(lines)
 }
 
 // The property of a scope that lowered (D-64). Slice 0 checks deadlock-free with `final none`
@@ -309,5 +364,11 @@ fn lower_property(kind: &PropertyKind) -> Result<NetProperty, Vec<String>> {
         | PropertyKind::AlwaysReachable { .. } => {
             Err(vec!["user properties are checked from slice 4".to_owned()])
         }
+        // PL S-06: T5 is checked from slice 1; every other template from slice 4 (S-02).
+        PropertyKind::Template { template, .. } => Err(vec![if template == "pool-share" {
+            "never holds the whole pool is checked from slice 1".to_owned()
+        } else {
+            "user properties are checked from slice 4".to_owned()
+        }]),
     }
 }
