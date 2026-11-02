@@ -1,12 +1,14 @@
 {
   "name": "tracewright",
   "private": true,
-  "packageManager": "bun@1.4.4",
-  "workspaces": ["app/ui"],
+  "workspaces": [
+    "app/ui"
+  ],
   "scripts": {
     "check": "bash tools/check.sh"
   },
   "devDependencies": {
     "@types/bun": "1.4.4"
-  }
+  },
+  "packageManager": "bun@1.4.4"
 }

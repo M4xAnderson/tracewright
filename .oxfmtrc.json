@@ -1,0 +1,13 @@
+{
+  "$schema": "./app/ui/node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "ignorePatterns": [
+    "**/dist",
+    "target",
+    "docs",
+    "app/src-tauri",
+    "app/ui/src/ipc/bindings",
+    "app/ui/src/ipc/fixtures",
+    "tools/arch/fixtures"
+  ]
+}

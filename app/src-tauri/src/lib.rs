@@ -1,5 +1,6 @@
 //! The Tauri shell: thin commands over the engine (IPC-1), the local log and the panic hook.
 
+mod ipc;
 mod log;
 
 use tauri::Manager;
@@ -16,6 +17,8 @@ pub fn run() {
     open_log();
     log::log_panics();
     tauri::Builder::default()
+        .manage(smoke_from_env())
+        .invoke_handler(tauri::generate_handler![ipc::ui_ready])
         .setup(|app| {
             assert_eq!(
                 app.config().identifier,
@@ -59,5 +62,27 @@ fn compare_log_dir(tauri_dir: Option<&std::path::Path>) {
             log::Level::Warn,
             &format!("log directory {ours:?} differs from Tauri's app_log_dir() {tauri_dir:?}"),
         );
+    }
+}
+
+// The CI smoke test sets `TRACEWRIGHT_SMOKE=exit-when-start-screen-shown` and checks the app's own
+// exit code, because `tauri dev` exits 0 even when the app aborts (spike E3).
+fn smoke_from_env() -> ipc::Smoke {
+    match std::env::var("TRACEWRIGHT_SMOKE").as_deref() {
+        Err(_) => ipc::Smoke::Off,
+        Ok("exit-when-start-screen-shown") => {
+            log::line(
+                log::Level::Info,
+                "smoke test: exit when the start screen is shown",
+            );
+            ipc::Smoke::ExitWhenStartScreenShown
+        }
+        Ok(other) => {
+            log::line(
+                log::Level::Warn,
+                &format!("ignoring unknown TRACEWRIGHT_SMOKE={other:?}"),
+            );
+            ipc::Smoke::Off
+        }
     }
 }
