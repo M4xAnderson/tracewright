@@ -11,7 +11,11 @@ use tracewright_net::UnknownReason;
 use tracewright_net::Violation;
 
 fn explore(net: &tracewright_net::Net, max_markings: u64) -> NetVerdict {
-    tracewright_recheck::explore(net, &NetProperty::DeadlockFree, &Budget { max_markings })
+    let budget = Budget {
+        max_markings,
+        ..Budget::default()
+    };
+    tracewright_recheck::explore(net, &NetProperty::DeadlockFree, &budget)
 }
 
 #[test]

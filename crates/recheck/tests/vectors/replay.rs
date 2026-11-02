@@ -68,6 +68,7 @@ fn every_counterexample_recheck_finds_replays() {
             &NetProperty::DeadlockFree,
             &Budget {
                 max_markings: 1 << 20,
+                ..Budget::default()
             },
         );
         let NetVerdict::Disproved(Evidence::Counterexample(cx)) = verdict else {

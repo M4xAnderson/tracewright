@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use tracewright_net::Budget;
 use tracewright_net::Counterexample;
@@ -18,7 +19,9 @@ use tracewright_net::Marking;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
+use tracewright_net::POLL_EXPANSIONS;
 use tracewright_net::Phase;
+use tracewright_net::Progress;
 use tracewright_net::QualifiedId;
 use tracewright_net::Step;
 use tracewright_net::Technique;
@@ -30,17 +33,29 @@ use tracewright_net::WaitReason;
 use tracewright_net::WhenFull;
 use tracewright_net::validate;
 
-/// Decides `property` on `net`, storing at most `budget.max_markings` markings.
+/// Decides `property` on `net` within `budget`: at most `budget.max_markings` stored markings,
+/// and the deadline and the cancel flag polled every [`POLL_EXPANSIONS`] expansions (NS §10.1).
 ///
 /// An invalid net is Unknown "internal error": engine validates before it hands a net over, so an
 /// invalid one here is a bug upstream (NS §2.3).
 #[must_use]
 pub fn check(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    check_reporting(net, property, budget, &mut |_progress| {})
+}
+
+/// [`check`], calling `progress` at every poll with the markings stored so far.
+#[must_use]
+pub fn check_reporting(
+    net: &Net,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
     if validate::net(net).is_err() {
         return NetVerdict::Unknown(UnknownReason::InternalError);
     }
     match property {
-        NetProperty::DeadlockFree => deadlock_free(&Compiled::new(net), budget.max_markings),
+        NetProperty::DeadlockFree => deadlock_free(&Compiled::new(net), budget, progress),
     }
 }
 
@@ -238,8 +253,30 @@ fn exhausted(markings: u64) -> NetVerdict {
     })
 }
 
+// NS §10.1: the cancel flag first (it wins at the same poll), then the deadline. Returns the
+// verdict that ends the phase, if any.
+fn poll(budget: &Budget, stored: u64) -> Option<NetVerdict> {
+    assert!(
+        stored <= budget.max_markings,
+        "poll: stored past the budget"
+    );
+    if budget.cancel.load(Ordering::Relaxed) {
+        return Some(NetVerdict::Unknown(UnknownReason::Cancelled));
+    }
+    let deadline = budget.deadline.as_ref()?;
+    if deadline.clock.now() >= deadline.at {
+        return Some(exhausted(stored));
+    }
+    None
+}
+
 // NS §8.1 with `final none`: the first marking without an enabled transition is a deadlock.
-fn deadlock_free(net: &Compiled, max_markings: u64) -> NetVerdict {
+fn deadlock_free(
+    net: &Compiled,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
+    let max_markings = budget.max_markings;
     let mut found = Discovered {
         markings: Vec::new(),
         parents: Vec::new(),
@@ -249,8 +286,18 @@ fn deadlock_free(net: &Compiled, max_markings: u64) -> NetVerdict {
         return verdict;
     }
     let mut queue = VecDeque::from([0]);
+    let mut expansions: u64 = 0;
     // Every marking enters the queue once and the budget bounds the stored markings (LIM-1).
     while let Some(at) = queue.pop_front() {
+        if expansions.is_multiple_of(POLL_EXPANSIONS) {
+            if let Some(verdict) = poll(budget, found.stored()) {
+                return verdict;
+            }
+            progress(Progress {
+                markings: found.stored(),
+            });
+        }
+        expansions += 1;
         let marking = found.markings[at].clone();
         for (t, transition) in net.transitions.iter().enumerate() {
             if !net.enabled(&marking, transition) {

@@ -99,9 +99,11 @@ fn pipeline(lowered: &Lowered, property: &NetProperty, max_markings: u64) -> Ver
     }
     let main = Budget {
         max_markings: max_markings / 2,
+        ..Budget::default()
     };
     let rest = Budget {
         max_markings: max_markings - main.max_markings,
+        ..Budget::default()
     };
     assert!(
         rest.max_markings >= main.max_markings,

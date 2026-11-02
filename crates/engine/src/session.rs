@@ -108,6 +108,7 @@ impl Session {
             sink,
             budget: Budget {
                 max_markings: DEFAULT_MAX_MARKINGS,
+                ..Budget::default()
             },
         })
     }
