@@ -14,6 +14,13 @@ tracewright-verify.workspace = true
 tracewright-recheck.workspace = true
 tracewright-format.workspace = true
 tracewright-scan.workspace = true
+blake3.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde.workspace = true
+toml.workspace = true
 
 [lints]
 workspace = true
