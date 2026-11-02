@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use tracewright_net::Budget;
 use tracewright_net::Certificate;
@@ -20,7 +21,9 @@ use tracewright_net::Marking;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
+use tracewright_net::POLL_EXPANSIONS;
 use tracewright_net::Phase;
+use tracewright_net::Progress;
 use tracewright_net::QualifiedId;
 use tracewright_net::Step;
 use tracewright_net::Technique;
@@ -32,21 +35,35 @@ use tracewright_net::WaitReason;
 use tracewright_net::WhenFull;
 use tracewright_net::validate;
 
-/// Decides `property` on `net`, storing at most `budget.max_markings` markings.
+/// Decides `property` on `net` within `budget`: at most `budget.max_markings` stored markings,
+/// and the deadline and the cancel flag polled every [`POLL_EXPANSIONS`] expansions (NS §10.1).
+/// No capacity exceeded on a net without an overflow place is Proved by the `NoOverflowPlace`
+/// certificate without exploring (NS §8.2), so it never polls.
 ///
 /// An invalid net is Unknown "internal error": engine validates before it hands a net over, so an
 /// invalid one here is a bug upstream (NS §2.3).
 #[must_use]
 pub fn check(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    check_reporting(net, property, budget, &mut |_progress| {})
+}
+
+/// [`check`], calling `progress` at every poll with the markings stored so far.
+#[must_use]
+pub fn check_reporting(
+    net: &Net,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
     if validate::net(net).is_err() {
         return NetVerdict::Unknown(UnknownReason::InternalError);
     }
     let compiled = Compiled::new(net);
     match property {
-        NetProperty::DeadlockFree => explore(&compiled, property, budget.max_markings),
+        NetProperty::DeadlockFree => explore(&compiled, property, budget, progress),
         NetProperty::CapacityNeverExceeded => {
             if compiled.when_full.contains(&WhenFull::Overflow) {
-                explore(&compiled, property, budget.max_markings)
+                explore(&compiled, property, budget, progress)
             } else {
                 no_overflow_place(&compiled)
             }
@@ -306,11 +323,34 @@ fn exhausted(markings: u64) -> NetVerdict {
     })
 }
 
+// NS §10.1: the cancel flag first (it wins at the same poll), then the deadline. Returns the
+// verdict that ends the phase, if any.
+fn poll(budget: &Budget, stored: u64) -> Option<NetVerdict> {
+    assert!(
+        stored <= budget.max_markings,
+        "poll: stored past the budget"
+    );
+    if budget.cancel.load(Ordering::Relaxed) {
+        return Some(NetVerdict::Unknown(UnknownReason::Cancelled));
+    }
+    let deadline = budget.deadline.as_ref()?;
+    if deadline.clock.now() >= deadline.at {
+        return Some(exhausted(stored));
+    }
+    None
+}
+
 // The breadth-first exploration of NS §12 for deadlock-free (NS §8.1, `final none`) and no
 // capacity exceeded (NS §8.2). The first violation in discovery order ends it; a complete
 // exploration is Proved if no overflow marking was found, and for deadlock-free otherwise Unknown
 // "capacity exceeded first" with the first overflow marking.
-fn explore(net: &Compiled, property: &NetProperty, max_markings: u64) -> NetVerdict {
+fn explore(
+    net: &Compiled,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
+    let max_markings = budget.max_markings;
     let mut found = Discovered {
         markings: Vec::new(),
         parents: Vec::new(),
@@ -329,9 +369,19 @@ fn explore(net: &Compiled, property: &NetProperty, max_markings: u64) -> NetVerd
         return verdict;
     }
     let mut queue = VecDeque::from([0]);
+    let mut expansions: u64 = 0;
     // Every in-bounds marking enters the queue once and the budget bounds the stored markings
     // (LIM-1).
     while let Some(at) = queue.pop_front() {
+        if expansions.is_multiple_of(POLL_EXPANSIONS) {
+            if let Some(verdict) = poll(budget, found.stored()) {
+                return verdict;
+            }
+            progress(Progress {
+                markings: found.stored(),
+            });
+        }
+        expansions += 1;
         let marking = found.markings[at].clone();
         assert!(
             !net.is_overflow(&marking),
@@ -363,6 +413,12 @@ fn explore(net: &Compiled, property: &NetProperty, max_markings: u64) -> NetVerd
             }
         }
     }
+    complete(net, property, &found)
+}
+
+// The verdict of a complete exploration without a violation: Proved with |R| if no overflow
+// marking was found, else (deadlock-free only) capacity exceeded first at the first one (NS §8.1).
+fn complete(net: &Compiled, property: &NetProperty, found: &Discovered) -> NetVerdict {
     let reachable = found.stored() - found.overflow_count;
     match found.first_overflow {
         None => NetVerdict::Proved {
@@ -372,11 +428,11 @@ fn explore(net: &Compiled, property: &NetProperty, max_markings: u64) -> NetVerd
         Some(first) => {
             assert!(
                 matches!(property, NetProperty::DeadlockFree),
-                "explore: no capacity exceeded stops at the first overflow marking"
+                "complete: no capacity exceeded stops at the first overflow marking"
             );
             let (place, _, _) = net
                 .exceeded(&found.markings[first])
-                .expect("explore: an overflow marking exceeds a capacity");
+                .expect("complete: an overflow marking exceeds a capacity");
             NetVerdict::Unknown(UnknownReason::CapacityExceededFirst {
                 place,
                 steps: found.run_to(net, first),

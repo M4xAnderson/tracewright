@@ -1,6 +1,7 @@
 // Verdict copy from the flows §5 catalog, word for word. Names are resolved from the view at
 // render time (design §3), so a rename never shows an old label.
 import type { OverflowDto } from "../../ipc/bindings/overflow-dto";
+import type { Phase } from "../../ipc/bindings/phase";
 import type { PlaceOrigin } from "../../ipc/bindings/place-origin";
 import type { PropertyKind } from "../../ipc/bindings/property-kind";
 import type { PropertyView } from "../../ipc/bindings/property-view";
@@ -12,6 +13,20 @@ import type { WaitingDto } from "../../ipc/bindings/waiting-dto";
 import { assertNever } from "../../store/app-store";
 
 const count = new Intl.NumberFormat("en-US");
+
+// V-RUN with contract R11. Both counts are indeterminate: the second explorer counts its own
+// composition, so the first count is not its denominator (flows §4.7).
+export function progressLine(progress: { phase: Phase; markings: number }): string {
+  const markings = `${count.format(progress.markings)} ${progress.markings === 1 ? "marking" : "markings"}`;
+  switch (progress.phase) {
+    case "main":
+      return `Exploring… ${markings}`;
+    case "recheck":
+      return `Re-checking… ${markings}`;
+    default:
+      return assertNever(progress.phase);
+  }
+}
 
 export function propertyName(kind: PropertyKind): string {
   switch (kind) {

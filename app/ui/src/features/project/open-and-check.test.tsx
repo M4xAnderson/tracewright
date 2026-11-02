@@ -253,6 +253,31 @@ describe("open a project and see the verdict", () => {
     expect(screen.getByRole("button", { name: "Checking…" })).toBeInTheDocument();
     expect(screen.getByText("Checking 1 property…")).toBeInTheDocument();
   });
+
+  test("a running check counts the markings of each phase as it explores", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
+    );
+    const { currentKeys, queued } = deadlockFreeRun(eventsOppositeLocks);
+    const progress = events(eventsOppositeLocks).find(
+      (e) => e.kind === "checkProgress" && e.property === "no-deadlock",
+    );
+    if (queued.kind !== "checkQueued" || progress === undefined) {
+      throw new Error("the fixture holds checkQueued and checkProgress for no-deadlock");
+    }
+
+    shell.emit(currentKeys, queued, progress);
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 1 marking");
+
+    const { property, key } = queued;
+    shell.emit({ kind: "checkProgress", property, key, phase: "main", markings: 120400 });
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 120,400 markings");
+
+    shell.emit({ kind: "checkProgress", property, key, phase: "recheck", markings: 48100 });
+    expect(row("Deadlock-free")).toHaveTextContent("Re-checking… 48,100 markings");
+    expect(row("Deadlock-free")).not.toHaveTextContent("Exploring");
+  });
 });
 
 describe("keysFresh: a verdict is current only once the keys of its revision arrived", () => {

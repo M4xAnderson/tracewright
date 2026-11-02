@@ -23,6 +23,20 @@
   },
   {
     "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "recheck",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {

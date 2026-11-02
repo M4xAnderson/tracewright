@@ -10,7 +10,11 @@ use tracewright_net::Technique;
 use tracewright_net::UnknownReason;
 
 fn explore(net: &tracewright_net::Net, property: &NetProperty, max_markings: u64) -> NetVerdict {
-    tracewright_recheck::explore(net, property, &Budget { max_markings })
+    let budget = Budget {
+        max_markings,
+        ..Budget::default()
+    };
+    tracewright_recheck::explore(net, property, &budget)
 }
 
 fn fired(steps: &[tracewright_net::Step]) -> Vec<String> {

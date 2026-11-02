@@ -17,6 +17,7 @@ import {
   exhaustiveLine,
   NO_FINAL_S0,
   overflowLine,
+  progressLine,
   propertyName,
   provedHeadline,
   SCOPE_LINE,
@@ -139,7 +140,7 @@ function Detail({
         </p>
       );
     case "running":
-      return null;
+      return state.progress === undefined ? null : <p>{progressLine(state.progress)}</p>;
     case "noBehavior":
       return <p>Nothing to check yet: no element in this view has a behavior model.</p>;
     case "noVerdict":

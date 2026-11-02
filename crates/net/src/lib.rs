@@ -14,6 +14,10 @@
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::time::Instant;
 
 pub mod encode;
 pub mod validate;
@@ -273,12 +277,43 @@ pub enum UnknownReason {
     },
 }
 
-/// What an explorer may spend on one phase (NS §10.1). The deadline and the cancel flag join it
-/// with the supervised workers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Expansions (pops of one marking from the queue) between two polls of the deadline and the
+/// cancel flag; an explorer polls at its first expansion and then at least this often (NS §10.1).
+pub const POLL_EXPANSIONS: u64 = 1024;
+
+/// The time a deadline is measured against: the engine's Clock port, a fake one in tests
+/// (design §3). Explorers read it only when they poll.
+pub trait Clock: fmt::Debug + Send + Sync {
+    /// The current instant.
+    fn now(&self) -> Instant;
+}
+
+/// The moment a phase must end, with the clock that tells it (NS §10.1).
+#[derive(Debug, Clone)]
+pub struct Deadline {
+    /// The phase has run out of time once the clock reads this instant or later.
+    pub at: Instant,
+    /// Shared with the engine and the other phase of the same check, which read the same clock.
+    pub clock: Arc<dyn Clock>,
+}
+
+/// What an explorer may spend on one phase (NS §10.1): markings, time and a cancel flag, polled
+/// together every [`POLL_EXPANSIONS`] expansions.
+#[derive(Debug, Clone, Default)]
 pub struct Budget {
     /// The most markings the phase may store, the initial marking included.
     pub max_markings: u64,
+    /// `None` for a budget of markings only.
+    pub deadline: Option<Deadline>,
+    /// Set by the engine to stop the check; shared with it, so the flag is behind an `Arc`.
+    pub cancel: Arc<AtomicBool>,
+}
+
+/// What an explorer reports at a poll while it runs (design §3, `checkProgress`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Progress {
+    /// Markings stored so far, the initial marking included.
+    pub markings: u64,
 }
 
 /// A candidate verdict, as `verify::check` and `recheck::explore` return it. It is never cached,

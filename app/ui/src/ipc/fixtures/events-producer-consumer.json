@@ -23,6 +23,13 @@
   },
   {
     "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-overflow"
+  },
+  {
+    "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f",
     "kind": "verdict",
     "property": "no-overflow",
     "verdict": {
@@ -72,6 +79,13 @@
         }
       }
     }
+  },
+  {
+    "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
   },
   {
     "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69",

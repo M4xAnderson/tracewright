@@ -333,7 +333,7 @@ proptest! {
         prop_assert_eq!(encode::canonical(&flat), encode::canonical(&own));
         // At most 3 parts × 2 places and 2 generated places, each with at most 4 counts in
         // bounds: 4^8 = 65,536 in-bounds markings, below the budget.
-        let budget = Budget { max_markings: 1_000_000 };
+        let budget = Budget { max_markings: 1_000_000, ..Budget::default() };
         let main = tracewright_verify::check(&flat, &NetProperty::DeadlockFree, &budget);
         let second = tracewright_recheck::explore(&own, &NetProperty::DeadlockFree, &budget);
         prop_assert!(

@@ -23,6 +23,13 @@
   },
   {
     "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {

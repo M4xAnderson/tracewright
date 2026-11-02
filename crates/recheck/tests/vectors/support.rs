@@ -254,3 +254,26 @@ pub fn composition_vectors() -> CompositionFile {
     ))
     .expect("composition vectors parse")
 }
+
+#[derive(Deserialize)]
+pub struct BudgetFile {
+    pub nets: BTreeMap<String, NetSpec>,
+    pub vector: Vec<BudgetVector>,
+}
+
+#[derive(Deserialize)]
+pub struct BudgetVector {
+    pub id: String,
+    pub net: String,
+    pub n: u64,
+    #[serde(default)]
+    pub cancel: bool,
+    pub expect: String,
+    pub markings: Option<u64>,
+    pub steps: Option<usize>,
+}
+
+pub fn budget_vectors() -> BudgetFile {
+    toml::from_str(include_str!("../../../net/vectors/ns14-s0-budget.toml"))
+        .expect("budget vectors parse")
+}

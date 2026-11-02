@@ -113,7 +113,7 @@ fn keys_come_first_and_each_verdict_carries_its_current_key() {
         .iter()
         .filter_map(|event| match event {
             EngineEvent::Verdict(verdict) => Some(verdict),
-            EngineEvent::CurrentKeys(_) | EngineEvent::CheckQueued(_) => None,
+            _ => None,
         })
         .collect();
     assert_eq!(verdicts.len(), 2, "no-deadlock and no-overflow");

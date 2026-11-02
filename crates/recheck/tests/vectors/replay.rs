@@ -71,6 +71,7 @@ fn every_counterexample_recheck_finds_replays() {
             &property,
             &Budget {
                 max_markings: 1 << 20,
+                ..Budget::default()
             },
         );
         let NetVerdict::Disproved(Evidence::Counterexample(cx)) = verdict else {
@@ -125,6 +126,7 @@ fn every_capacity_exceeded_first_run_replays_as_a_no_capacity_exceeded_counterex
             &NetProperty::DeadlockFree,
             &Budget {
                 max_markings: 1 << 20,
+                ..Budget::default()
             },
         );
         let NetVerdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps }) = verdict

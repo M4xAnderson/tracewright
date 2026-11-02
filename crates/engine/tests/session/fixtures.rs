@@ -8,9 +8,11 @@ use std::path::Path;
 use serde_json::Value;
 use serde_json::json;
 
+use super::support::FakeClock;
 use super::support::MemDisk;
 use super::support::RecordingSink;
 use super::support::one_job;
+use super::support::ports;
 use tracewright_engine::Session;
 
 // Opens `disk`, runs the checks and writes `events-<name>.json`. The view reaches the UI inside
@@ -21,7 +23,7 @@ use tracewright_engine::Session;
 )]
 fn write(name: &str, disk: &MemDisk) -> (Value, Value) {
     let sink = RecordingSink::default();
-    let session = Session::open(disk, Box::new(sink.clone())).expect("the project opens");
+    let session = Session::open(disk, ports(&sink, &FakeClock::new())).expect("the project opens");
     let view = serde_json::to_value(session.view()).expect("the view serializes");
     session.run_checks();
     let events = serde_json::to_value(&*sink.events.lock().expect("test fixture"))
@@ -59,6 +61,10 @@ fn opposite_locks() {
     assert_eq!(
         events[1],
         json!({ "kind": "checkQueued", "property": "no-deadlock", "key": key })
+    );
+    assert_eq!(
+        events[3],
+        json!({ "kind": "checkProgress", "property": "no-deadlock", "key": key, "phase": "main", "markings": 1 })
     );
     let verdict = verdict_event(&events, "no-deadlock");
     assert_eq!(verdict["kind"], "verdict");

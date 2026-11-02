@@ -161,6 +161,7 @@ fn each_keyed_property_is_queued_before_its_verdict_arrives() {
         .map(|event| match event {
             EngineEvent::CurrentKeys(_) => "currentKeys",
             EngineEvent::CheckQueued(_) => "checkQueued",
+            EngineEvent::CheckProgress(_) => "checkProgress",
             EngineEvent::Verdict(_) => "verdict",
         })
         .collect();
@@ -170,6 +171,7 @@ fn each_keyed_property_is_queued_before_its_verdict_arrives() {
             "currentKeys",
             "checkQueued",
             "checkQueued",
+            "checkProgress",
             "verdict",
             "verdict"
         ]
