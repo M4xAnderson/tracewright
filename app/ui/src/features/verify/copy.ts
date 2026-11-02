@@ -148,6 +148,17 @@ export function exhaustiveLine(markings: number): string {
 export const CERTIFICATE_LINE =
   "Proved with a certificate; a second explorer re-checked the certificate.";
 
+// The NS §9.6 fact of a NoOverflowPlace certificate (catalog T2), so "never overflows" is not read
+// as "never loses a token". The flows catalog has no ID for it yet; the wording is NS §9.6's, and
+// the line for no drop place is ours.
+export function certificateFact(view: View, scope: string, dropPlaces: PlaceOrigin[]): string[] {
+  const discarded =
+    dropPlaces.length === 0
+      ? "No place drops, so no token is discarded."
+      : `Tokens may be discarded at: ${dropPlaces.map((place) => placeName(view, place)).join(", ")}.`;
+  return [`No place in ${scope} can overflow: every place blocks or drops.`, discarded];
+}
+
 // V-PRO-ASM
 export function assumptionLine(view: View, relationship: string): string {
   return `Assumes: ${relationshipLabel(view, relationship)} binds no ports, so it adds no behavior.`;

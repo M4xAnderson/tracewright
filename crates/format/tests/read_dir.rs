@@ -21,6 +21,9 @@ fn skips_dotfiles_other_files_and_other_folders() {
     fs::write(root.path().join("elements/.pn-0a1b2c3d.tmp"), "x").expect("write");
     fs::write(root.path().join("elements/notes.txt"), "x").expect("write");
     fs::write(root.path().join("layouts/api.toml"), "format = 1\n").expect("write");
+    fs::write(root.path().join("layouts/.pn-0a1b2c3d.tmp"), "x").expect("write");
+    fs::create_dir_all(root.path().join("layouts/old")).expect("mkdir");
+    fs::write(root.path().join("layouts/old/api.toml"), "format = 1\n").expect("write");
     let mut paths: Vec<String> = tracewright_format::read_dir(root.path())
         .expect("readable")
         .into_iter()

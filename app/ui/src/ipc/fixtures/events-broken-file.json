@@ -2,7 +2,7 @@
   {
     "keys": {
       "job-no-deadlock": {
-        "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94"
+        "key": "key-1"
       },
       "no-deadlock": {
         "unknown": {
@@ -33,26 +33,26 @@
     "rev": 0
   },
   {
-    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "key": "key-1",
     "kind": "checkQueued",
     "property": "job-no-deadlock"
   },
   {
-    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "main",
     "property": "job-no-deadlock"
   },
   {
-    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "recheck",
     "property": "job-no-deadlock"
   },
   {
-    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "key": "key-1",
     "kind": "verdict",
     "property": "job-no-deadlock",
     "verdict": {

@@ -1,0 +1,21 @@
+# The nets of spike E1 (docs/product/experiments/e1-state-space.md) that are not NS §14 vectors,
+# as flattened nets in the schema of crates/net/vectors/ns14-s0-properties.toml: a place is
+# `block` unless it states `when_full`. The other E1 nets are vectors already: (a) PC_overflow,
+# (b) LOCKS_yx, (c) POOL, (c3) POOL_LEAK, V08 and V12.
+
+# (c2) The worker pool whose failure path also gives the worker back: Proved deadlock-free with
+# 3 markings, and no capacity exceeded by certificate.
+[nets.E1C2]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+  { id = "r3/fail+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+]
+
+# X1: a deadlock reachable only through an overflow marking. NS §3.2 makes the overflow marking
+# terminal, so deadlock-free is Unknown "capacity exceeded first" and no capacity exceeded is
+# Disproved; a plain `EF deadlock` would wrongly report the deadlock (E1 surprise 2).
+[nets.X1]
+places = [{ id = "x/p", capacity = 1, when_full = "overflow" }, { id = "x/s", capacity = 1, initial = 1 }]
+transitions = [{ id = "x/t1", pre = { "x/s" = 1 }, post = { "x/p" = 2 } }, { id = "x/t2", pre = { "x/p" = 2 } }]

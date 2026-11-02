@@ -390,16 +390,57 @@ mod tests {
         fn emit(&self, _event: EngineEvent) {}
     }
 
+    fn write_fixture(name: &str, json: &serde_json::Value) {
+        write_fixture_after(name, json, &mut Vec::new());
+    }
+
+    // Like `write_fixture`, with the keys in `seen` already numbered: a fixture that continues
+    // another one keeps its numbers, so a key that changed gets a new one.
     #[expect(
         clippy::disallowed_methods,
         reason = "writes a test fixture for the UI, not a project file"
     )]
-    fn write_fixture(name: &str, json: &serde_json::Value) {
-        let text = serde_json::to_string_pretty(json).expect("JSON");
+    fn write_fixture_after(name: &str, json: &serde_json::Value, seen: &mut Vec<String>) {
+        let mut aliased = json.clone();
+        alias_keys(&mut aliased, seen);
+        let text = serde_json::to_string_pretty(&aliased).expect("JSON");
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../ui/src/ipc/fixtures")
             .join(name);
         std::fs::write(&fixture, format!("{text}\n")).expect("fixture written");
+    }
+
+    /// Replaces every `CheckKey` (64 lowercase hex characters) with `key-<n>`, numbered by first
+    /// appearance in the file, so equal keys stay equal and no hash-like string reaches the committed
+    /// fixtures, where the gitleaks pre-commit hook would flag it as a secret.
+    fn alias_keys(value: &mut serde_json::Value, seen: &mut Vec<String>) {
+        match value {
+            serde_json::Value::String(text) if is_check_key(text) => {
+                let index = seen.iter().position(|key| key == text).unwrap_or_else(|| {
+                    seen.push(text.clone());
+                    seen.len() - 1
+                });
+                *text = format!("key-{}", index + 1);
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    alias_keys(item, seen);
+                }
+            }
+            serde_json::Value::Object(map) => {
+                for item in map.values_mut() {
+                    alias_keys(item, seen);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn is_check_key(text: &str) -> bool {
+        text.len() == 64
+            && text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     }
 
     // The path differs per checkout, so the fixture carries a stand-in the UI tests show.
@@ -541,9 +582,31 @@ mod tests {
         }
     }
 
-    // A copy of the engine fixture `project` in a temporary folder, opened, with its events
-    // recorded from then on.
-    fn open_copy(project: &str) -> (tempfile::TempDir, Session, StdDisk, Arc<Recorded>) {
+    // Runs every check at once on the calling thread, so the recorded events are complete.
+    struct InlineSpawner;
+    impl tracewright_engine::Spawner for InlineSpawner {
+        fn spawn(
+            &self,
+            _name: String,
+            work: Box<dyn FnOnce() + Send>,
+        ) -> io::Result<tracewright_engine::WorkerHandle> {
+            work();
+            Ok(tracewright_engine::WorkerHandle::Finished)
+        }
+    }
+
+    struct OpenCopy {
+        dir: tempfile::TempDir,
+        session: Session,
+        disk: StdDisk,
+        sink: Arc<Recorded>,
+        // The keys of the first check run, in the order `events-<project>.json` numbers them.
+        seen: Vec<String>,
+    }
+
+    // A copy of the engine fixture `project` in a temporary folder, opened and checked once, as
+    // the UI does; its events are recorded from then on.
+    fn open_copy(project: &str) -> OpenCopy {
         let dir = tempfile::tempdir().expect("a temporary folder");
         let from = PathBuf::from(engine_project(project));
         std::fs::create_dir(dir.path().join("elements")).expect("folder");
@@ -551,12 +614,27 @@ mod tests {
             std::fs::copy(from.join(file), dir.path().join(file)).expect("test file");
         }
         let sink = Arc::new(Recorded::default());
-        let (session, disk, _opened) = open_at(
-            dir.path().to_str().expect("UTF-8 path"),
-            std_ports(Arc::clone(&sink) as Arc<dyn Sink>),
-        )
-        .expect("the copy opens");
-        (dir, session, disk, sink)
+        let ports = Ports {
+            sink: Arc::clone(&sink) as Arc<dyn Sink>,
+            clock: Arc::new(SystemClock),
+            spawner: Arc::new(InlineSpawner),
+        };
+        let (session, disk, _opened) =
+            open_at(dir.path().to_str().expect("UTF-8 path"), ports).expect("the copy opens");
+        session.run_checks();
+        let checked = std::mem::take(&mut *sink.0.lock().expect("test sink"));
+        let mut seen = Vec::new();
+        alias_keys(
+            &mut serde_json::to_value(&checked).expect("serializes"),
+            &mut seen,
+        );
+        OpenCopy {
+            dir,
+            session,
+            disk,
+            sink,
+            seen,
+        }
     }
 
     #[expect(
@@ -571,21 +649,17 @@ mod tests {
     }
 
     // Reloads and writes the reply as `reload-<name>.json` and the events it emitted, if any, as
-    // `reload-events-<name>.json`.
-    fn reload_fixture(
-        name: &str,
-        session: &mut Session,
-        disk: &StdDisk,
-        sink: &Recorded,
-    ) -> serde_json::Value {
-        let reply = reload_in(session, disk).expect("the project reloads");
+    // `reload-events-<name>.json`, with keys numbered after those of the first check run.
+    fn reload_fixture(name: &str, copy: &mut OpenCopy) -> serde_json::Value {
+        let reply = reload_in(&mut copy.session, &copy.disk).expect("the project reloads");
         let json = serde_json::to_value(&reply).expect("serializes");
         write_fixture(&format!("reload-{name}.json"), &json);
-        let events = std::mem::take(&mut *sink.0.lock().expect("test sink"));
+        let events = std::mem::take(&mut *copy.sink.0.lock().expect("test sink"));
         if !events.is_empty() {
-            write_fixture(
+            write_fixture_after(
                 &format!("reload-events-{name}.json"),
                 &serde_json::to_value(&events).expect("serializes"),
+                &mut copy.seen.clone(),
             );
         }
         json
@@ -593,9 +667,10 @@ mod tests {
 
     #[test]
     fn reload_reads_the_files_edited_on_disk_and_returns_the_new_view() {
-        let (dir, mut session, disk, sink) = open_copy("one-job");
+        let mut copy = open_copy("one-job");
+        assert_eq!(copy.seen.len(), 1, "events-one-job.json has one key, key-1");
 
-        let unchanged = reload_fixture("nothing-changed", &mut session, &disk, &sink);
+        let unchanged = reload_fixture("nothing-changed", &mut copy);
         assert_eq!(
             unchanged["outcome"],
             serde_json::json!({ "kind": "nothingChanged" })
@@ -603,13 +678,13 @@ mod tests {
         assert_eq!(unchanged["view"]["rev"], 0);
 
         edit(
-            &dir,
+            &copy.dir,
             "elements/job.toml",
             "name = \"Job\"",
             "name = \"Nightly job\"",
         );
-        edit(&dir, "elements/job.toml", "initial = 1", "initial = 0");
-        let changed = reload_fixture("one-job", &mut session, &disk, &sink);
+        edit(&copy.dir, "elements/job.toml", "initial = 1", "initial = 0");
+        let changed = reload_fixture("one-job", &mut copy);
         assert_eq!(
             changed["outcome"],
             serde_json::json!({ "kind": "reloaded", "changed": ["job"], "added": [], "removed": [], "notLoaded": [] })
@@ -617,8 +692,8 @@ mod tests {
         assert_eq!(changed["view"]["rev"], 1);
         assert_eq!(changed["view"]["elements"][0]["name"], "Nightly job");
 
-        edit(&dir, "elements/job.toml", "initial = 0", "initial = ");
-        let broken = reload_fixture("parse-error", &mut session, &disk, &sink);
+        edit(&copy.dir, "elements/job.toml", "initial = 0", "initial = ");
+        let broken = reload_fixture("parse-error", &mut copy);
         assert_eq!(broken["outcome"]["kind"], "reloaded");
         assert_eq!(
             broken["outcome"]["notLoaded"][0]["file"],
@@ -629,10 +704,10 @@ mod tests {
 
     #[test]
     fn a_reload_that_finds_a_project_it_cannot_open_keeps_the_open_one() {
-        let (dir, mut session, disk, _sink) = open_copy("one-job");
-        edit(&dir, "arch.toml", "format = 1", "format = 2");
+        let mut copy = open_copy("one-job");
+        edit(&copy.dir, "arch.toml", "format = 1", "format = 2");
 
-        let failed = reload_in(&mut session, &disk);
+        let failed = reload_in(&mut copy.session, &copy.disk);
 
         let Err(error) = failed else {
             panic!("a newer arch.toml does not reload");
@@ -647,6 +722,6 @@ mod tests {
             "reload-failed.json",
             &serde_json::to_value(&error).expect("serializes"),
         );
-        assert_eq!(session.view().rev, 0);
+        assert_eq!(copy.session.view().rev, 0);
     }
 }

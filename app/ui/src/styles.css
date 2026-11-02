@@ -5,6 +5,8 @@
 @import "@fontsource/ibm-plex-sans/latin-500.css";
 @import "@fontsource/ibm-plex-sans/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
+/* React Flow's structural styles only; the look comes from the tokens below. */
+@import "@xyflow/react/dist/base.css";
 
 /* Semantic tokens (flows §3.4) from the visual baseline, option 2b. Components use the Tailwind
    names below, never hex values. Light and dark are separate palettes; the theme follows the OS. */
@@ -30,6 +32,8 @@
   --verdict-unknown: #5a626d;
   --verdict-pending: #8d939b;
   --problem: #c22f2a;
+  --edge: #69707a;
+  --canvas-grid: #e3e6ea;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +58,8 @@
     --verdict-unknown: #a0a7b1;
     --verdict-pending: #5d636c;
     --problem: #ff6b61;
+    --edge: #8a929d;
+    --canvas-grid: #1b212a;
   }
 }
 
@@ -117,4 +123,218 @@
   .animate-spin {
     animation: none;
   }
+}
+
+/* Canvas (flows §4.3, 2b mockup). Element and relationship looks; React Flow lays them out. */
+.canvas .react-flow {
+  background-color: var(--surface-canvas);
+  background-image: radial-gradient(var(--canvas-grid) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+.element-node {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.element-body {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  column-gap: 8px;
+  align-content: start;
+  width: 100%;
+  height: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: var(--surface-raised);
+  border: 1.25px solid var(--border-control);
+  border-radius: 5px;
+  color: var(--text-primary);
+  cursor: default;
+}
+.kind-person .element-body {
+  border-radius: 22px;
+}
+.kind-database .element-body {
+  border-radius: 5px 5px 14px 14px / 5px 5px 8px 8px;
+}
+.kind-queue .element-body {
+  border-style: double;
+  border-width: 3px;
+}
+.element-glyph svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+}
+.element-name {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.3;
+  /* Long names truncate after two lines; the accessible name stays whole (flows §4.3). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.element-mark {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+.element-badge {
+  align-self: start;
+  padding: 0 6px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.element-tech {
+  grid-column: 2 / 4;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.element-node.is-selected .element-body {
+  border: 2px solid var(--accent);
+}
+/* Port handles: 12 px drawn, a 24 × 24 hit area at canvas zoom 100 % (flows §4.4, AC-16). */
+.react-flow__handle.port-handle {
+  width: 12px;
+  height: 12px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 0;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--edge);
+}
+.react-flow__handle.port-handle::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+.react-flow__handle.port-place {
+  border-radius: 50%;
+}
+.react-flow__handle.port-twin,
+.react-flow__handle.border-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+.port-name {
+  display: none;
+  position: absolute;
+  top: -5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Names sit inside the element, next to their handle, clear of the relationship lines. */
+.port-name-left {
+  left: 14px;
+}
+.port-name-right {
+  right: 14px;
+}
+.zoom-detail .port-name,
+.is-selected .port-name {
+  display: block;
+}
+.relationship-line {
+  stroke: var(--edge);
+  stroke-width: 1.25;
+}
+.relationship-line.is-async {
+  stroke-dasharray: 5 4;
+}
+.relationship-line.is-selected {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.relationship-label {
+  position: absolute;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-secondary);
+  background: var(--surface-canvas);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.relationship-chip {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--border-control);
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+/* Behavior model pane (flows §4.5). */
+.net-graph .react-flow {
+  background: var(--surface-panel);
+}
+.net-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.net-place {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-secondary);
+  background: var(--surface-raised);
+  font-weight: 600;
+}
+.net-transition {
+  width: 12px;
+  height: 36px;
+  background: var(--text-secondary);
+}
+/* A port gets a second, dashed outline next to its "port" tag; the tag carries the meaning. */
+.net-place.is-port,
+.net-transition.is-port {
+  outline: 1.5px dashed var(--text-secondary);
+  outline-offset: 3px;
+}
+.net-name {
+  font-family: var(--font-mono);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.net-detail {
+  color: var(--text-muted);
+}
+.net-port-tag {
+  padding: 0 5px;
+  border: 1px solid var(--border-control);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.react-flow__handle.net-handle {
+  opacity: 0;
+  pointer-events: none;
+  top: 18px;
+}
+.net-arc {
+  stroke: var(--text-muted);
+  stroke-width: 1.1;
 }

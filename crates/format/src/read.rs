@@ -12,14 +12,14 @@ use crate::ELEMENTS_MAX;
 use crate::LAYOUT_FILE_BYTES_MAX;
 use crate::ProjectFile;
 
-/// The files of the project folder `root` that the Session reads and hashes: `arch.toml`,
-/// `elements/*.toml` and `layouts/*.toml` (file-format §2.1; dotfiles, such as the writer's temp
-/// files, are skipped). A missing `arch.toml`, `elements` or `layouts` folder is not an error
-/// here; `load` reports what it needs.
+/// The files of the project folder `root` that `load` reads and the Session hashes: `arch.toml`,
+/// `elements/*.toml` and `layouts/*.toml` (dotfiles, such as the writer's temp files, are skipped). A missing
+/// `arch.toml`, `elements` or `layouts` folder is not an error here; `load` reports what it needs.
 ///
 /// LIM-2: no file is read past its limit plus one byte, so `load` reports an oversized file
-/// without the whole file in memory, and at most `ELEMENTS_MAX + 1` files are read from each of
-/// `elements` and `layouts`.
+/// without the whole file in memory, and at most `ELEMENTS_MAX + 1` files are read per folder.
+/// Layout files past that are not read: each element has at most one, so the extra files are
+/// orphans or leave an element unplaced, and layout never changes meaning (file-format §3.3).
 ///
 /// # Errors
 ///
@@ -88,13 +88,13 @@ fn project_file_limit(path: &str) -> Option<usize> {
 }
 
 // A `*.toml` name that is not a dotfile. Case-sensitive like `load`, which reads
-// `elements/<id>.toml` with a lowercase ID.
+// `<folder>/<id>.toml` with a lowercase ID.
 fn is_project_file_name(name: &str) -> bool {
     let toml = Path::new(name).extension().is_some_and(|e| e == "toml");
     !name.starts_with('.') && toml
 }
 
-// Appends the project files of `root/folder`, each read up to `max_bytes` plus one byte.
+// The `*.toml` files directly in `root/folder`, at most `ELEMENTS_MAX + 1` of them.
 fn read_folder(
     root: &Path,
     folder: &str,

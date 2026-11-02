@@ -1,9 +1,10 @@
 //! Domain types of a Tracewright project: elements, relationships, behavior models, ports,
 //! properties and layout. Pure: no IO (ADR 0004).
 //!
-//! So far the model holds what slice 0 checks: elements with Petri nets, their relationships with
-//! binding pairs, and properties, plus what did not load. `validate` derives the problems from it.
-//! State machines (slice 2), layout and commands join it with the tickets that use them.
+//! So far the model holds what slice 0 checks and draws: elements with Petri nets, their
+//! relationships with binding pairs, properties and the position of each element, plus what did
+//! not load. `validate` derives the problems from it. State machines (slice 2), bend points,
+//! behavior layout and commands join it with the tickets that use them.
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
@@ -38,6 +39,30 @@ pub struct Model {
     /// relationship ID used twice, a property entry it could not keep, a synchronous pair with a
     /// capacity.
     pub load_problems: Vec<Problem>,
+    /// The layout of each element that has a layout file that loaded (ADR 0024). Layout never
+    /// changes the meaning of the model, so nothing but the canvas reads it.
+    pub layouts: BTreeMap<ElementId, Layout>,
+}
+
+/// One element's layout file (file-format §7). Bend points and behavior layout are read for
+/// validation only until the editor tickets draw them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Layout {
+    /// Where the element is drawn in its parent's view; `None` means unplaced.
+    pub position: Option<Position>,
+}
+
+/// An element's place in its parent's view, in integer canvas units (file-format §3.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Position {
+    /// The left edge.
+    pub x: i32,
+    /// The top edge.
+    pub y: i32,
+    /// The width; `None` means the default size of the element's kind.
+    pub w: Option<u32>,
+    /// The height; `None` means the default size of the element's kind.
+    pub h: Option<u32>,
 }
 
 /// The kinds of format 1 (file-format §6.2).

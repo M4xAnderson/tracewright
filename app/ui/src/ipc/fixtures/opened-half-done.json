@@ -4,20 +4,169 @@
   "view": {
     "elements": [
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "idle",
+              "initial": 1,
+              "name": "idle",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 3,
+              "displayName": "queue",
+              "initial": 0,
+              "name": "queue",
+              "port": false,
+              "whenFull": null
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "idle",
+              "name": "idle",
+              "port": false,
+              "post": [],
+              "pre": []
+            },
+            {
+              "displayName": "reserve",
+              "name": "reserve",
+              "port": true,
+              "post": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "billing",
-        "name": "Billing"
+        "kind": "container",
+        "name": "Billing",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "busy",
+              "initial": 0,
+              "name": "busy",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "open",
+              "initial": 1,
+              "name": "open",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "enter",
+              "name": "enter",
+              "port": false,
+              "post": [
+                {
+                  "place": "busy",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "open",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "leave",
+              "name": "leave",
+              "port": false,
+              "post": [
+                {
+                  "place": "open",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "busy",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "gate",
-        "name": "Gate"
+        "kind": "container",
+        "name": "Gate",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "ready",
+              "initial": 1,
+              "name": "ready",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "send",
+              "name": "send",
+              "port": true,
+              "post": [
+                {
+                  "place": "ready",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "ready",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "order-api",
-        "name": "Order API"
+        "kind": "container",
+        "name": "Order API",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": null,
         "id": "shipping",
-        "name": "Shipping"
+        "kind": "container",
+        "name": "Shipping",
+        "position": null,
+        "technology": null
       }
     ],
     "problems": [
@@ -174,12 +323,28 @@
     ],
     "relationships": [
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "order-api",
+              "name": "send"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "billing",
+              "name": "reserv"
+            }
+          }
+        ],
         "id": "calls",
         "meaning": "calls",
         "source": "order-api",
         "target": "billing"
       },
       {
+        "bindings": [],
         "id": "logs-to",
         "meaning": "logs to",
         "source": "order-api",
@@ -188,8 +353,12 @@
     ],
     "rev": 0,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "Order platform"
+      "kind": "softwareSystem",
+      "name": "Order platform",
+      "position": null,
+      "technology": null
     }
   }
 }

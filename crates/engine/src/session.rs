@@ -44,6 +44,7 @@ use crate::lower::Lowered;
 use crate::origin;
 use crate::problems;
 use crate::problems::Blocking;
+use crate::projection;
 use crate::supervise;
 use crate::supervise::Job;
 use crate::supervise::Spawner;
@@ -268,12 +269,7 @@ impl Session {
             .relationships
             .values()
             .filter(|r| is_child(&r.source) || is_child(&r.target))
-            .map(|r| dto::RelationshipView {
-                id: r.id.to_string(),
-                source: r.source.to_string(),
-                target: r.target.to_string(),
-                meaning: r.meaning.clone(),
-            })
+            .map(projection::relationship_view)
             .collect();
         let properties = std::iter::once(system)
             .chain(children.iter().copied())
@@ -302,8 +298,11 @@ impl Session {
             .collect();
         View {
             rev: self.rev,
-            system: Some(element_view(system)),
-            elements: children.iter().map(|child| element_view(child)).collect(),
+            system: Some(projection::element_view(&self.model, system)),
+            elements: children
+                .iter()
+                .map(|child| projection::element_view(&self.model, child))
+                .collect(),
             relationships,
             properties,
             problems,
@@ -466,13 +465,6 @@ fn reloaded(model: &Model, changes: &Changes) -> Reloaded {
 fn element_id(path: &str) -> Option<ElementId> {
     let stem = path.strip_prefix("elements/")?.strip_suffix(".toml")?;
     ElementId::parse(stem).ok()
-}
-
-fn element_view(element: &Element) -> dto::ElementView {
-    dto::ElementView {
-        id: element.id.to_string(),
-        name: element.name.clone(),
-    }
 }
 
 fn property_kind(kind: &PropertyKind) -> dto::PropertyKind {

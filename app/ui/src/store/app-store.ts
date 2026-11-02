@@ -21,6 +21,10 @@ export type Message =
   | { kind: "openedWithProblems"; problems: number }
   | { kind: "error"; error: CommandError };
 
+// What the canvas, the behavior model pane and (later) the inspector show; one at a time in
+// slices 0–2 (flows §4.3).
+export type Selection = { kind: "element"; id: string } | { kind: "relationship"; id: string };
+
 export interface AppState {
   screen: Screen;
   open: OpenState;
@@ -37,6 +41,8 @@ export interface AppState {
   // Properties whose verdict arrived since the running set was last empty.
   finishedInRun: string[];
   message: Message | null;
+  // Shared view state (R-1).
+  selection: Selection | null;
 }
 
 const initialState: AppState = {
@@ -50,6 +56,7 @@ const initialState: AppState = {
   progress: {},
   finishedInRun: [],
   message: null,
+  selection: null,
 };
 
 // The model itself never lives here; it stays in the Rust core.

@@ -54,8 +54,12 @@
     "relationships": [],
     "rev": 2,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "One job"
+      "kind": "softwareSystem",
+      "name": "One job",
+      "position": null,
+      "technology": null
     }
   }
 }
