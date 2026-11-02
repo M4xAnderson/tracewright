@@ -11,6 +11,7 @@ import { assertNever, useAppStore } from "../../store/app-store";
 import {
   assumptionLine,
   CERTIFICATE_LINE,
+  certificateFact,
   deadlockHeadline,
   doesNotMean,
   elementName,
@@ -200,9 +201,16 @@ function ProvedDetail(props: {
     <>
       {headline !== null && <p className="text-text-primary">{headline}</p>}
       {limits !== null && <p>{limits}</p>}
-      <p>
-        {proved.technique === "exhaustive" ? exhaustiveLine(proved.markings) : CERTIFICATE_LINE}
-      </p>
+      {proved.technique === "exhaustive" ? (
+        <p>{exhaustiveLine(proved.markings)}</p>
+      ) : (
+        <>
+          <p>{CERTIFICATE_LINE}</p>
+          <Lines
+            lines={certificateFact(view, scope, proved.technique.noOverflowPlace.dropPlaces)}
+          />
+        </>
+      )}
       <Lines lines={assumptions} />
       <p>{SCOPE_LINE}</p>
     </>
