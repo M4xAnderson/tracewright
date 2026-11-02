@@ -18,7 +18,7 @@
         }
       },
       "gate-no-deadlock": {
-        "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de"
+        "key": "key-1"
       },
       "gate-pool": {
         "unknown": {
@@ -132,26 +132,26 @@
     "rev": 0
   },
   {
-    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "key": "key-1",
     "kind": "checkQueued",
     "property": "gate-no-deadlock"
   },
   {
-    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "main",
     "property": "gate-no-deadlock"
   },
   {
-    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "recheck",
     "property": "gate-no-deadlock"
   },
   {
-    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "key": "key-1",
     "kind": "verdict",
     "property": "gate-no-deadlock",
     "verdict": {

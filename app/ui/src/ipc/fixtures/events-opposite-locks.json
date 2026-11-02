@@ -2,34 +2,34 @@
   {
     "keys": {
       "no-deadlock": {
-        "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4"
+        "key": "key-1"
       },
       "no-overflow": {
-        "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c"
+        "key": "key-2"
       }
     },
     "kind": "currentKeys",
     "rev": 0
   },
   {
-    "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
+    "key": "key-1",
     "kind": "checkQueued",
     "property": "no-deadlock"
   },
   {
-    "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c",
+    "key": "key-2",
     "kind": "checkQueued",
     "property": "no-overflow"
   },
   {
-    "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "main",
     "property": "no-deadlock"
   },
   {
-    "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
+    "key": "key-1",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {
@@ -292,7 +292,7 @@
     }
   },
   {
-    "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c",
+    "key": "key-2",
     "kind": "verdict",
     "property": "no-overflow",
     "verdict": {

@@ -279,11 +279,46 @@ mod tests {
         reason = "writes a test fixture for the UI, not a project file"
     )]
     fn write_fixture(name: &str, json: &serde_json::Value) {
-        let text = serde_json::to_string_pretty(json).expect("JSON");
+        let mut aliased = json.clone();
+        alias_keys(&mut aliased, &mut Vec::new());
+        let text = serde_json::to_string_pretty(&aliased).expect("JSON");
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../ui/src/ipc/fixtures")
             .join(name);
         std::fs::write(&fixture, format!("{text}\n")).expect("fixture written");
+    }
+
+    /// Replaces every `CheckKey` (64 lowercase hex characters) with `key-<n>`, numbered by first
+    /// appearance in the file, so equal keys stay equal and no hash-like string reaches the committed
+    /// fixtures, where the gitleaks pre-commit hook would flag it as a secret.
+    fn alias_keys(value: &mut serde_json::Value, seen: &mut Vec<String>) {
+        match value {
+            serde_json::Value::String(text) if is_check_key(text) => {
+                let index = seen.iter().position(|key| key == text).unwrap_or_else(|| {
+                    seen.push(text.clone());
+                    seen.len() - 1
+                });
+                *text = format!("key-{}", index + 1);
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    alias_keys(item, seen);
+                }
+            }
+            serde_json::Value::Object(map) => {
+                for item in map.values_mut() {
+                    alias_keys(item, seen);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn is_check_key(text: &str) -> bool {
+        text.len() == 64
+            && text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     }
 
     // The path differs per checkout, so the fixture carries a stand-in the UI tests show.

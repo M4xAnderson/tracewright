@@ -2,27 +2,27 @@
   {
     "keys": {
       "no-deadlock": {
-        "key": "3ca6040d4e75c70f89936b2afcd8e34bc453a9c5438dc9552525287693b2b74b"
+        "key": "key-1"
       },
       "no-overflow": {
-        "key": "a94adb96d03aef169dd44de86c5d9341f02ff37fa7eb94c133de45de8a4e0b70"
+        "key": "key-2"
       }
     },
     "kind": "currentKeys",
     "rev": 0
   },
   {
-    "key": "a94adb96d03aef169dd44de86c5d9341f02ff37fa7eb94c133de45de8a4e0b70",
+    "key": "key-2",
     "kind": "checkQueued",
     "property": "no-overflow"
   },
   {
-    "key": "3ca6040d4e75c70f89936b2afcd8e34bc453a9c5438dc9552525287693b2b74b",
+    "key": "key-1",
     "kind": "checkQueued",
     "property": "no-deadlock"
   },
   {
-    "key": "a94adb96d03aef169dd44de86c5d9341f02ff37fa7eb94c133de45de8a4e0b70",
+    "key": "key-2",
     "kind": "verdict",
     "property": "no-overflow",
     "verdict": {
@@ -47,21 +47,21 @@
     }
   },
   {
-    "key": "3ca6040d4e75c70f89936b2afcd8e34bc453a9c5438dc9552525287693b2b74b",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "main",
     "property": "no-deadlock"
   },
   {
-    "key": "3ca6040d4e75c70f89936b2afcd8e34bc453a9c5438dc9552525287693b2b74b",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "recheck",
     "property": "no-deadlock"
   },
   {
-    "key": "3ca6040d4e75c70f89936b2afcd8e34bc453a9c5438dc9552525287693b2b74b",
+    "key": "key-1",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {
