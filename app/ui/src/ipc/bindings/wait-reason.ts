@@ -17,6 +17,6 @@ holds: number, } | { "kind": "outputFull",
  */
 capacity: number, 
 /**
- * Tokens it would hold after firing.
+ * Tokens in the place.
  */
-wouldHold: number, };
+holds: number, };

@@ -82,23 +82,9 @@ impl MemDisk {
     }
 }
 
-/// A system with one child whose single transition `work` moves the token of `todo` to `post`.
-pub fn one_job(post: &str) -> MemDisk {
-    MemDisk { files: vec![] }
-        .put("arch.toml", "format = 1\n")
-        .put(
-            "elements/sys.toml",
-            "format = 1\nkind = \"software_system\"\n\n[[property]]\nid = \"no-deadlock\"\nbehavior = \"combined\"\nkind = \"deadlock_free\"\n",
-        )
-        .put(
-            "elements/job.toml",
-            &format!(
-                "format = 1\nkind = \"container\"\nparent = \"sys\"\n\n\
-                 [petri_net.places.todo]\ncapacity = 1\nwhen_full = \"block\"\ninitial = 1\n\n\
-                 [petri_net.places.done]\ncapacity = 1\nwhen_full = \"block\"\n\n\
-                 [petri_net.transitions.work]\npre = {{ todo = 1 }}\npost = {{ {post} = 1 }}\n"
-            ),
-        )
+/// A system with one child whose single transition `work` moves the token of `todo` to `done`.
+pub fn one_job() -> MemDisk {
+    MemDisk::fixture("one-job")
 }
 
 /// Records every event the Session emits.

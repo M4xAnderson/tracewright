@@ -3,4 +3,4 @@
 /**
  * A screen the UI can show.
  */
-export type Screen = "start";
+export type Screen = "start" | "project";

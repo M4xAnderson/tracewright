@@ -201,6 +201,8 @@ fn lock(
 #[ts(export, export_to = "screen.ts")]
 pub enum Screen {
     Start,
+    /// A project is open: header, canvas and verdict panel.
+    Project,
 }
 
 /// Sent once the UI has rendered its first screen.
@@ -309,6 +311,7 @@ mod tests {
         assert_eq!(system.name, "Two components, two locks");
         opened_fixture("opened-worker-pool.json", "e1c-worker-pool");
         opened_fixture("opened-ns-v08.json", "ns-v08");
+        opened_fixture("opened-one-job.json", "one-job");
     }
 
     #[test]

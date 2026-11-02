@@ -103,6 +103,6 @@ fn worker_pool() {
 
 #[test]
 fn one_finished_job() {
-    let (_, events) = write("one-job", &one_job("done"));
+    let (_, events) = write("one-job", &one_job());
     assert_eq!(events[2]["verdict"]["violation"]["finished"], true);
 }

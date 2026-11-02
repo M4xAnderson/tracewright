@@ -1,0 +1,29 @@
+{
+  "name": "one-job",
+  "path": "/home/designer/one-job",
+  "view": {
+    "elements": [
+      {
+        "id": "job",
+        "name": "Job"
+      }
+    ],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        }
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "One job"
+    }
+  }
+}

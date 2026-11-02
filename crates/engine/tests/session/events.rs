@@ -223,7 +223,7 @@ fn the_opposite_locks_deadlock_lists_one_waiting_line_per_waiting_step() {
 #[test]
 fn a_run_that_ends_with_no_token_in_any_pre_set_is_finished() {
     // D-23: the caveat V-DIS-NOFINAL applies only to this case.
-    let run = run_checks(&one_job("done"));
+    let run = run_checks(&one_job());
     let deadlock = deadlock(&run.verdict("no-deadlock").outcome);
     assert!(deadlock.finished, "the job is done");
 }
@@ -231,7 +231,7 @@ fn a_run_that_ends_with_no_token_in_any_pre_set_is_finished() {
 #[test]
 fn a_run_stuck_with_tokens_in_a_pre_set_is_not_finished() {
     // `done` is already full, so `work` cannot fire although todo holds its token.
-    let run = run_checks(&one_job("done").edit(
+    let run = run_checks(&one_job().edit(
         "elements/job.toml",
         "[petri_net.places.done]\ncapacity = 1\nwhen_full = \"block\"\n",
         "[petri_net.places.done]\ncapacity = 1\nwhen_full = \"block\"\ninitial = 1\n",
