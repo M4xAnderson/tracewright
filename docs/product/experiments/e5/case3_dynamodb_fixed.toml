@@ -1,0 +1,51 @@
+# Case 3 (fixed, OUR fix: post-mortem capacity + retry budget): Amazon DynamoDB, us-east-1, 2015-09-20.
+# Source: https://aws.amazon.com/message/5467D2/
+# Storage servers fetch their partition membership from the metadata service. Responses
+# exceeded the storage servers' time limit; "Unavailable servers continued to retry requests
+# for membership data, maintaining high load on the metadata service."
+# Timeout is an untimed nondeterministic choice; the metadata service keeps working on the
+# abandoned request (no cancellation). Queue sized for one request per storage server.
+binding = [
+  { type = "sync",  caller = "network/blip", callee = "storage/lose" },
+  { type = "async", name = "membership_requests", sender = "storage/request",  receiver = "metadata/accept",  capacity = 6 },
+  { type = "async", name = "membership_replies",  sender = "metadata/respond", receiver = "storage/inbox",    capacity = 6 },
+]
+
+# Remediation as written: "significantly increased the capacity" (workers 2 -> 4, queue and reply
+# bags 3 -> 6); "reducing the rate at which storage nodes request membership data and lengthening
+# the time allowed to process queries" has no untimed counterpart, so the net is otherwise unchanged.
+[model]
+name = "Case 3 FIXED: PM capacity + retry budget of 2 outstanding attempts per server"
+
+[[element]]
+id = "network"                     # Infrastructure: disruption / check-in cycle, repeatable
+places = { link = {cap = 1, init = 1} }
+transition = [ { id = "blip", port = true, in = {link = 1}, out = {link = 1} } ]
+
+[[element]]
+id = "storage"                     # Container: 3 storage servers (folded population)
+places = { serving = {cap = 3, init = 3}, need = {cap = 3}, waiting = {cap = 3}, replies_in = {cap = 6}, attempts_free = {cap = 6, init = 6} }
+transition = [
+  { id = "lose",       port = true, in = {serving = 1}, out = {need = 1} },
+  { id = "request",    port = true, in = {need = 1, attempts_free = 1}, out = {waiting = 1} },
+  { id = "timeout",    in = {waiting = 1}, out = {need = 1} },          # then retry via request
+  { id = "inbox",      port = true, out = {replies_in = 1} },
+  { id = "apply",      in = {replies_in = 1, waiting = 1}, out = {serving = 1, attempts_free = 1} },
+  { id = "drop_stale", in = {replies_in = 1}, out = {attempts_free = 1} },
+]
+
+[[element]]
+id = "metadata"                    # Container: metadata service, 2 workers
+places = { workers_free = {cap = 4, init = 4}, busy = {cap = 4} }
+transition = [
+  { id = "accept",  port = true, in = {workers_free = 1}, out = {busy = 1} },
+  { id = "respond", port = true, in = {busy = 1}, out = {workers_free = 1} },
+]
+
+[[property]]
+id = "P1"
+kind = "no_capacity_exceeded"
+[[property]]
+id = "P2"
+kind = "always_reachable"
+predicate = "storage/serving = 3"   # the fleet can always recover

@@ -1,0 +1,89 @@
+# Case 1 (fixed): AWS EBS, us-east-1, 2011-04-21. Regional EBS control plane with ONE shared
+# thread pool. Calls into the degraded EBS cluster in AZ-A hang ("slow API calls began to
+# back up and resulted in thread starvation"), so callers in healthy AZ-B get no thread.
+# Source: https://aws.amazon.com/message/65648/
+# "Hangs" = the degraded cluster never responds within the scope of the check (no time in v1).
+
+binding = [
+  { type = "sync", caller = "api_a/call",            callee = "control_plane/accept_a" },
+  { type = "sync", caller = "api_b/call",            callee = "control_plane/accept_b" },
+  { type = "sync", caller = "control_plane/fwd_a",   callee = "cluster_a/create" },
+  { type = "sync", caller = "control_plane/fwd_b",   callee = "cluster_b/create" },
+  { type = "sync", caller = "cluster_a/respond",     callee = "control_plane/done_a" },
+  { type = "sync", caller = "cluster_b/respond",     callee = "control_plane/done_b" },
+  { type = "sync", caller = "control_plane/ret_a",   callee = "api_a/reply" },
+  { type = "sync", caller = "control_plane/ret_b",   callee = "api_b/reply" },
+  { type = "sync", caller = "control_plane/shed_a",  callee = "api_a/rejected" },
+]
+
+# Fix modeled from the remediation "be more Availability Zone aware and shed load
+# intelligently when it is over capacity": a per-AZ limit (bulkhead) of 2 threads for AZ-A.
+# Shedding "when over capacity" is a zero test on a_slots; with capacities it is expressible as a
+# read arc of weight 2 on the complement place a_used (a_used = 2 <=> no AZ-A slot left).
+[model]
+name = "Case 1 FIXED: EBS control plane with per-AZ thread limit and load shedding"
+
+[[element]]
+id = "api_a"                       # Container: EBS API callers in AZ-A (degraded AZ)
+places = { pending = {cap = 3, init = 3}, waiting = {cap = 3}, done = {cap = 3}, failed = {cap = 3} }
+transition = [
+  { id = "call",  port = true, in = {pending = 1}, out = {waiting = 1} },
+  { id = "reply", port = true, in = {waiting = 1}, out = {done = 1} },
+  { id = "rejected", port = true, in = {pending = 1}, out = {failed = 1} },
+]
+
+[[element]]
+id = "api_b"                       # Container: EBS API callers in AZ-B (healthy AZ)
+places = { pending = {cap = 2, init = 2}, waiting = {cap = 2}, done = {cap = 2} }
+transition = [
+  { id = "call",  port = true, in = {pending = 1}, out = {waiting = 1} },
+  { id = "reply", port = true, in = {waiting = 1}, out = {done = 1} },
+]
+
+[[element]]
+id = "control_plane"               # Container: regional EBS control plane, pool of 3 threads
+places = { threads_free = {cap = 3, init = 3}, a_slots = {cap = 2, init = 2}, a_used = {cap = 2}, in_a = {cap = 3}, in_b = {cap = 3}, wait_a = {cap = 3}, wait_b = {cap = 3}, ret_a = {cap = 3}, ret_b = {cap = 3} }
+transition = [
+  { id = "accept_a", port = true, in = {threads_free = 1, a_slots = 1}, out = {in_a = 1, a_used = 1} },
+  { id = "accept_b", port = true, in = {threads_free = 1}, out = {in_b = 1} },
+  { id = "fwd_a",    port = true, in = {in_a = 1},   out = {wait_a = 1} },
+  { id = "fwd_b",    port = true, in = {in_b = 1},   out = {wait_b = 1} },
+  { id = "done_a",   port = true, in = {wait_a = 1}, out = {ret_a = 1} },
+  { id = "done_b",   port = true, in = {wait_b = 1}, out = {ret_b = 1} },
+  { id = "ret_a",    port = true, in = {ret_a = 1, a_used = 1},  out = {threads_free = 1, a_slots = 1} },
+  { id = "shed_a",   port = true, in = {a_used = 2}, out = {a_used = 2} },
+  { id = "ret_b",    port = true, in = {ret_b = 1},  out = {threads_free = 1} },
+]
+
+[[element]]
+id = "cluster_a"                   # Container: EBS cluster in AZ-A, degraded (healthy = 0)
+places = { healthy = {cap = 1, init = 0}, working = {cap = 3} }
+transition = [
+  { id = "create",  port = true, out = {working = 1} },
+  { id = "respond", port = true, in = {working = 1, healthy = 1}, out = {healthy = 1} },
+]
+
+[[element]]
+id = "cluster_b"                   # Container: EBS cluster in AZ-B, healthy
+places = { healthy = {cap = 1, init = 1}, working = {cap = 3} }
+transition = [
+  { id = "create",  port = true, out = {working = 1} },
+  { id = "respond", port = true, in = {working = 1, healthy = 1}, out = {healthy = 1} },
+]
+
+
+[[property]]
+id = "P1"
+kind = "deadlock_free"
+final = "api_b/done = 2"           # proper termination: every AZ-B call answered
+[[property]]
+id = "P3"
+kind = "always_reachable"
+predicate = "api_b/done = 2"
+[[property]]
+id = "P2"
+kind = "no_capacity_exceeded"
+[[property]]
+id = "P4"
+kind = "never"
+predicate = "control_plane/in_a + control_plane/wait_a + control_plane/ret_a >= 3"   # AZ-A holds the whole pool

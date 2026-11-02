@@ -1,0 +1,48 @@
+# Case 3 (bad): Amazon DynamoDB, us-east-1, 2015-09-20.
+# Source: https://aws.amazon.com/message/5467D2/
+# Storage servers fetch their partition membership from the metadata service. Responses
+# exceeded the storage servers' time limit; "Unavailable servers continued to retry requests
+# for membership data, maintaining high load on the metadata service."
+# Timeout is an untimed nondeterministic choice; the metadata service keeps working on the
+# abandoned request (no cancellation). Queue sized for one request per storage server.
+binding = [
+  { type = "sync",  caller = "network/blip", callee = "storage/lose" },
+  { type = "async", name = "membership_requests", sender = "storage/request",  receiver = "metadata/accept",  capacity = 3 },
+  { type = "async", name = "membership_replies",  sender = "metadata/respond", receiver = "storage/inbox",    capacity = 3 },
+]
+
+[model]
+name = "Case 3 BAD: DynamoDB storage fleet retries membership requests without a budget"
+
+[[element]]
+id = "network"                     # Infrastructure: disruption / check-in cycle, repeatable
+places = { link = {cap = 1, init = 1} }
+transition = [ { id = "blip", port = true, in = {link = 1}, out = {link = 1} } ]
+
+[[element]]
+id = "storage"                     # Container: 3 storage servers (folded population)
+places = { serving = {cap = 3, init = 3}, need = {cap = 3}, waiting = {cap = 3}, replies_in = {cap = 3} }
+transition = [
+  { id = "lose",       port = true, in = {serving = 1}, out = {need = 1} },
+  { id = "request",    port = true, in = {need = 1},    out = {waiting = 1} },
+  { id = "timeout",    in = {waiting = 1}, out = {need = 1} },          # then retry via request
+  { id = "inbox",      port = true, out = {replies_in = 1} },
+  { id = "apply",      in = {replies_in = 1, waiting = 1}, out = {serving = 1} },
+  { id = "drop_stale", in = {replies_in = 1} },
+]
+
+[[element]]
+id = "metadata"                    # Container: metadata service, 2 workers
+places = { workers_free = {cap = 2, init = 2}, busy = {cap = 2} }
+transition = [
+  { id = "accept",  port = true, in = {workers_free = 1}, out = {busy = 1} },
+  { id = "respond", port = true, in = {busy = 1}, out = {workers_free = 1} },
+]
+
+[[property]]
+id = "P1"
+kind = "no_capacity_exceeded"
+[[property]]
+id = "P2"
+kind = "always_reachable"
+predicate = "storage/serving = 3"   # the fleet can always recover

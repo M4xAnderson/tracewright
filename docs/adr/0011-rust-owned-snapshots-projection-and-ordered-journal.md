@@ -1,0 +1,15 @@
+# The session is a Rust-owned snapshot, the UI a revisioned projection, and the journal an ordered log of after-images
+
+The Rust `engine` owns the one authoritative Model as an immutable, structurally shared value; every gesture is a typed `Command` applied by a pure function that returns the next snapshot and the before/after images of the touched entities. Undo and redo are stacks of snapshots. Each apply assigns a revision under the Session lock and returns the projection of the open view with that revision; the UI holds only this projection plus ephemeral state and never assembles the model itself. All work derived from an apply (journal append, lowering, CheckKeys, cancel decisions, the `currentKeys` event) is queued under the lock and processed by one derive thread per Session in revision order, so it is totally ordered per revision; results for a revision older than the stored one are ignored. The UI treats keys as fresh only when their revision equals the projection's and renders no verdict as current otherwise. The crash-recovery journal (ADR 0001) stores after-images as TOML fragments in the project's format version, each record stamped with its revision, with the base file hashes and `SaveBegin`/`SaveDone` brackets; records are appended after the apply has succeeded and the reply has been sent, by the derive thread only, so the loss window on a crash is the gestures still queued. Save sends its brackets through the same queue, waits until every record up to its snapshot has been appended, writes only files whose on-disk hash still equals the last seen one (others are reported as conflicts), and rebases the journal to the written hashes while keeping every record newer than the snapshot. Changed files are rendered by editing the kept `toml_edit` document in place, so comments and formatting outside the edited values survive.
+
+## Considered Options
+
+- **UI-owned model with Rust as a checker (A3, B3, C2):** a UI bug yields a Proved about a model the user is not looking at, and every domain rule exists twice.
+- **Operation log with an actor Session (A2, B2):** the ordering guarantee is kept for the derived pipeline only; wrapping the whole Session is a two-way door for later.
+- **Memoized query store (C3):** a memo in the trust path can show an old Proved as current; its consistent-snapshot subscribe call is kept as `sync()`.
+- **Hand-written inverse edits and a command journal (C1):** inverses are a large class of undo bugs; after-images are idempotent and need no inverse code.
+
+## Consequences
+
+- The journal is persisted data: it carries the format version and every format migration covers it; a journal is only replayed when the base hashes match the disk (or, for a torn Save, the hashes recorded in `SaveBegin`), and otherwise set aside. Restore renames the journal before applying, so a gesture that kills the app cannot be replayed on every open.
+- After-images are idempotent but not commutative; the single writer in revision order is what keeps recovery correct, and the kill-the-process tests cover an edit during Save and an apply racing a disk adoption.

@@ -1,0 +1,8 @@
+# Supervised worker threads unwind into "internal error"; a panic under the lock aborts
+
+Amends ADR 0006. Every computation that can trip an assertion on user data runs on a named, supervised thread that owns an immutable snapshot and shares no lock with the app: `check-*` (exploration), `lower-*` (lowering and CheckKey computation, spawned and joined by the derive thread for each revision), `derive-*` (journal and derived state), `scan-*` (rules), `save-*` (rendering and writing), and later `import-*` and `proof-*`. The panic hook lets these threads unwind; the thread that joins them maps the error to the smallest honest outcome: Unknown "internal error" for the affected properties, a failed Save with the journal kept, a finding entry "internal error" for the rule, or an `internalError` event. Opening a project therefore never aborts because one element's net trips an assertion in lowering, and a restored journal cannot put the app into a crash loop. The derive thread owns no state (its inbox belongs to the Session), so when it dies the Session re-spawns it on the next command and reports the record that was lost; this discards state, it does not recover it, which keeps ADR 0006's ban on `catch_unwind`. A panic on any other thread, in particular on the main thread or on a command thread while it holds the Session lock in `apply` or projection, logs, flushes and aborts the process, because a poisoned Session could otherwise serve a half-applied Model.
+
+## Consequences
+
+- Assertions stay on in release; the cost of a wrong assertion is one Unknown or one failed Save, not a dead app.
+- The Session tests include a lowering panic that yields Unknown "internal error" while the Session keeps accepting edits.

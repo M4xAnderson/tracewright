@@ -1,0 +1,127 @@
+=== Case 1 BAD: EBS regional control plane, shared thread pool  (case1_ebs_bad.toml)
+  [P1] deadlock_free api_b/done = 2
+      verdict: Disproved   states: 84   transitions: 8   time: 0.5 ms
+     1. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     2. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     3. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     4. [control_plane, cluster_a] fire control_plane/fwd_a + cluster_a/create
+     5. [control_plane, cluster_a] fire control_plane/fwd_a + cluster_a/create
+     6. [control_plane, cluster_a] fire control_plane/fwd_a + cluster_a/create
+    => dead marking, not final: api_a/waiting=3, api_b/pending=2, control_plane/wait_a=3, cluster_a/working=3, cluster_b/healthy=1
+       blocked: api_a/call + control_plane/accept_a  waits for control_plane/threads_free, api_a/pending
+       blocked: api_b/call + control_plane/accept_b  waits for control_plane/threads_free
+       blocked: cluster_a/respond + control_plane/done_a  waits for cluster_a/healthy
+       blocked: cluster_b/respond + control_plane/done_b  waits for control_plane/wait_b, cluster_b/working
+       blocked: control_plane/fwd_a + cluster_a/create  waits for control_plane/in_a
+       blocked: control_plane/fwd_b + cluster_b/create  waits for control_plane/in_b
+       blocked: control_plane/ret_a + api_a/reply  waits for control_plane/ret_a
+       blocked: control_plane/ret_b + api_b/reply  waits for api_b/waiting, control_plane/ret_b
+  [P2] no_capacity_exceeded 
+      verdict: Proved   states: 84   transitions: 8   time: 0.5 ms
+  [P4] never control_plane/in_a + control_plane/wait_a + control_plane/re
+      verdict: Disproved   states: 84   transitions: 8   time: 0.4 ms
+     1. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     2. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     3. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+    => predicate holds: api_a/waiting=3, api_b/pending=2, control_plane/in_a=3, cluster_b/healthy=1
+
+=== Case 1 FIXED: EBS control plane with per-AZ thread limit and load shedding  (case1_ebs_fixed.toml)
+  [P1] deadlock_free api_b/done = 2
+      verdict: Proved   states: 99   transitions: 9   time: 0.6 ms
+  [P3] always_reachable api_b/done = 2
+      verdict: Proved   states: 99   transitions: 9   time: 0.7 ms
+  [P2] no_capacity_exceeded 
+      verdict: Proved   states: 99   transitions: 9   time: 0.6 ms
+  [P4] never control_plane/in_a + control_plane/wait_a + control_plane/re
+      verdict: Proved   states: 99   transitions: 9   time: 0.6 ms
+
+=== Case 1 BAD+TIMEOUT: shared pool, long timeout on AZ-A calls  (case1_ebs_timeout.toml)
+  [P1] deadlock_free api_b/done = 2
+      verdict: Proved   states: 216   transitions: 9   time: 1.2 ms
+  [P3] always_reachable api_b/done = 2
+      verdict: Proved   states: 216   transitions: 9   time: 1.5 ms
+  [P2] no_capacity_exceeded 
+      verdict: Proved   states: 216   transitions: 9   time: 1.1 ms
+  [P4] never control_plane/in_a + control_plane/wait_a + control_plane/re
+      verdict: Disproved   states: 216   transitions: 9   time: 1.3 ms
+     1. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     2. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+     3. [api_a, control_plane] fire api_a/call + control_plane/accept_a
+    => predicate holds: api_a/waiting=3, api_b/pending=2, control_plane/in_a=3, cluster_b/healthy=1
+
+=== Case 2 BAD: Kinesis front-end fleet after scale-up; Cognito blocking buffer  (case2_kinesis_bad.toml)
+  [P1] no_capacity_exceeded 
+      verdict: Disproved   states: 330   transitions: 4   time: 1.2 ms
+     1. [membership] fire membership/publish
+     2. [fe1] fire fe1/open_peer_thread
+     3. [membership] fire membership/publish
+     4. [fe1] fire fe1/open_peer_thread
+     5. [membership] fire membership/publish
+     6. [fe1] fire fe1/open_peer_thread
+     7. [membership] fire membership/publish
+     8. [fe1] fire fe1/open_peer_thread
+     9. [membership] fire membership/publish
+    10. [fe1] fire fe1/open_peer_thread
+    => capacity exceeded at fe1/peer_threads (cap 4): membership/listed=5, fe_peers/up=5, fe1/peer_threads=5
+  [P2] always_reachable fe1/map_entries = 5
+      verdict: Unknown (capacity exceeded first; behavior beyond it undefined)   states: 330   transitions: 4   time: 1.4 ms
+  [P3] deadlock_free users/signed_in = 4
+      verdict: Disproved   states: 24   transitions: 3   time: 0.1 ms
+     1. [kinesis_api] fire kinesis_api/fail
+     2. [users, cognito_web] fire users/login + cognito_web/auth
+     3. [users, cognito_web] fire users/login + cognito_web/auth
+    => dead marking, not final: users/want=2, users/signed_in=2, cognito_web/buf_used=2, kinesis_api/down=1
+       blocked: cognito_web/flush + kinesis_api/put  waits for kinesis_api/up
+       blocked: kinesis_api/fail  waits for kinesis_api/up
+       blocked: users/login + cognito_web/auth  waits for cognito_web/buf_free
+
+=== Case 2 FIXED: fewer, larger front-end servers; Cognito discards on Kinesis error  (case2_kinesis_fixed.toml)
+  [P1] no_capacity_exceeded 
+      verdict: Proved   states: 76   transitions: 4   time: 0.2 ms
+  [P2] always_reachable fe1/map_entries = 3
+      verdict: Proved   states: 76   transitions: 4   time: 0.3 ms
+  [P3] deadlock_free users/signed_in = 4
+      verdict: Proved   states: 24   transitions: 4   time: 0.1 ms
+
+=== Case 3 BAD: DynamoDB storage fleet retries membership requests without a budget  (case3_dynamodb_bad.toml)
+  [P1] no_capacity_exceeded 
+      verdict: Disproved   states: 1919   transitions: 8   time: 12.6 ms
+     1. [network, storage] fire network/blip + storage/lose
+     2. [network, storage] fire network/blip + storage/lose
+     3. [network, storage] fire network/blip + storage/lose
+     4. [storage] fire storage/request
+     5. [storage] fire storage/request
+     6. [storage] fire storage/request
+     7. [storage] fire storage/timeout
+     8. [storage] fire storage/request
+    => capacity exceeded at bag:membership_requests (cap 3): network/link=1, storage/waiting=3, metadata/workers_free=2, bag:membership_requests=4
+  [P2] always_reachable storage/serving = 3
+      verdict: Unknown (capacity exceeded first; behavior beyond it undefined)   states: 1919   transitions: 8   time: 13.6 ms
+
+=== Case 3 FIXED: PM capacity + retry budget of 2 outstanding attempts per server  (case3_dynamodb_fixed.toml)
+  [P1] no_capacity_exceeded 
+      verdict: Proved   states: 1970   transitions: 8   time: 12.0 ms
+  [P2] always_reachable storage/serving = 3
+      verdict: Proved   states: 1970   transitions: 8   time: 18.9 ms
+
+=== Case 3 PM-FIX: post-mortem remediation (more capacity; rate/time not expressible)  (case3_dynamodb_pmfix.toml)
+  [P1] no_capacity_exceeded 
+      verdict: Disproved   states: 17149   transitions: 8   time: 130.4 ms
+     1. [network, storage] fire network/blip + storage/lose
+     2. [network, storage] fire network/blip + storage/lose
+     3. [network, storage] fire network/blip + storage/lose
+     4. [storage] fire storage/request
+     5. [storage] fire storage/request
+     6. [storage] fire storage/request
+     7. [storage] fire storage/timeout
+     8. [storage] fire storage/request
+     9. [storage] fire storage/timeout
+    10. [storage] fire storage/request
+    11. [storage] fire storage/timeout
+    12. [storage] fire storage/request
+    13. [storage] fire storage/timeout
+    14. [storage] fire storage/request
+    => capacity exceeded at bag:membership_requests (cap 6): network/link=1, storage/waiting=3, metadata/workers_free=4, bag:membership_requests=7
+  [P2] always_reachable storage/serving = 3
+      verdict: Unknown (capacity exceeded first; behavior beyond it undefined)   states: 17149   transitions: 8   time: 147.1 ms
+

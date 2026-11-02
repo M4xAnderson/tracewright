@@ -1,0 +1,78 @@
+# Case 2 (fixed): AWS Kinesis Data Streams, us-east-1, 2020-11-25.
+# Source: https://aws.amazon.com/message/11201/
+# Each front-end server opens one OS thread per other front-end server; a small capacity
+# addition made "all of the servers in the fleet ... exceed the maximum number of threads
+# allowed by an operating system configuration"; shard-map construction never completed.
+# Second scope: Cognito webservers "block on backlogged Kinesis buffers" (latent bug).
+# Scaled down: OS thread limit 4 (capacity of fe1/peer_threads), fleet grew to 6 servers.
+binding = [
+  # scope "kinesis_frontend"
+  { type = "async", name = "membership_updates", sender = "membership/publish", receiver = "fe1/open_peer_thread", capacity = 8 },
+  { type = "async", name = "shard_info",         sender = "fe_peers/send_info", receiver = "fe1/receive_info",     capacity = 8 },
+  # scope "cognito_path"
+  { type = "sync", caller = "users/login",       callee = "cognito_web/auth" },
+  { type = "sync", caller = "cognito_web/flush", callee = "kinesis_api/put" },
+  { type = "sync", caller = "cognito_web/discard", callee = "kinesis_api/error" },
+]
+
+# Fix from the remediation: "move to larger CPU and memory servers, reducing the total number
+# of servers and, hence, threads required by each server" (4 servers -> 3 peers) and harden
+# Cognito webservers against Kinesis API errors (discard the buffered record on an error).
+[model]
+name = "Case 2 FIXED: fewer, larger front-end servers; Cognito discards on Kinesis error"
+
+[[element]]
+id = "membership"                  # Container: membership microservice, lists the 3 peers of fe1
+places = { members = {cap = 8, init = 3}, listed = {cap = 8} }
+transition = [ { id = "publish", port = true, in = {members = 1}, out = {listed = 1} } ]
+
+[[element]]
+id = "fe_peers"                    # Container: the other front-end servers (folded population)
+places = { up = {cap = 8, init = 3}, sent = {cap = 8} }
+transition = [ { id = "send_info", port = true, in = {up = 1}, out = {sent = 1} } ]
+
+[[element]]
+id = "fe1"                         # Container: one front-end server; OS thread limit = 4
+places = { peer_threads = {cap = 4}, map_entries = {cap = 8} }
+transition = [
+  { id = "open_peer_thread", port = true, out = {peer_threads = 1} },
+  { id = "receive_info", port = true, in = {peer_threads = 1}, out = {peer_threads = 1, map_entries = 1} },
+]
+
+[[element]]
+id = "users"                       # Person: 4 sign-ins
+places = { want = {cap = 4, init = 4}, signed_in = {cap = 4} }
+transition = [ { id = "login", port = true, in = {want = 1}, out = {signed_in = 1} } ]
+
+[[element]]
+id = "cognito_web"                 # Container: Cognito webserver with a 2-record Kinesis buffer
+places = { buf_free = {cap = 2, init = 2}, buf_used = {cap = 2} }
+transition = [
+  { id = "auth",  port = true, in = {buf_free = 1}, out = {buf_used = 1} },   # blocks when full
+  { id = "flush", port = true, in = {buf_used = 1}, out = {buf_free = 1} },
+  { id = "discard", port = true, in = {buf_used = 1}, out = {buf_free = 1} },
+]
+
+[[element]]
+id = "kinesis_api"                 # Container: Kinesis API as seen by Cognito; may fail for good
+places = { up = {cap = 1, init = 1}, down = {cap = 1} }
+transition = [
+  { id = "put",  port = true, in = {up = 1}, out = {up = 1} },
+  { id = "fail", in = {up = 1}, out = {down = 1} },
+  { id = "error", port = true, in = {down = 1}, out = {down = 1} },
+]
+
+[[property]]
+id = "P1"
+kind = "no_capacity_exceeded"
+scope = ["membership", "fe_peers", "fe1"]
+[[property]]
+id = "P2"
+kind = "always_reachable"
+scope = ["membership", "fe_peers", "fe1"]
+predicate = "fe1/map_entries = 3"          # shard map can always be completed
+[[property]]
+id = "P3"
+kind = "deadlock_free"
+scope = ["users", "cognito_web", "kinesis_api"]
+final = "users/signed_in = 4"
