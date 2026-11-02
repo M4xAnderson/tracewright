@@ -25,12 +25,12 @@ Rust core, Tauri 2, React with React Flow and elkjs. Runs locally: no accounts, 
 
 ## Develop
 
-Prerequisites (Linux): rustup (the toolchain comes from `rust-toolchain.toml`), Node from `.node-version` (for example through fnm), Bun 1.4.4 (pinned in `package.json`), and `libwebkit2gtk-4.1-dev`, `build-essential` and `libssl-dev`. The smoke test needs a display or `xvfb-run`.
+Prerequisites (Linux): rustup (the toolchain comes from `rust-toolchain.toml`), Node from `.node-version` (for example through fnm), Bun 1.4.4 (pinned in `package.json`), and `libwebkit2gtk-4.1-dev`, `build-essential` and `libssl-dev`. The smoke test needs a display or `xvfb-run`. The `tapaal` step needs `curl`, `unzip` and Linux x86_64: it downloads TAPAAL verifypn 4.2.3 once into `~/.cache/tracewright` (or `$TAPAAL_CACHE_DIR`) and checks it against a pinned SHA-256; verifypn is never committed or bundled.
 
 ```sh
 bun install                 # UI and tool dependencies
 cd app/ui && bun run tauri dev   # the app with hot reload
-tools/check.sh              # every CI check: rust, arch, ui, smoke
+tools/check.sh              # every CI check: rust, arch, ui, smoke, tapaal
 tools/check.sh rust ui      # or only some steps
 ```
 

@@ -7,7 +7,8 @@
 #
 # Steps: rust (fmt, clippy, tests, bindings and fixtures drift), arch (crate edges, net impl blocks,
 # release profile, rule tests), ui (tsc, Oxlint, Oxfmt, import rules, Vitest, build), smoke (the
-# real window, see tools/smoke.sh).
+# real window, see tools/smoke.sh), tapaal (the differential corpus against TAPAAL verifypn, see
+# tools/tapaal.sh; Linux x86_64, downloads verifypn on first use).
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -76,6 +77,18 @@ ui() {
   cd "$root"
 }
 
+tapaal() {
+  step "tapaal: fetch and check verifypn"
+  local verifypn
+  verifypn="$(tools/tapaal.sh)"
+  endstep
+  step "tapaal: differential corpus"
+  # A disagreement fails this step and never feeds a verdict (D-35, NS §18 item 10).
+  VERIFYPN="$verifypn" cargo test -p tracewright-interop --locked --test tapaal_corpus \
+    -- --ignored --nocapture
+  endstep
+}
+
 smoke() {
   step "smoke: real window"
   tools/smoke.sh
@@ -84,13 +97,13 @@ smoke() {
 
 steps=("$@")
 if [[ ${#steps[@]} -eq 0 ]]; then
-  steps=(rust arch ui smoke)
+  steps=(rust arch ui smoke tapaal)
 fi
 for s in "${steps[@]}"; do
   case "$s" in
-    rust | arch | ui | smoke) "$s" ;;
+    rust | arch | ui | smoke | tapaal) "$s" ;;
     *)
-      echo "unknown step: $s (steps: rust arch ui smoke)" >&2
+      echo "unknown step: $s (steps: rust arch ui smoke tapaal)" >&2
       exit 2
       ;;
   esac

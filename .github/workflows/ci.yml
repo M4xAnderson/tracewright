@@ -77,3 +77,16 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: tools/check.sh smoke
+
+  tapaal:
+    name: TAPAAL differential corpus (verifypn 4.2.3)
+    runs-on: ubuntu-24.04
+    # One verifypn run is capped at 60 s; the whole corpus takes seconds.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # tools/tapaal.sh downloads verifypn and checks it against the pinned SHA-256 before use.
+      - run: tools/check.sh tapaal
