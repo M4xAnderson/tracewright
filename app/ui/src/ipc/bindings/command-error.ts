@@ -3,7 +3,23 @@
 /**
  * The error of every command, tagged by `kind` (SAFE-3); the UI matches it exhaustively.
  */
-export type CommandError = { "kind": "openFailed", 
+export type CommandError = { "kind": "notAProject", 
+/**
+ * The folder.
+ */
+path: string, } | { "kind": "permissionDenied", 
+/**
+ * The folder.
+ */
+path: string, } | { "kind": "newerFormat", 
+/**
+ * The folder.
+ */
+path: string, 
+/**
+ * The format of the first newer file in path order (file-format §12.2).
+ */
+format: number, } | { "kind": "openFailed", 
 /**
  * The folder.
  */

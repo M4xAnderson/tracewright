@@ -30,4 +30,5 @@ pub use session::Sink;
 pub use session::WriteCheck;
 pub use supervise::Spawner;
 pub use supervise::WorkerHandle;
+pub use tracewright_format::LoadError;
 pub use tracewright_net::Clock;

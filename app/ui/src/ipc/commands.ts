@@ -26,6 +26,9 @@ export function runChecks(): Promise<void> {
 }
 
 const COMMAND_ERROR_KINDS: ReadonlySet<string> = new Set<CommandError["kind"]>([
+  "notAProject",
+  "permissionDenied",
+  "newerFormat",
   "openFailed",
   "invalidArgument",
   "noProjectOpen",

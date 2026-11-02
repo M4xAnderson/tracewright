@@ -122,7 +122,7 @@ describe("open a project and see the verdict", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open project" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not open /home/designer/notes: this folder is not a project: it has no arch.toml. Check that the folder is readable, then open it again.",
+      "Could not open /home/designer/notes: arch.toml: format is missing; add `format = 1`. Check that the folder is readable, then open it again.",
     );
     expect(screen.getByRole("button", { name: "Open project" })).toBeInTheDocument();
   });

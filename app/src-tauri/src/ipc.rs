@@ -1,6 +1,7 @@
 //! The commands the UI calls and the types they exchange. Bindings come from ts-rs (IPC-2); the
 //! tests write JSON fixtures that the UI tests replay, so both sides agree on the wire format.
 
+use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -10,12 +11,15 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tracewright_engine::EngineEvent;
+use tracewright_engine::LoadError;
+use tracewright_engine::OpenError;
 use tracewright_engine::Ports;
 use tracewright_engine::Session;
 use tracewright_engine::Sink;
 use tracewright_engine::adapters::StdDisk;
 use tracewright_engine::adapters::SystemClock;
 use tracewright_engine::adapters::ThreadSpawner;
+use tracewright_engine::dto::JS_SAFE_INTEGER_MAX;
 use tracewright_engine::dto::View;
 use ts_rs::TS;
 
@@ -35,7 +39,28 @@ pub struct AppState {
 #[serde(tag = "kind", rename_all = "camelCase")]
 #[ts(export, export_to = "command-error.ts")]
 pub enum CommandError {
-    /// The folder did not open as a project (`P-OPEN-ERR`).
+    /// The folder has no `arch.toml` (`P-OPEN-ERR-NOTPROJECT`).
+    #[error("{path} is not a project")]
+    NotAProject {
+        /// The folder.
+        path: String,
+    },
+    /// The folder or a project file in it cannot be read (`P-OPEN-ERR-PERM`).
+    #[error("no permission to read {path}")]
+    PermissionDenied {
+        /// The folder.
+        path: String,
+    },
+    /// A project file has a format newer than this app reads (`P-OPEN-ERR-NEWER`).
+    #[error("{path} was saved in format {format}")]
+    NewerFormat {
+        /// The folder.
+        path: String,
+        /// The format of the first newer file in path order (file-format §12.2).
+        #[ts(type = "number")]
+        format: i64,
+    },
+    /// The folder did not open as a project for another reason (`P-OPEN-ERR`).
     #[error("could not open {path}: {cause}")]
     OpenFailed {
         /// The folder.
@@ -105,19 +130,18 @@ pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandErr
             reason: format!("the path is longer than {PATH_BYTES_MAX} bytes"),
         });
     }
-    let failed = |cause: String| CommandError::OpenFailed {
-        path: path.to_owned(),
-        cause,
-    };
     // SEC-1: from here on the project root is the canonical folder, symlinks resolved.
     let root = PathBuf::from(path)
         .canonicalize()
-        .map_err(|error| failed(error.to_string()))?;
+        .map_err(|error| open_error(path, &OpenError::Read(error)))?;
     if !root.is_dir() {
-        return Err(failed("it is not a folder".to_owned()));
+        return Err(CommandError::OpenFailed {
+            path: path.to_owned(),
+            cause: "it is not a folder".to_owned(),
+        });
     }
-    let session =
-        Session::open(&StdDisk::new(root.clone()), ports).map_err(|error| failed(cause(&error)))?;
+    let session = Session::open(&StdDisk::new(root.clone()), ports)
+        .map_err(|error| open_error(path, &error))?;
     let name = root.file_name().map_or_else(
         || root.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
@@ -130,12 +154,37 @@ pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandErr
     Ok((session, opened))
 }
 
-// The innermost message: "could not read the project: Permission denied (os error 13)" reads
-// better as one sentence.
-fn cause(error: &tracewright_engine::OpenError) -> String {
+// flows §4.1: the four ways a folder fails to open, each with its own copy in the UI.
+fn open_error(path: &str, error: &OpenError) -> CommandError {
+    let path = path.to_owned();
     match error {
-        tracewright_engine::OpenError::Read(source) => source.to_string(),
-        tracewright_engine::OpenError::Load(source) => source.to_string(),
+        OpenError::Load(LoadError::NotAProject) => CommandError::NotAProject { path },
+        OpenError::Load(LoadError::VersionTooNew { found, .. })
+            if found.unsigned_abs() <= JS_SAFE_INTEGER_MAX =>
+        {
+            CommandError::NewerFormat {
+                path,
+                format: *found,
+            }
+        }
+        OpenError::Read(source) if source.kind() == io::ErrorKind::PermissionDenied => {
+            CommandError::PermissionDenied { path }
+        }
+        // TXT-2: the cause in plain words, not the OS error.
+        OpenError::Read(source) if source.kind() == io::ErrorKind::NotFound => {
+            CommandError::OpenFailed {
+                path,
+                cause: "the folder does not exist".to_owned(),
+            }
+        }
+        OpenError::Read(source) => CommandError::OpenFailed {
+            path,
+            cause: source.to_string(),
+        },
+        OpenError::Load(source) => CommandError::OpenFailed {
+            path,
+            cause: source.to_string(),
+        },
     }
 }
 
@@ -317,21 +366,94 @@ mod tests {
         opened_fixture("opened-no-behavior.json", "no-behavior");
     }
 
+    // Opens `root`, which must fail, and writes the error as `name` with the stand-in path.
+    fn open_error_fixture(name: &str, root: &Path) -> serde_json::Value {
+        let Err(error) = open_at(
+            root.to_str().expect("UTF-8 path"),
+            std_ports(Arc::new(Dropped)),
+        ) else {
+            panic!("{} does not open", root.display());
+        };
+        let mut json = serde_json::to_value(&error).expect("serializes");
+        json["path"] = serde_json::json!("/home/designer/notes");
+        write_fixture(name, &json);
+        json
+    }
+
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "builds a test folder, not a project file the app writes"
+    )]
+    fn folder_with_arch(arch: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("a temporary folder");
+        std::fs::write(dir.path().join("arch.toml"), arch).expect("test file");
+        dir
+    }
+
     #[test]
     fn a_folder_that_is_not_a_project_does_not_open() {
-        let path = engine_project("");
-        let Err(error) = open_at(&path, std_ports(Arc::new(Dropped))) else {
-            panic!("tests/projects has no arch.toml");
-        };
-        let json = serde_json::to_value(&error).expect("serializes");
-        assert_eq!(json["kind"], "openFailed");
+        let json = open_error_fixture("open-not-a-project.json", Path::new(&engine_project("")));
         assert_eq!(
-            json["cause"],
-            "this folder is not a project: it has no arch.toml"
+            json,
+            serde_json::json!({ "kind": "notAProject", "path": "/home/designer/notes" })
+        );
+    }
+
+    #[test]
+    fn a_project_saved_by_a_newer_format_does_not_open() {
+        let dir = folder_with_arch("format = 7\n");
+        let json = open_error_fixture("open-newer-format.json", dir.path());
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "newerFormat", "path": "/home/designer/notes", "format": 7 })
+        );
+    }
+
+    #[test]
+    fn a_folder_that_cannot_be_read_is_a_permission_error() {
+        let path = "/home/designer/notes";
+        let denied = tracewright_engine::OpenError::Read(std::io::Error::from(
+            std::io::ErrorKind::PermissionDenied,
+        ));
+        let error = open_error(path, &denied);
+        assert_eq!(
+            error,
+            CommandError::PermissionDenied {
+                path: path.to_owned()
+            }
         );
         write_fixture(
-            "open-failed.json",
-            &serde_json::json!({ "kind": "openFailed", "path": "/home/designer/notes", "cause": json["cause"] }),
+            "open-permission-denied.json",
+            &serde_json::to_value(&error).expect("serializes"),
+        );
+    }
+
+    #[test]
+    fn any_other_reason_is_named_in_plain_words() {
+        let dir = folder_with_arch("[budget]\ntime_ms = 500\n");
+        let json = open_error_fixture("open-failed.json", dir.path());
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "kind": "openFailed",
+                "path": "/home/designer/notes",
+                "cause": "arch.toml: format is missing; add `format = 1`"
+            })
+        );
+    }
+
+    #[test]
+    fn a_missing_folder_says_so() {
+        let dir = tempfile::tempdir().expect("a temporary folder");
+        let gone = dir.path().join("gone");
+        let path = gone.to_str().expect("UTF-8 path");
+        let opened = open_at(path, std_ports(Arc::new(Dropped)));
+        assert_eq!(
+            opened.err(),
+            Some(CommandError::OpenFailed {
+                path: path.to_owned(),
+                cause: "the folder does not exist".to_owned()
+            })
         );
     }
 
