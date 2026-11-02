@@ -46,6 +46,7 @@ export async function openProjectFromDialog(): Promise<void> {
           ? null
           : { kind: "openedWithProblems", problems: opened.view.problems.length },
       selection: null,
+      bottomTab: opened.view.problems.length === 0 ? "behavior" : "problems",
     });
   } catch (rejection) {
     useAppStore.setState({ open: { kind: "failed", error: commands.toCommandError(rejection) } });
@@ -62,9 +63,11 @@ export async function reloadProject(): Promise<void> {
   }
   try {
     const reply = await commands.reloadProject();
+    const notLoaded = reply.outcome.kind === "reloaded" && reply.outcome.notLoaded.length > 0;
     useAppStore.setState({
       view: reply.view,
       message: { kind: "reloaded", outcome: reply.outcome },
+      ...(notLoaded ? { bottomTab: "problems" as const } : {}),
     });
   } catch (rejection) {
     useAppStore.setState({ message: { kind: "error", error: commands.toCommandError(rejection) } });

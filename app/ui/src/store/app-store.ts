@@ -25,6 +25,10 @@ export type Message =
 // slices 0–2 (flows §4.3).
 export type Selection = { kind: "element"; id: string } | { kind: "relationship"; id: string };
 
+// The open tab of the bottom pane (flows §2.2). Open and Reload open Problems when there are
+// problems to see (flows §4.1, §4.5).
+export type BottomTab = "behavior" | "problems";
+
 export interface AppState {
   screen: Screen;
   open: OpenState;
@@ -43,6 +47,7 @@ export interface AppState {
   message: Message | null;
   // Shared view state (R-1).
   selection: Selection | null;
+  bottomTab: BottomTab;
 }
 
 const initialState: AppState = {
@@ -57,6 +62,7 @@ const initialState: AppState = {
   finishedInRun: [],
   message: null,
   selection: null,
+  bottomTab: "behavior",
 };
 
 // The model itself never lives here; it stays in the Rust core.

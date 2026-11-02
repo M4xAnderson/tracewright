@@ -27,8 +27,9 @@ describe("opening a project that loads with problems", () => {
   test.each([
     [openedHalfDone, "Opened half-done with 7 problems. See the Problems list."],
     [openedBrokenFile, "Opened broken-file with 1 problem. See the Problems list."],
-  ])("names the number of problems", async (opened, text) => {
+  ])("names the number of problems and opens the Problems tab", async (opened, text) => {
     expect(await open(opened)).toBe(text);
+    expect(screen.getByRole("region", { name: "Bottom pane: Problems" })).toBeInTheDocument();
   });
 
   test("a project without problems opens without a message", async () => {
