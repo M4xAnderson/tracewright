@@ -17,6 +17,12 @@ tracewright-recheck = { path = "crates/recheck" }
 tracewright-format = { path = "crates/format" }
 tracewright-scan = { path = "crates/scan" }
 tracewright-engine = { path = "crates/engine" }
+thiserror = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+blake3 = { version = "1.8", default-features = false }
+proptest = "1"
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "serde"] }
 
 [profile.release]
 overflow-checks = true # LIM-4: crash instead of wrapping

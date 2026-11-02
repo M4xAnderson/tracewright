@@ -9,6 +9,9 @@ publish.workspace = true
 
 [dependencies]
 tracewright-model.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml_edit.workspace = true
 
 [lints]
 workspace = true

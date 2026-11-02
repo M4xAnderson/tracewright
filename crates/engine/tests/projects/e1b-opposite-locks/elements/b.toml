@@ -1,0 +1,60 @@
+format = 1
+kind = "container"
+name = "Component B"
+parent = "sys"
+
+[petri_net.places.idle]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.places.has_1]
+capacity = 1
+when_full = "block"
+
+[petri_net.places.has_2]
+capacity = 1
+when_full = "block"
+
+[petri_net.transitions.take_y]
+port = true
+pre = { idle = 1 }
+post = { has_1 = 1 }
+
+[petri_net.transitions.take_x]
+port = true
+pre = { has_1 = 1 }
+post = { has_2 = 1 }
+
+[petri_net.transitions.release]
+port = true
+pre = { has_2 = 1 }
+post = { idle = 1 }
+
+# Component B takes lock y, then lock x.
+[relationships.rb1]
+to = "l"
+interaction = "synchronous"
+
+[[relationships.rb1.binding]]
+mode = "sync"
+from = "b/take_y"
+to = "l/acq_y"
+
+[relationships.rb2]
+to = "l"
+interaction = "synchronous"
+
+[[relationships.rb2.binding]]
+mode = "sync"
+from = "b/take_x"
+to = "l/acq_x"
+
+[relationships.rb3]
+to = "l"
+interaction = "synchronous"
+
+[[relationships.rb3.binding]]
+mode = "sync"
+from = "b/release"
+to = "l/rel_xy"

@@ -1,0 +1,17 @@
+format = 1
+kind = "container"
+name = "Worker pool"
+parent = "sys"
+
+[petri_net.places.free]
+capacity = 2
+when_full = "block"
+initial = 2
+
+[petri_net.transitions.acquire]
+port = true
+pre = { free = 1 }
+
+[petri_net.transitions.release]
+port = true
+post = { free = 1 }

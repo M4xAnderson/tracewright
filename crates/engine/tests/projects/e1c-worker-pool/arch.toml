@@ -1,0 +1,3 @@
+# Spike E1 fixture. NS §14 net POOL; vectors V22, V23.
+# This is "the worker-pool example from E1" of the slice 0 acceptance criteria.
+format = 1
