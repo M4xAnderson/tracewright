@@ -249,3 +249,146 @@ fn confirm(
         NetVerdict::Unknown(reason) => Verdict::Unknown(reason),
     }
 }
+
+// The confirmation step with a made-up main-explorer candidate: the only way to show what happens
+// when verify is wrong, since the real one agrees with recheck on every net the tests can build.
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use tracewright_net::Counterexample;
+    use tracewright_net::Marking;
+    use tracewright_net::Place;
+    use tracewright_net::QualifiedId;
+    use tracewright_net::Step;
+    use tracewright_net::Transition;
+    use tracewright_net::Violation;
+    use tracewright_net::WhenFull;
+
+    use super::*;
+
+    fn q(id: &str) -> QualifiedId {
+        QualifiedId(id.to_owned())
+    }
+
+    // POOL of NS §14: three clients share two workers; 3 reachable markings, no deadlock.
+    fn pool() -> Net {
+        let place = |id: &str, capacity| Place {
+            id: q(id),
+            capacity,
+            when_full: WhenFull::Block,
+        };
+        Net {
+            places: vec![
+                place("c/idle", 3),
+                place("c/running", 3),
+                place("w/free", 2),
+            ],
+            transitions: vec![
+                Transition {
+                    id: q("r1/start+acquire"),
+                    pre: BTreeMap::from([(q("c/idle"), 1), (q("w/free"), 1)]),
+                    post: BTreeMap::from([(q("c/running"), 1)]),
+                },
+                Transition {
+                    id: q("r2/finish+release"),
+                    pre: BTreeMap::from([(q("c/running"), 1)]),
+                    post: BTreeMap::from([(q("c/idle"), 1), (q("w/free"), 1)]),
+                },
+            ],
+            initial: Marking(BTreeMap::from([(q("c/idle"), 3), (q("w/free"), 2)])),
+        }
+    }
+
+    fn confirmed(candidate: NetVerdict) -> Verdict {
+        let rest = Budget {
+            max_markings: 1_000,
+            ..Budget::default()
+        };
+        confirm(
+            &pool(),
+            &NetProperty::DeadlockFree,
+            candidate,
+            &rest,
+            &mut |_, _| {},
+        )
+    }
+
+    fn proved(markings: u64) -> NetVerdict {
+        NetVerdict::Proved {
+            technique: Technique::Exhaustive,
+            markings,
+        }
+    }
+
+    #[test]
+    fn a_proved_candidate_that_recheck_counts_the_same_is_proved() {
+        let Verdict::Proved(proof) = confirmed(proved(3)) else {
+            panic!("recheck agrees on 3 markings");
+        };
+        assert_eq!(proof.markings(), 3);
+    }
+
+    #[test]
+    fn explorers_that_count_different_markings_are_an_internal_disagreement() {
+        assert_eq!(
+            confirmed(proved(4)),
+            Verdict::Unknown(UnknownReason::InternalDisagreement)
+        );
+    }
+
+    #[test]
+    fn a_counterexample_that_fails_replay_is_an_internal_error() {
+        // D-24: the initial marking of POOL is no deadlock, so replay rejects this run.
+        let cx = Counterexample {
+            steps: Vec::new(),
+            violation: Violation::Deadlock {
+                waiting: Vec::new(),
+            },
+        };
+        assert_eq!(
+            confirmed(NetVerdict::Disproved(Evidence::Counterexample(cx))),
+            Verdict::Unknown(UnknownReason::InternalError)
+        );
+    }
+
+    #[test]
+    fn a_counterexample_with_a_wrong_marking_is_an_internal_error() {
+        let cx = Counterexample {
+            steps: vec![Step {
+                fired: q("r1/start+acquire"),
+                marking: Marking(BTreeMap::from([(q("c/idle"), 3)])),
+            }],
+            violation: Violation::Deadlock {
+                waiting: Vec::new(),
+            },
+        };
+        assert_eq!(
+            confirmed(NetVerdict::Disproved(Evidence::Counterexample(cx))),
+            Verdict::Unknown(UnknownReason::InternalError)
+        );
+    }
+
+    #[test]
+    fn replay_checks_the_cancel_flag_once_before_it_starts() {
+        let cx = Counterexample {
+            steps: Vec::new(),
+            violation: Violation::Deadlock {
+                waiting: Vec::new(),
+            },
+        };
+        let rest = Budget {
+            max_markings: 1_000,
+            cancel: Arc::new(AtomicBool::new(true)),
+            ..Budget::default()
+        };
+        let verdict = confirm(
+            &pool(),
+            &NetProperty::DeadlockFree,
+            NetVerdict::Disproved(Evidence::Counterexample(cx)),
+            &rest,
+            &mut |_, _| {},
+        );
+        assert_eq!(verdict, Verdict::Unknown(UnknownReason::Cancelled));
+    }
+}
