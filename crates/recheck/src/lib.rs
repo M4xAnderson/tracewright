@@ -16,5 +16,6 @@ mod semantics;
 pub use compose::ComposeError;
 pub use compose::compose;
 pub use explore::explore;
+pub use explore::explore_reporting;
 pub use replay::ReplayError;
 pub use replay::replay;

@@ -39,6 +39,7 @@ export async function openProjectFromDialog(): Promise<void> {
       currentKeys: null,
       verdicts: {},
       running: [],
+      progress: {},
       finishedInRun: [],
       message: null,
     });

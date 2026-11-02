@@ -24,6 +24,8 @@ pub enum EngineEvent {
     CurrentKeys(CurrentKeys),
     /// A check for this key is queued or running: the row shows `V-RUN`.
     CheckQueued(CheckQueued),
+    /// A running check's markings so far, at most 4 per second per check.
+    CheckProgress(CheckProgress),
     /// The verdict of one check.
     Verdict(VerdictEvent),
 }
@@ -62,6 +64,23 @@ pub struct CheckQueued {
     pub property: String,
     /// The key of the net the check explores.
     pub key: CheckKey,
+}
+
+/// How far a running check is: the markings its current phase has stored (flows §4.7 `V-RUN`,
+/// contract R11). The count restarts when the recheck phase begins.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "check-progress.ts")]
+pub struct CheckProgress {
+    /// The property ID.
+    pub property: String,
+    /// The key of the net the check explores.
+    pub key: CheckKey,
+    /// Exploring (main) or re-checking.
+    pub phase: Phase,
+    /// Markings stored so far in this phase, the initial marking included.
+    #[ts(type = "number")]
+    pub markings: u64,
 }
 
 /// The verdict of one check, with the key of the net that was checked.

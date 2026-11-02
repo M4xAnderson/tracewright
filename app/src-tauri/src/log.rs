@@ -25,6 +25,7 @@ pub enum Level {
     Warn,
     Error,
     Panic,
+    Fatal,
 }
 
 impl fmt::Display for Level {
@@ -34,6 +35,7 @@ impl fmt::Display for Level {
             Level::Warn => "WARN",
             Level::Error => "ERROR",
             Level::Panic => "PANIC",
+            Level::Fatal => "FATAL",
         })
     }
 }
@@ -84,10 +86,19 @@ pub fn line(level: Level, message: &str) {
     }
 }
 
-/// Logs every panic with its thread, location and message, then runs the default hook.
-///
-/// Which threads may unwind and which abort (ADR 0012) is decided by the supervisor; this hook
-/// only makes sure the panic reaches the log file.
+/// The thread name prefixes of ADR 0012 whose panic unwinds to the thread that joins them.
+pub const SUPERVISED: [&str; 5] = ["check-", "lower-", "derive-", "scan-", "save-"];
+
+/// Whether a panic on the thread called `name` unwinds to its joiner (ADR 0012). Our prefixes
+/// unwind and every other thread aborts, never a list of foreign thread names (D-72).
+#[must_use]
+pub fn is_supervised(name: &str) -> bool {
+    SUPERVISED.iter().any(|prefix| name.starts_with(prefix))
+}
+
+/// Logs every panic with its thread, location and message. A supervised thread then unwinds to
+/// its joiner, which turns it into Unknown "internal error"; any other thread aborts the app, so a
+/// Session that panicked mid-command never serves a half-applied model (ADR 0012, spike E3).
 pub fn log_panics() {
     let default_hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
@@ -102,5 +113,34 @@ pub fn log_panics() {
             .unwrap_or("<non-string panic payload>");
         line(Level::Panic, &format!("{location}: {message}"));
         default_hook(info);
+        let current = thread::current();
+        let name = current.name().unwrap_or("<unnamed>");
+        if !is_supervised(name) {
+            line(
+                Level::Fatal,
+                &format!("panic on {name}, which is not a supervised worker; aborting (ADR 0012)"),
+            );
+            std::process::abort();
+        }
     }));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_supervised;
+
+    #[test]
+    fn our_worker_prefixes_unwind_and_every_other_thread_aborts() {
+        assert!(is_supervised("check-f09e6538"));
+        assert!(is_supervised("lower-12"));
+        for other in [
+            "main",
+            "tokio-rt-worker",
+            "monitor-checks",
+            "checks",
+            "<unnamed>",
+        ] {
+            assert!(!is_supervised(other), "{other}");
+        }
+    }
 }

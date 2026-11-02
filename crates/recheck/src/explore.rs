@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use tracewright_net::Budget;
 use tracewright_net::Counterexample;
@@ -10,7 +11,9 @@ use tracewright_net::Evidence;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
+use tracewright_net::POLL_EXPANSIONS;
 use tracewright_net::Phase;
+use tracewright_net::Progress;
 use tracewright_net::Step;
 use tracewright_net::Technique;
 use tracewright_net::UnknownReason;
@@ -19,23 +22,35 @@ use tracewright_net::validate;
 
 use crate::semantics::Dense;
 
-/// Decides `property` on `net` (normally recheck's own composition), storing at most
-/// `budget.max_markings` markings. Its outcome must agree with `verify::check` (NS §9.4).
+/// Decides `property` on `net` (normally recheck's own composition) within `budget` (NS §10.1).
+/// Its outcome must agree with `verify::check` (NS §9.4).
 #[must_use]
 pub fn explore(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    explore_reporting(net, property, budget, &mut |_progress| {})
+}
+
+/// [`explore`], calling `progress` with the stored markings each time it polls the budget.
+#[must_use]
+pub fn explore_reporting(
+    net: &Net,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
     if validate::net(net).is_err() {
         return NetVerdict::Unknown(UnknownReason::InternalError);
     }
     match property {
         NetProperty::DeadlockFree => {
             let dense = Dense::of(net);
-            Search::new(&dense, budget.max_markings).deadlock_free()
+            Search::new(&dense, budget).deadlock_free(progress)
         }
     }
 }
 
 struct Search<'a> {
     net: &'a Dense,
+    budget: &'a Budget,
     max_markings: u64,
     /// Discovery number of every stored marking; the reachable set R.
     seen: BTreeMap<Vec<u64>, usize>,
@@ -55,23 +70,60 @@ enum Outcome {
 }
 
 impl<'a> Search<'a> {
-    fn new(net: &'a Dense, max_markings: u64) -> Search<'a> {
+    fn new(net: &'a Dense, budget: &'a Budget) -> Search<'a> {
         Search {
             net,
-            max_markings,
+            budget,
+            max_markings: budget.max_markings,
             seen: BTreeMap::new(),
             order: Vec::new(),
         }
     }
 
-    fn deadlock_free(mut self) -> NetVerdict {
+    fn stored(&self) -> u64 {
+        u64::try_from(self.order.len()).expect("a marking count fits in u64")
+    }
+
+    // NS §10.1, time and cancel: the flag wins when both hold at one poll.
+    fn poll(&self) -> Option<NetVerdict> {
+        assert!(
+            self.stored() <= self.max_markings,
+            "poll: more markings stored than the budget allows"
+        );
+        if self.budget.cancel.load(Ordering::Relaxed) {
+            return Some(NetVerdict::Unknown(UnknownReason::Cancelled));
+        }
+        if let Some(deadline) = &self.budget.deadline {
+            if deadline.clock.now() >= deadline.at {
+                let reason = UnknownReason::BudgetExhausted {
+                    phase: Phase::Recheck,
+                    markings: self.stored(),
+                };
+                return Some(NetVerdict::Unknown(reason));
+            }
+        }
+        None
+    }
+
+    fn deadlock_free(mut self, progress: &mut dyn FnMut(Progress)) -> NetVerdict {
         let mut queue = VecDeque::new();
         match self.discover(self.net.initial.clone(), None) {
             Outcome::Stored(i) => queue.push_back(i),
             Outcome::Ends(verdict) => return verdict,
         }
+        let mut expansions: u64 = 0;
         // Bounded: each stored marking is queued once and `discover` caps the stored ones (LIM-1).
         while let Some(i) = queue.pop_front() {
+            // The first expansion polls, then every POLL_EXPANSIONS-th one.
+            if expansions.is_multiple_of(POLL_EXPANSIONS) {
+                if let Some(verdict) = self.poll() {
+                    return verdict;
+                }
+                progress(Progress {
+                    markings: self.stored(),
+                });
+            }
+            expansions += 1;
             let m = self.order[i].marking.clone();
             for t in 0..self.net.transitions.len() {
                 if !self.net.enabled(&m, t) {

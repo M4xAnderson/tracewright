@@ -9,8 +9,10 @@ use tracewright_engine::Session;
 use tracewright_engine::adapters::StdDisk;
 use tracewright_format::LoadError;
 
+use super::support::FakeClock;
 use super::support::MemDisk;
 use super::support::RecordingSink;
+use super::support::ports;
 
 fn projects() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects")
@@ -29,7 +31,7 @@ fn reads_arch_toml_and_the_element_files_of_a_project_folder() {
 fn a_folder_without_arch_toml_is_not_a_project() {
     let opened = Session::open(
         &StdDisk::new(projects()),
-        Box::new(RecordingSink::default()),
+        ports(&RecordingSink::default(), &FakeClock::new()),
     );
     assert!(
         matches!(opened, Err(OpenError::Load(LoadError::NotAProject))),
@@ -41,7 +43,7 @@ fn a_folder_without_arch_toml_is_not_a_project() {
 fn a_missing_folder_is_a_read_error() {
     let opened = Session::open(
         &StdDisk::new(projects().join("no-such-project")),
-        Box::new(RecordingSink::default()),
+        ports(&RecordingSink::default(), &FakeClock::new()),
     );
     assert!(matches!(opened, Err(OpenError::Read(_))), "{opened:?}");
 }

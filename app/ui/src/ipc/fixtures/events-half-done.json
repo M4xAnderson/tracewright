@@ -138,6 +138,20 @@
   },
   {
     "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "gate-no-deadlock"
+  },
+  {
+    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "recheck",
+    "property": "gate-no-deadlock"
+  },
+  {
+    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
     "kind": "verdict",
     "property": "gate-no-deadlock",
     "verdict": {
