@@ -25,6 +25,10 @@ use crate::problem::Severity;
 use crate::problem::element_file;
 
 /// Every problem of `model`, sorted by file, then line, then message (flows §4.5).
+///
+/// # Panics
+///
+/// Only on a bug: a problem without a cause.
 #[must_use]
 pub fn validate(model: &Model) -> Vec<Problem> {
     let mut problems: Vec<Problem> = model

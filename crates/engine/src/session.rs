@@ -235,39 +235,7 @@ impl Session {
                     element: element.id.clone(),
                     behavior: property.behavior,
                 };
-                // A problem that blocks the scope wins over lowering, also over nothing to check:
-                // the scope could have more behavior than what loaded (file-format §10.5).
-                if let Some(incomplete) = blocking.incomplete(&scope) {
-                    keys.insert(property.id.to_string(), KeyState::Unknown(incomplete));
-                    continue;
-                }
-                let lowering = lowered
-                    .entry(scope.clone())
-                    .or_insert_with(|| lower::lower(&self.model, &scope).map(Arc::new));
-                let state = match lowering {
-                    Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
-                    Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(
-                        origin::unknown_dto(&UnknownReason::ModelIncomplete(lines.clone())),
-                    ),
-                    Err(LowerError::NotCheckedYet(lines)) => KeyState::Unknown(
-                        origin::unknown_dto(&UnknownReason::PropertyNotCheckable(lines.clone())),
-                    ),
-                    Ok(scope_net) => match checked_property(property) {
-                        Ok(net_property) => {
-                            let key = check_key(&scope_net.flat, &net_property);
-                            requests.push(Request {
-                                property: property.id.clone(),
-                                key: key.clone(),
-                                scope,
-                                net_property,
-                            });
-                            KeyState::Key(key)
-                        }
-                        Err(lines) => KeyState::Unknown(origin::unknown_dto(
-                            &UnknownReason::PropertyNotCheckable(lines),
-                        )),
-                    },
-                };
+                let state = self.key_state(&blocking, &mut lowered, property, scope, &mut requests);
                 keys.insert(property.id.to_string(), state);
             }
         }
@@ -301,6 +269,51 @@ impl Session {
             budget: self.budget,
         };
         supervise::submit(supervisor, jobs);
+    }
+}
+
+impl Session {
+    // The key state of one property (design §3). A problem that blocks the scope wins over
+    // lowering, also over nothing to check: the scope could have more behavior than what loaded
+    // (file-format §10.5). A keyed property adds its check to `requests`.
+    fn key_state(
+        &self,
+        blocking: &Blocking,
+        lowered: &mut BTreeMap<Scope, Result<Arc<Lowered>, LowerError>>,
+        property: &Property,
+        scope: Scope,
+        requests: &mut Vec<Request>,
+    ) -> KeyState {
+        if let Some(incomplete) = blocking.incomplete(&scope) {
+            return KeyState::Unknown(incomplete);
+        }
+        let lowering = lowered
+            .entry(scope.clone())
+            .or_insert_with(|| lower::lower(&self.model, &scope).map(Arc::new));
+        match lowering {
+            Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
+            Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(origin::unknown_dto(
+                &UnknownReason::ModelIncomplete(lines.clone()),
+            )),
+            Err(LowerError::NotCheckedYet(lines)) => KeyState::Unknown(origin::unknown_dto(
+                &UnknownReason::PropertyNotCheckable(lines.clone()),
+            )),
+            Ok(scope_net) => match checked_property(property) {
+                Ok(net_property) => {
+                    let key = check_key(&scope_net.flat, &net_property);
+                    requests.push(Request {
+                        property: property.id.clone(),
+                        key: key.clone(),
+                        scope,
+                        net_property,
+                    });
+                    KeyState::Key(key)
+                }
+                Err(lines) => KeyState::Unknown(origin::unknown_dto(
+                    &UnknownReason::PropertyNotCheckable(lines),
+                )),
+            },
+        }
     }
 }
 
