@@ -158,10 +158,14 @@ fn each_keyed_property_is_queued_before_its_verdict_arrives() {
         .map(|event| match event {
             EngineEvent::CurrentKeys(_) => "currentKeys",
             EngineEvent::CheckQueued(_) => "checkQueued",
+            EngineEvent::CheckProgress(_) => "checkProgress",
             EngineEvent::Verdict(_) => "verdict",
         })
         .collect();
-    assert_eq!(kinds, ["currentKeys", "checkQueued", "verdict"]);
+    assert_eq!(
+        kinds,
+        ["currentKeys", "checkQueued", "checkProgress", "verdict"]
+    );
     let EngineEvent::CheckQueued(queued) = &run.events[1] else {
         unreachable!()
     };
