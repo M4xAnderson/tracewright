@@ -30,7 +30,9 @@ describe("checkNetImpls", () => {
     ["an unsafe impl", "unsafe impl Send for Net {}"],
   ])("rejects %s outside encode and validate", (_name, source) => {
     const line = source.split("\n").findIndex((l) => l.includes("impl")) + 1;
-    expect(checkNetImpls([{ path: "src/lib.rs", source }])).toEqual([message(`src/lib.rs:${line}`)]);
+    expect(checkNetImpls([{ path: "src/lib.rs", source }])).toEqual([
+      message(`src/lib.rs:${line}`),
+    ]);
   });
 
   test("ignores impl in comments, strings and impl Trait types", () => {

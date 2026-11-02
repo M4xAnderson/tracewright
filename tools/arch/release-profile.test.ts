@@ -20,7 +20,8 @@ describe("checkReleaseProfile", () => {
   });
 
   test("rejects any other profile that aborts", () => {
-    const toml = '[profile.release]\npanic = "unwind"\n\n[profile.dist]\ninherits = "release"\npanic = "abort"\n';
+    const toml =
+      '[profile.release]\npanic = "unwind"\n\n[profile.dist]\ninherits = "release"\npanic = "abort"\n';
     expect(checkReleaseProfile(toml)).toEqual([
       'profile.dist sets panic = "abort"; a worker panic would kill the app (ADR 0006, D-72)',
     ]);
