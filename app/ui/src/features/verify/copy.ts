@@ -1,5 +1,6 @@
 // Verdict copy from the flows §5 catalog, word for word. Names are resolved from the view at
 // render time (design §3), so a rename never shows an old label.
+import type { OverflowDto } from "../../ipc/bindings/overflow-dto";
 import type { PlaceOrigin } from "../../ipc/bindings/place-origin";
 import type { PropertyKind } from "../../ipc/bindings/property-kind";
 import type { PropertyView } from "../../ipc/bindings/property-view";
@@ -78,22 +79,38 @@ export function stepText(view: View, step: number, of: number, origin: Transitio
   return `Step ${step} of ${of}: ${transitionLabel(view, origin)}`;
 }
 
-// V-PRO-T1
+// V-PRO-T1 / V-PRO-T2
 export function provedHeadline(kind: PropertyKind, scope: string): string | null {
-  return kind === "deadlockFree" ? `${scope} never deadlocks.` : null;
+  switch (kind) {
+    case "deadlockFree":
+      return `${scope} never deadlocks.`;
+    case "noCapacityExceeded":
+      return `${scope} never goes over any capacity.`;
+    default:
+      return null;
+  }
 }
 
-// V-DNM-T1
+// V-DNM-T1 / V-DNM-T2
 export function doesNotMean(kind: PropertyKind): string | null {
-  return kind === "deadlockFree"
-    ? "No deadlock does not mean done: a timeout or retry loop can run forever."
-    : null;
+  switch (kind) {
+    case "deadlockFree":
+      return "No deadlock does not mean done: a timeout or retry loop can run forever.";
+    case "noCapacityExceeded":
+      return "Places that block or drop can still make senders wait or lose messages.";
+    default:
+      return null;
+  }
 }
 
 // V-PRO-1, exhaustive
 export function exhaustiveLine(markings: number): string {
   return `Checked all ${count.format(markings)} reachable markings; re-checked by a second explorer.`;
 }
+
+// V-PRO-1, certificate
+export const CERTIFICATE_LINE =
+  "Proved with a certificate; a second explorer re-checked the certificate.";
 
 // V-PRO-ASM
 export function assumptionLine(view: View, relationship: string): string {
@@ -129,6 +146,17 @@ function placeLabel(view: View, place: PlaceOrigin, owner: string | null): strin
 // A generated place holds messages, a place of a behavior model tokens (flows §5).
 function unit(place: PlaceOrigin): string {
   return place.kind === "generated" ? "messages" : "tokens";
+}
+
+// The place as the copy names it on its own: "Order API → Billing (publishes to)" or
+// "Billing: queue".
+function placeName(view: View, place: PlaceOrigin): string {
+  return placeLabel(view, place, null);
+}
+
+// V-DIS-CAP-REL / V-DIS-CAP-PLACE
+export function overflowLine(view: View, overflow: OverflowDto): string {
+  return `${placeName(view, overflow.place)} holds ${count.format(overflow.count)} ${unit(overflow.place)}; capacity ${count.format(overflow.capacity)}.`;
 }
 
 // One clause of V-DIS-DL-EMPTY / V-DIS-DL-FULL. With several clauses the "it holds" note moves
@@ -177,8 +205,28 @@ export function waitingLine(view: View, waiting: WaitingDto): string {
   }
 }
 
+// U-CEF-REL / U-CEF-PLACE: what was decided, and the next step. A place inside a behavior model
+// is edited in its element's file (file-format §2: elements/<id>.toml) until slice 1 brings the
+// behavior model pane.
+function capacityExceededFirstLine(
+  view: View,
+  kind: PropertyKind,
+  place: PlaceOrigin,
+  capacity: number,
+): string {
+  const decided = `${propertyName(kind)} was decided only up to the first time ${placeName(view, place)} exceeds capacity ${count.format(capacity)}.`;
+  switch (place.kind) {
+    case "generated":
+      return `${decided} Set when full to block or drop for this relationship, or raise its capacity.`;
+    case "own":
+      return `${decided} Set when full to block or drop for ${place.place} in elements/${place.element}.toml, or raise its capacity, then choose Reload.`;
+    default:
+      return assertNever(place);
+  }
+}
+
 // Flows §4.9: the reason in the user's terms. Lines the engine sends (details) follow the first.
-export function unknownLines(reason: UnknownDto): string[] {
+export function unknownLines(view: View, kind: PropertyKind, reason: UnknownDto): string[] {
   switch (reason.category) {
     case "modelIncomplete":
       return [
@@ -205,9 +253,7 @@ export function unknownLines(reason: UnknownDto): string[] {
         "Lower capacities or initial tokens, or remove elements from this view.",
       ];
     case "capacityExceededFirst":
-      return [
-        `Deadlock-free was decided only up to the first time ${reason.place.kind === "own" ? `${reason.place.element}/${reason.place.place}` : reason.place.relationship} exceeds capacity ${count.format(reason.capacity)}.`,
-      ];
+      return [capacityExceededFirstLine(view, kind, reason.place, reason.capacity)];
     default:
       return assertNever(reason);
   }
