@@ -9,6 +9,9 @@ use std::io;
 
 use tracewright_format::LoadError;
 use tracewright_format::ProjectFile;
+use tracewright_model::Behavior;
+use tracewright_model::Element;
+use tracewright_model::ElementKind;
 use tracewright_model::Model;
 use tracewright_model::PropertyId;
 use tracewright_model::PropertyKind;
@@ -18,12 +21,19 @@ use tracewright_net::NetProperty;
 use tracewright_net::UnknownReason;
 
 use crate::check;
-use crate::check::Verdict;
+use crate::dto;
+use crate::dto::CheckQueued;
+use crate::dto::CurrentKeys;
+use crate::dto::EngineEvent;
+use crate::dto::KeyState;
+use crate::dto::VerdictEvent;
+use crate::dto::View;
 use crate::key::CheckKey;
 use crate::key::check_key;
 use crate::lower;
 use crate::lower::LowerError;
 use crate::lower::Lowered;
+use crate::origin;
 
 /// The engine's markings budget per check until `arch.toml`'s `[budget]` is read: the
 /// `max_markings` of the file-format §5 example. Spike E1 measured 0.2–1.3 million markings per
@@ -46,36 +56,6 @@ pub trait Sink: Send + Sync {
     fn emit(&self, event: EngineEvent);
 }
 
-/// What a property's check is keyed by, before any check runs (design §3).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum KeyState {
-    /// The property lowered; a check with this key decides it.
-    Key(CheckKey),
-    /// The property ends as Unknown without a check: model incomplete or not checkable.
-    Unknown(UnknownReason),
-    /// No behavior model to check: no verdict at all (D-13).
-    NothingToCheck,
-}
-
-/// An event the Session emits.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineEvent {
-    /// The complete key set of the model, sent before any verdict.
-    CurrentKeys {
-        /// Per property.
-        keys: BTreeMap<PropertyId, KeyState>,
-    },
-    /// The verdict of one check.
-    Verdict {
-        /// The property.
-        property: PropertyId,
-        /// The key of the net that was checked.
-        key: CheckKey,
-        /// The verdict.
-        verdict: Verdict,
-    },
-}
-
 /// Why a project does not open.
 #[derive(Debug, thiserror::Error)]
 pub enum OpenError {
@@ -90,6 +70,8 @@ pub enum OpenError {
 /// One open project.
 pub struct Session {
     model: Model,
+    // The revision of `model`; 0 at open. Edits advance it (design §4).
+    rev: u64,
     sink: Box<dyn Sink>,
     budget: Budget,
 }
@@ -98,6 +80,7 @@ impl fmt::Debug for Session {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Session")
             .field("model", &self.model)
+            .field("rev", &self.rev)
             .field("budget", &self.budget)
             .finish_non_exhaustive()
     }
@@ -121,6 +104,7 @@ impl Session {
         let model = tracewright_format::load(&files)?;
         Ok(Session {
             model,
+            rev: 0,
             sink,
             budget: Budget {
                 max_markings: DEFAULT_MAX_MARKINGS,
@@ -128,8 +112,71 @@ impl Session {
         })
     }
 
-    /// Derives the key of every property, emits them as `CurrentKeys`, then checks each keyed
-    /// property and emits its `Verdict`.
+    /// The view of the open project at the current revision.
+    #[must_use]
+    pub fn view(&self) -> View {
+        let system = self
+            .model
+            .elements
+            .values()
+            .find(|element| element.kind == ElementKind::SoftwareSystem);
+        let Some(system) = system else {
+            return View {
+                rev: self.rev,
+                system: None,
+                elements: Vec::new(),
+                relationships: Vec::new(),
+                properties: Vec::new(),
+            };
+        };
+        let children: Vec<&Element> = self
+            .model
+            .elements
+            .values()
+            .filter(|element| element.parent.as_ref() == Some(&system.id))
+            .collect();
+        let is_child =
+            |id: &tracewright_model::ElementId| children.iter().any(|child| child.id == *id);
+        let relationships = self
+            .model
+            .relationships
+            .values()
+            .filter(|r| is_child(&r.source) || is_child(&r.target))
+            .map(|r| dto::RelationshipView {
+                id: r.id.to_string(),
+                source: r.source.to_string(),
+                target: r.target.to_string(),
+                meaning: r.meaning.clone(),
+            })
+            .collect();
+        let properties = std::iter::once(system)
+            .chain(children.iter().copied())
+            .flat_map(|element| {
+                element.properties.iter().map(|property| dto::PropertyView {
+                    id: property.id.to_string(),
+                    label: property.label.clone(),
+                    kind: property_kind(&property.kind),
+                    scope: dto::ScopeView {
+                        element: element.id.to_string(),
+                        behavior: match property.behavior {
+                            Behavior::Own => dto::Behavior::Own,
+                            Behavior::Combined => dto::Behavior::Combined,
+                        },
+                    },
+                })
+            })
+            .collect();
+        View {
+            rev: self.rev,
+            system: Some(element_view(system)),
+            elements: children.iter().map(|child| element_view(child)).collect(),
+            relationships,
+            properties,
+        }
+    }
+
+    /// Derives the key of every property and emits them as `CurrentKeys`, then queues a check
+    /// for each keyed property (`CheckQueued`), runs it and emits its `Verdict`.
     ///
     /// # Panics
     ///
@@ -149,12 +196,12 @@ impl Session {
                     .or_insert_with(|| lower::lower(&self.model, &scope));
                 let state = match lowering {
                     Err(LowerError::NothingToCheck) => KeyState::NothingToCheck,
-                    Err(LowerError::ModelIncomplete(lines)) => {
-                        KeyState::Unknown(UnknownReason::ModelIncomplete(lines.clone()))
-                    }
-                    Err(LowerError::NotCheckedYet(lines)) => {
-                        KeyState::Unknown(UnknownReason::PropertyNotCheckable(lines.clone()))
-                    }
+                    Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(
+                        origin::unknown_dto(&UnknownReason::ModelIncomplete(lines.clone())),
+                    ),
+                    Err(LowerError::NotCheckedYet(lines)) => KeyState::Unknown(
+                        origin::unknown_dto(&UnknownReason::PropertyNotCheckable(lines.clone())),
+                    ),
                     Ok(scope_net) => match lower_property(&property.kind) {
                         Ok(net_property) => {
                             let key = check_key(&scope_net.flat, &net_property);
@@ -166,13 +213,24 @@ impl Session {
                             });
                             KeyState::Key(key)
                         }
-                        Err(lines) => KeyState::Unknown(UnknownReason::PropertyNotCheckable(lines)),
+                        Err(lines) => KeyState::Unknown(origin::unknown_dto(
+                            &UnknownReason::PropertyNotCheckable(lines),
+                        )),
                     },
                 };
-                keys.insert(property.id.clone(), state);
+                keys.insert(property.id.to_string(), state);
             }
         }
-        self.sink.emit(EngineEvent::CurrentKeys { keys });
+        self.sink.emit(EngineEvent::CurrentKeys(CurrentKeys {
+            rev: self.rev,
+            keys,
+        }));
+        for request in &requests {
+            self.sink.emit(EngineEvent::CheckQueued(CheckQueued {
+                property: request.property.to_string(),
+                key: request.key.clone(),
+            }));
+        }
         for request in requests {
             let scope_net = lowered[&request.scope]
                 .as_ref()
@@ -182,12 +240,29 @@ impl Session {
                 checked.key, request.key,
                 "run_checks: the worker explored another net than the key names"
             );
-            self.sink.emit(EngineEvent::Verdict {
-                property: request.property,
+            self.sink.emit(EngineEvent::Verdict(VerdictEvent {
+                property: request.property.to_string(),
                 key: checked.key,
-                verdict: checked.verdict,
-            });
+                verdict: origin::verdict_dto(&checked.verdict, scope_net),
+            }));
         }
+    }
+}
+
+fn element_view(element: &Element) -> dto::ElementView {
+    dto::ElementView {
+        id: element.id.to_string(),
+        name: element.name.clone(),
+    }
+}
+
+fn property_kind(kind: &PropertyKind) -> dto::PropertyKind {
+    match kind {
+        PropertyKind::DeadlockFree => dto::PropertyKind::DeadlockFree,
+        PropertyKind::NoCapacityExceeded => dto::PropertyKind::NoCapacityExceeded,
+        PropertyKind::NoDeadTransitions => dto::PropertyKind::NoDeadTransitions,
+        PropertyKind::Never { .. } => dto::PropertyKind::Never,
+        PropertyKind::AlwaysReachable { .. } => dto::PropertyKind::AlwaysReachable,
     }
 }
 

@@ -11,9 +11,9 @@ use tracewright_engine::EngineEvent;
 use tracewright_engine::KeyState;
 use tracewright_engine::Session;
 use tracewright_engine::Sink;
-use tracewright_engine::Verdict;
+use tracewright_engine::dto::CurrentKeys;
+use tracewright_engine::dto::VerdictDto;
 use tracewright_format::ProjectFile;
-use tracewright_model::PropertyId;
 
 /// The project as files in memory.
 #[derive(Clone)]
@@ -82,6 +82,11 @@ impl MemDisk {
     }
 }
 
+/// A system with one child whose single transition `work` moves the token of `todo` to `done`.
+pub fn one_job() -> MemDisk {
+    MemDisk::fixture("one-job")
+}
+
 /// Records every event the Session emits.
 #[derive(Clone, Default)]
 pub struct RecordingSink {
@@ -100,18 +105,18 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn keys(&self) -> &std::collections::BTreeMap<PropertyId, KeyState> {
+    pub fn current_keys(&self) -> &CurrentKeys {
         self.events
             .iter()
             .find_map(|event| match event {
-                EngineEvent::CurrentKeys { keys } => Some(keys),
-                EngineEvent::Verdict { .. } => None,
+                EngineEvent::CurrentKeys(keys) => Some(keys),
+                EngineEvent::CheckQueued(_) | EngineEvent::Verdict(_) => None,
             })
             .expect("the run emitted currentKeys")
     }
 
     pub fn key_state(&self, property: &str) -> &KeyState {
-        &self.keys()[&PropertyId::parse(property).expect("test fixture")]
+        &self.current_keys().keys[property]
     }
 
     pub fn key(&self, property: &str) -> &CheckKey {
@@ -121,20 +126,20 @@ impl Run {
         }
     }
 
-    pub fn verdict(&self, property: &str) -> &Verdict {
-        let property = PropertyId::parse(property).expect("test fixture");
+    pub fn verdict(&self, property: &str) -> &VerdictDto {
         self.events
             .iter()
             .find_map(|event| match event {
-                EngineEvent::Verdict {
-                    property: p,
-                    verdict,
-                    ..
-                } if *p == property => Some(verdict),
+                EngineEvent::Verdict(v) if v.property == property => Some(&v.verdict),
                 _ => None,
             })
             .unwrap_or_else(|| panic!("no verdict for {property}"))
     }
+}
+
+/// Given the project on `disk`, the opened Session (its events are dropped).
+pub fn open(disk: &MemDisk) -> Session {
+    Session::open(disk, Box::new(RecordingSink::default())).expect("the project opens")
 }
 
 /// Given the project on `disk`, when the checks run, the events emitted.

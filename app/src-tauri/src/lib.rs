@@ -17,8 +17,15 @@ pub fn run() {
     open_log();
     log::log_panics();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(smoke_from_env())
-        .invoke_handler(tauri::generate_handler![ipc::ui_ready])
+        .manage(ipc::AppState::default())
+        .invoke_handler(tauri::generate_handler![
+            ipc::ui_ready,
+            ipc::pick_project_folder,
+            ipc::open_project,
+            ipc::run_checks
+        ])
         .setup(|app| {
             assert_eq!(
                 app.config().identifier,

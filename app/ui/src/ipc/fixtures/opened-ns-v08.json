@@ -1,0 +1,38 @@
+{
+  "name": "ns-v08",
+  "path": "/home/designer/ns-v08",
+  "view": {
+    "elements": [
+      {
+        "id": "x",
+        "name": "x"
+      }
+    ],
+    "properties": [
+      {
+        "id": "x-no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "x"
+        }
+      },
+      {
+        "id": "x-no-overflow",
+        "kind": "noCapacityExceeded",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "x"
+        }
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "sys"
+    }
+  }
+}

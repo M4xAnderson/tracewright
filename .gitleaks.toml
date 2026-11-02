@@ -1,0 +1,12 @@
+# gitleaks reads this file in the pre-commit hook. The default rules stay on; the one exception is
+# the CheckKey (NS §11): a BLAKE3 hash of a net, written as 64 lowercase hex characters into the
+# Rust-written IPC fixtures. It identifies a check and is not a secret.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CheckKeys in the IPC fixtures"
+regexTarget = "line"
+paths = ['''^app/ui/src/ipc/fixtures/[a-z0-9-]+\.json$''']
+regexes = ['''^\s*"key": "[0-9a-f]{64}",?$''']
+condition = "AND"

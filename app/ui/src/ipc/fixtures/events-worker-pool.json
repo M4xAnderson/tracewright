@@ -1,0 +1,35 @@
+[
+  {
+    "keys": {
+      "no-deadlock": {
+        "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573"
+      },
+      "no-overflow": {
+        "unknown": {
+          "category": "propertyNotCheckable",
+          "details": [
+            "no capacity exceeded is not checked yet"
+          ]
+        }
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
+    "kind": "checkQueued",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
+    "kind": "verdict",
+    "property": "no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 3,
+      "technique": "exhaustive"
+    }
+  }
+]
