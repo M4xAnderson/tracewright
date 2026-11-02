@@ -33,6 +33,8 @@ export interface LayoutEdge {
 export interface LayoutRequest {
   nodes: LayoutNode[];
   edges: LayoutEdge[];
+  // Space between ELK's layers: wide on the canvas for relationship lines, narrow in a net.
+  layerGap: number;
 }
 
 export interface LayoutResult {

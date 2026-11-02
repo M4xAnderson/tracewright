@@ -17,7 +17,7 @@ export async function runLayout(request: LayoutRequest): Promise<LayoutResult> {
       "elk.direction": "RIGHT",
       "elk.edgeRouting": "ORTHOGONAL",
       "elk.spacing.nodeNode": "48",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+      "elk.layered.spacing.nodeNodeBetweenLayers": String(request.layerGap),
       // Model order keeps the result the same for the same view (flows §4.5: same net, same
       // layout), whatever ELK's internal tie-breaking.
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",

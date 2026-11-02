@@ -121,8 +121,8 @@ describe("canvas projection", () => {
     const result = await runLayout(request);
     expect(await runLayout(request)).toEqual(result);
     const placed = placementFromLayout(oppositeLocks, result);
-    // l is the lowest placed element: y 120 plus its height of 92.
-    expect(placed["b"]?.y).toBeGreaterThanOrEqual(120 + 92);
+    // l is the lowest placed element: y 120 plus its height of 128 (three ports).
+    expect(placed["b"]?.y).toBeGreaterThanOrEqual(120 + 128);
     expect(placed["b"]?.x).toBe(0);
   });
 

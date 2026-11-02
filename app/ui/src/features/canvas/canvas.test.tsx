@@ -141,7 +141,7 @@ describe("the behavior model pane", () => {
     expect(within(pane).getByRole("heading", { name: "Behavior model: Clients" })).toBeVisible();
     const net = await within(pane).findByRole("figure", { name: "Petri net of Clients" });
     expect(
-      within(net).getByRole("group", { name: "Place idle: 3 tokens, capacity 3 · block" }),
+      await within(net).findByRole("group", { name: "Place idle: 3 tokens, capacity 3 · block" }),
     ).toHaveTextContent("3idlecapacity 3 · block");
     expect(
       within(net).getByRole("group", { name: "Place running: 0 tokens, capacity 3 · block" }),

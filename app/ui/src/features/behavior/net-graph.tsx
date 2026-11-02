@@ -5,7 +5,7 @@ import {
   BaseEdge,
   type EdgeProps,
   type EdgeTypes,
-  getStraightPath,
+  getBezierPath,
   Handle,
   MarkerType,
   type NodeProps,
@@ -30,6 +30,31 @@ import {
 type PlaceNode = Extract<NetNode, { type: "place" }>;
 type TransitionNode = Extract<NetNode, { type: "transition" }>;
 
+// Arcs meet the circle or bar, not the label box around it.
+const PLACE_RADIUS = 18;
+const TRANSITION_HALF_WIDTH = 6;
+
+function ShapeHandles({ halfWidth }: { halfWidth: number }) {
+  return (
+    <>
+      <Handle
+        type="target"
+        position={Position.Left}
+        isConnectable={false}
+        className="net-handle"
+        style={{ left: `calc(50% - ${halfWidth}px)` }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        isConnectable={false}
+        className="net-handle"
+        style={{ left: `calc(50% + ${halfWidth}px)`, right: "auto" }}
+      />
+    </>
+  );
+}
+
 const PlaceItem = memo(function PlaceItem({ data }: NodeProps<PlaceNode>) {
   const { place } = data;
   return (
@@ -38,13 +63,7 @@ const PlaceItem = memo(function PlaceItem({ data }: NodeProps<PlaceNode>) {
       <span className="net-name">{place.displayName}</span>
       <span className="net-detail">{placeLabel(place)}</span>
       {place.port && <span className="net-port-tag">port</span>}
-      <Handle type="target" position={Position.Left} isConnectable={false} className="net-handle" />
-      <Handle
-        type="source"
-        position={Position.Right}
-        isConnectable={false}
-        className="net-handle"
-      />
+      <ShapeHandles halfWidth={PLACE_RADIUS} />
     </div>
   );
 });
@@ -53,19 +72,21 @@ const TransitionItem = memo(function TransitionItem({ data }: NodeProps<Transiti
   const { transition } = data;
   return (
     <div className="net-item" data-transition={transition.name}>
-      <span className="net-name">{transition.displayName}</span>
       <span className={cn("net-transition", transition.port && "is-port")} />
+      <span className="net-name">{transition.displayName}</span>
       {transition.port && <span className="net-port-tag">port</span>}
-      <Handle type="target" position={Position.Left} isConnectable={false} className="net-handle" />
-      <Handle
-        type="source"
-        position={Position.Right}
-        isConnectable={false}
-        className="net-handle"
-      />
+      <ShapeHandles halfWidth={TRANSITION_HALF_WIDTH} />
     </div>
   );
 });
+
+const BACK_ARC_DEPTH = 130;
+
+function backArc(sx: number, sy: number, tx: number, ty: number): [string, number, number] {
+  const low = Math.max(sy, ty) + BACK_ARC_DEPTH;
+  const path = `M${sx},${sy} C${sx + 60},${low} ${tx - 60},${low} ${tx},${ty}`;
+  return [path, (sx + tx) / 2, low - BACK_ARC_DEPTH / 4];
+}
 
 const Arc = memo(function Arc({
   id,
@@ -74,9 +95,15 @@ const Arc = memo(function Arc({
   sourceY,
   targetX,
   targetY,
+  sourcePosition,
+  targetPosition,
   markerEnd,
 }: EdgeProps<ArcEdge>) {
-  const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+  // An arc back to an earlier item loops below the row, so a cycle reads as one.
+  const backwards = targetX < sourceX;
+  const [path, labelX, labelY] = backwards
+    ? backArc(sourceX, sourceY, targetX, targetY)
+    : getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
   const weight = data?.weight ?? 1;
   return (
     <BaseEdge
@@ -97,6 +124,8 @@ const Arc = memo(function Arc({
 const nodeTypes = { place: PlaceItem, transition: TransitionItem } satisfies NodeTypes;
 const edgeTypes = { arc: Arc } satisfies EdgeTypes;
 const defaultEdgeOptions = { markerEnd: { type: MarkerType.ArrowClosed, color: "var(--edge)" } };
+// Names stay readable at the first fit; a wider net is panned (flows §4.5, large).
+const fitViewOptions = { minZoom: 0.75, maxZoom: 1 };
 const ariaLabelConfig = {
   "node.a11yDescription.default": "",
   "node.a11yDescription.keyboardDisabled": "",
@@ -110,7 +139,7 @@ export function NetGraph({ net, elementName }: { net: PetriNetView; elementName:
 
   const handleLaidOut = useEffectEvent((laidOutNet: PetriNetView, result: LayoutResult) => {
     setLaidOut({ net: laidOutNet, result });
-    void reactFlow.fitView();
+    void reactFlow.fitView(fitViewOptions);
   });
 
   // Synchronizes with the layout worker: one request per net.
@@ -164,6 +193,7 @@ export function NetGraph({ net, elementName }: { net: PetriNetView; elementName:
         disableKeyboardA11y
         ariaLabelConfig={ariaLabelConfig}
         fitView
+        fitViewOptions={fitViewOptions}
         minZoom={0.1}
         proOptions={{ hideAttribution: true }}
       />

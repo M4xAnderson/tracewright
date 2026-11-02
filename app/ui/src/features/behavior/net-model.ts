@@ -8,8 +8,9 @@ import type { TransitionView } from "../../ipc/bindings/transition-view";
 import type { LayoutRequest, Point } from "../canvas/layout-client";
 
 // A place is its circle plus the two label lines under it; a transition its bar plus the name
-// above it. Wide enough for a 24-character name (flows §4.5, large).
-const ITEM_WIDTH = 168;
+// above it. Names longer than the width truncate (flows §4.5, large).
+const ITEM_WIDTH = 128;
+const LAYER_GAP = 40;
 const PLACE_HEIGHT = 84;
 const TRANSITION_HEIGHT = 72;
 
@@ -46,7 +47,11 @@ export function netLayoutRequest(net: PetriNetView): LayoutRequest {
     ...net.places.map((p) => ({ id: placeId(p.name), height: PLACE_HEIGHT })),
     ...net.transitions.map((t) => ({ id: transitionId(t.name), height: TRANSITION_HEIGHT })),
   ].map((node) => ({ ...node, width: ITEM_WIDTH, ports: [] }));
-  return { nodes, edges: arcs(net).map(({ id, source, target }) => ({ id, source, target })) };
+  return {
+    layerGap: LAYER_GAP,
+    nodes,
+    edges: arcs(net).map(({ id, source, target }) => ({ id, source, target })),
+  };
 }
 
 export function placeLabel(place: PlaceView): string {

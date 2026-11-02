@@ -12,7 +12,11 @@ export const ELEMENT_WIDTH = 200;
 const ELEMENT_HEIGHT_MIN = 64;
 // Port handles sit 24 px apart, so their 24 × 24 hit areas never overlap (flows §4.4, AC-16).
 const PORT_PITCH = 24;
-const PORT_FIRST = 22;
+// The first port sits below the name and kind lines, so port names fit inside the element.
+const PORT_FIRST = 60;
+const PORT_LAST_MARGIN = 20;
+// Room between layers for relationship lines and their labels.
+const LAYER_GAP = 120;
 // Unplaced elements are laid out below everything already placed, so nothing placed moves.
 const PLACEMENT_GAP = 80;
 
@@ -112,6 +116,7 @@ export function unplacedLayoutRequest(view: View): LayoutRequest | null {
     unplaced.map((element) => [element.id, elementPorts(element, view.relationships)]),
   );
   return {
+    layerGap: LAYER_GAP,
     nodes: unplaced.map((element) => {
       const ports = portsById.get(element.id) ?? [];
       const size = elementSize(element, ports);
@@ -238,7 +243,9 @@ function elementSize(
   const lowest = Math.max(0, ...ports.map((p) => p.offset));
   return {
     width: element.position?.w ?? ELEMENT_WIDTH,
-    height: element.position?.h ?? Math.max(ELEMENT_HEIGHT_MIN, lowest + PORT_FIRST),
+    height:
+      element.position?.h ??
+      Math.max(ELEMENT_HEIGHT_MIN, lowest === 0 ? 0 : lowest + PORT_LAST_MARGIN),
   };
 }
 

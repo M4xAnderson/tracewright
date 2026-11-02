@@ -229,17 +229,20 @@
 .port-name {
   display: none;
   position: absolute;
-  top: -17px;
+  top: -5px;
+  font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 18px;
   color: var(--text-secondary);
   white-space: nowrap;
   pointer-events: none;
 }
+/* Names sit inside the element, next to their handle, clear of the relationship lines. */
 .port-name-left {
-  right: 6px;
+  left: 14px;
 }
 .port-name-right {
-  left: 6px;
+  right: 14px;
 }
 .zoom-detail .port-name,
 .is-selected .port-name {
