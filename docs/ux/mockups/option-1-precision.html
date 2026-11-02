@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>● order-platform – Order System · Level: Container (mockup: Precision instrument)</title>
+<style>
+/* ==========================================================================
+   DESIGN TOKENS  ·  Option 1 "Precision instrument"
+   Components use only semantic tokens. No hex below the token blocks.
+   ========================================================================== */
+:root {
+  /* Type */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Noto Sans", "Liberation Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --fs-xs: 11px;    --lh-xs: 16px;
+  --fs-sm: 12px;    --lh-sm: 16px;
+  --fs-base: 13px;  --lh-base: 20px;
+  --fs-md: 14px;    --lh-md: 20px;
+  --fs-lg: 15px;    --lh-lg: 22px;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+  --tracking-caps: 0.06em;
+
+  /* Spacing (4 px grid) */
+  --sp-half: 2px; --sp-1: 4px; --sp-1h: 6px; --sp-2: 8px; --sp-2h: 10px; --sp-3: 12px;
+  --sp-4: 16px;   --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  /* Radius */
+  --radius-sm: 3px; --radius-md: 5px; --radius-lg: 8px; --radius-pill: 999px;
+
+  /* Lines */
+  --hairline: 1px; --stroke-edge: 1.25px; --stroke-highlight: 2.5px; --focus-width: 2px;
+
+  /* Layout (flows spec §2.3) */
+  --header-h: 44px; --status-h: 24px; --replaybar-h: 36px; --tabstrip-h: 32px;
+  --right-w: 360px; --bottom-h: 264px; --mock-h: 32px; --target-min: 24px;
+}
+
+/* Light palette */
+:root, [data-theme="light"] {
+  --surface-app: #f3f4f6;
+  --surface-panel: #ffffff;
+  --surface-canvas: #f9fafb;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f2f4;
+  --surface-hover: #e9ebee;
+  --surface-selected: #e8edfc;
+
+  --text-primary: #15171a;
+  --text-secondary: #464c55;
+  --text-muted: #5c636d;
+  --text-disabled: #8d939b;
+  --text-on-accent: #ffffff;
+
+  --border-hairline: #e2e4e8;
+  --border-default: #d1d4d9;
+  --border-strong: #6c727b;
+  --border-quiet: #8a9099;
+  --edge: #6c727b;
+  --canvas-grid: #dadde2;
+
+  --accent: #3550c8;
+  --accent-hover: #2b43ad;
+  --accent-subtle: #e8edfc;
+  --accent-text: #2f48b8;
+  --focus-ring: #3550c8;
+
+  --verdict-proved: #1c7047;
+  --verdict-disproved: #c22f2a;
+  --verdict-unknown: #5c636d;
+  --verdict-stale: #767c85;
+  --verdict-pending: #c7cbd1;
+  --replay-highlight: #a85400;
+  --replay-highlight-ring: #fcefdc;
+  --problem: #b23f0e;
+
+  --elev-1: 0 1px 0 rgb(16 18 22 / 0.04), 0 1px 2px rgb(16 18 22 / 0.06);
+  --elev-2: 0 1px 3px rgb(16 18 22 / 0.08), 0 6px 16px rgb(16 18 22 / 0.10);
+}
+
+/* Dark palette: a separate palette, not an inversion */
+[data-theme="dark"] {
+  --surface-app: #0d0e10;
+  --surface-panel: #151619;
+  --surface-canvas: #101113;
+  --surface-raised: #1b1c20;
+  --surface-sunken: #0b0c0e;
+  --surface-hover: #22242a;
+  --surface-selected: #1c2444;
+
+  --text-primary: #ebecef;
+  --text-secondary: #b1b6be;
+  --text-muted: #9298a1;
+  --text-disabled: #5d626a;
+  --text-on-accent: #ffffff;
+
+  --border-hairline: #24262b;
+  --border-default: #30333a;
+  --border-strong: #868c95;
+  --border-quiet: #686e77;
+  --edge: #868c95;
+  --canvas-grid: #25272c;
+
+  --accent: #4560e0;
+  --accent-hover: #3a52c4;
+  --accent-subtle: #1c2444;
+  --accent-text: #9aabff;
+  --focus-ring: #8fa1ff;
+
+  --verdict-proved: #4bc48a;
+  --verdict-disproved: #ff6b61;
+  --verdict-unknown: #a0a6af;
+  --verdict-stale: #7e848d;
+  --verdict-pending: #34373d;
+  --replay-highlight: #f0a23a;
+  --replay-highlight-ring: #3a2913;
+  --problem: #f08c4e;
+
+  --elev-1: 0 1px 0 rgb(0 0 0 / 0.35);
+  --elev-2: 0 0 0 1px rgb(255 255 255 / 0.04), 0 8px 24px rgb(0 0 0 / 0.55);
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-sans); font-size: var(--fs-base); line-height: var(--lh-base);
+  color: var(--text-primary); background: var(--surface-app);
+  -webkit-font-smoothing: antialiased; font-feature-settings: "tnum" 1, "cv11" 1;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3, h4, p, ol, ul { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mono { font-family: var(--font-mono); font-size: 0.94em; }
+.num { font-variant-numeric: tabular-nums; }
+svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+svg.i.sm { width: 14px; height: 14px; }
+svg.i.xs { width: 12px; height: 12px; stroke-width: 2; }
+
+:focus-visible { outline: var(--focus-width) solid var(--focus-ring); outline-offset: 2px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--sp-1h);
+  min-height: 28px; padding: 0 var(--sp-2h); border-radius: var(--radius-md);
+  border: var(--hairline) solid var(--border-default); background: var(--surface-panel);
+  color: var(--text-primary); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+  cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-hover); }
+.btn.sm { min-height: var(--target-min); padding: 0 var(--sp-2); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface-hover); color: var(--text-primary); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--text-on-accent); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.icon { width: 28px; padding: 0; justify-content: center; }
+.btn[disabled], .btn[aria-disabled="true"] { color: var(--text-disabled); background: transparent; border-color: transparent; cursor: not-allowed; }
+.btn.danger { color: var(--verdict-disproved); }
+kbd {
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 16px; padding: 0 var(--sp-1);
+  border: var(--hairline) solid var(--border-default); border-radius: var(--radius-sm);
+  color: var(--text-muted); background: var(--surface-sunken);
+}
+.btn.primary kbd { background: transparent; border-color: rgb(255 255 255 / 0.35); color: var(--text-on-accent); }
+.sep { width: var(--hairline); align-self: stretch; margin: var(--sp-2) var(--sp-1); background: var(--border-hairline); }
+.caps { font-size: var(--fs-xs); line-height: var(--lh-xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-muted); font-weight: var(--fw-medium); }
+
+/* ==========================================================================
+   MOCKUP STRIP (not part of the app)
+   ========================================================================== */
+.mock {
+  height: var(--mock-h); display: flex; align-items: center; gap: var(--sp-3);
+  padding: 0 var(--sp-3); font-size: var(--fs-xs); color: var(--text-muted);
+  border-bottom: var(--hairline) dashed var(--border-default);
+}
+.mock strong { color: var(--text-secondary); font-weight: var(--fw-semibold); }
+.mock .spacer { flex: 1; }
+.seg { display: inline-flex; border: var(--hairline) solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+.seg button { border: 0; background: transparent; min-height: var(--target-min); padding: 0 var(--sp-2); font-size: var(--fs-xs); color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1); }
+.seg button + button { border-left: var(--hairline) solid var(--border-default); }
+.seg button[aria-pressed="true"] { background: var(--surface-selected); color: var(--text-primary); font-weight: var(--fw-medium); }
+
+/* ==========================================================================
+   APP FRAME
+   ========================================================================== */
+.app {
+  height: calc(100vh - var(--mock-h)); min-height: 640px; min-width: 1024px;
+  display: grid; grid-template-rows: var(--header-h) minmax(0, 1fr) var(--status-h);
+  background: var(--surface-app);
+}
+
+/* Header */
+.header {
+  display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3);
+  background: var(--surface-panel); border-bottom: var(--hairline) solid var(--border-default);
+  min-width: 0;
+}
+.brand { width: 20px; height: 20px; border-radius: var(--radius-sm); display: grid; place-items: center; background: var(--text-primary); color: var(--surface-panel); flex: none; }
+.brand svg { width: 14px; height: 14px; stroke-width: 2; }
+.project { display: flex; align-items: center; gap: var(--sp-2); min-width: 96px; }
+.project-name { font-weight: var(--fw-semibold); white-space: nowrap; }
+.unsaved { display: inline-flex; align-items: center; gap: var(--sp-1h); font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
+.unsaved .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+.crumbs { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.crumbs ol { display: flex; align-items: center; gap: var(--sp-half); min-width: 0; }
+.crumbs li { display: flex; align-items: center; gap: var(--sp-half); white-space: nowrap; }
+.crumbs li + li::before { content: "›"; color: var(--text-muted); padding: 0 var(--sp-half); }
+.crumb { border: 0; background: transparent; color: var(--text-secondary); padding: 0 var(--sp-1h); min-height: var(--target-min); border-radius: var(--radius-sm); cursor: pointer; }
+.crumb:hover { background: var(--surface-hover); color: var(--text-primary); }
+.crumb[aria-current="page"] { color: var(--text-primary); font-weight: var(--fw-semibold); cursor: default; }
+.level { font-size: var(--fs-xs); line-height: 18px; padding: 0 var(--sp-1h); border-radius: var(--radius-sm); border: var(--hairline) solid var(--border-default); color: var(--text-secondary); white-space: nowrap; }
+.header .spacer { flex: 1; }
+.header .group { display: flex; align-items: center; gap: var(--sp-1); }
+
+/* Main split */
+.main { display: grid; grid-template-columns: minmax(512px, 1fr) var(--right-w); min-height: 0; }
+.center { display: grid; grid-template-rows: var(--replaybar-h) minmax(240px, 1fr) var(--bottom-h); min-width: 0; min-height: 0; }
+
+/* Replay bar */
+.replaybar {
+  display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-3);
+  background: var(--surface-panel); border-bottom: var(--hairline) solid var(--border-default);
+  box-shadow: inset 0 2px 0 var(--replay-highlight);
+}
+.replay-label { display: inline-flex; align-items: center; gap: var(--sp-1h); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); white-space: nowrap; margin-right: var(--sp-2); }
+.replay-label .tag { font-weight: var(--fw-regular); color: var(--text-muted); }
+.replay-label svg { color: var(--replay-highlight); }
+.scrub { flex: 1; min-width: 120px; position: relative; display: flex; align-items: center; height: var(--target-min); margin: 0 var(--sp-2); }
+.scrub input { width: 100%; margin: 0; height: var(--target-min); background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; position: relative; z-index: 1; }
+.scrub input::-webkit-slider-runnable-track { height: 2px; background: var(--border-default); }
+.scrub input::-moz-range-track { height: 2px; background: var(--border-default); }
+.scrub input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 18px; margin-top: -8px; border-radius: var(--radius-sm); background: var(--surface-panel); border: 2px solid var(--replay-highlight); }
+.scrub input::-moz-range-thumb { width: 10px; height: 16px; border-radius: var(--radius-sm); background: var(--surface-panel); border: 2px solid var(--replay-highlight); }
+.ticks { position: absolute; inset: 0 6px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+.ticks span { width: 1px; height: 8px; background: var(--border-strong); }
+.ticks span.last { height: 12px; width: 2px; background: var(--verdict-disproved); }
+.stepcount { font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; min-width: 84px; text-align: right; }
+.stepcount b { color: var(--text-primary); font-weight: var(--fw-semibold); }
+
+/* Canvas */
+.canvas {
+  position: relative; overflow: hidden; min-height: 0;
+  background-color: var(--surface-canvas);
+  background-image: radial-gradient(var(--canvas-grid) 1px, transparent 1.2px);
+  background-size: 16px 16px; background-position: 8px 8px;
+}
+.canvas .world { position: absolute; left: 0; top: 0; width: 1040px; height: 500px; }
+.canvas svg.edges { position: absolute; inset: 0; width: 1040px; height: 500px; overflow: visible; }
+.edges path { fill: none; stroke: var(--edge); stroke-width: var(--stroke-edge); }
+.edges path.hl { stroke: var(--replay-highlight); stroke-width: var(--stroke-highlight); }
+.edges .ah { fill: var(--edge); }
+.edges .ah-hl { fill: var(--replay-highlight); }
+
+.el {
+  position: absolute; width: 188px; height: 76px; padding: var(--sp-2) var(--sp-3);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left;
+  background: var(--surface-raised); border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-lg); box-shadow: var(--elev-1); cursor: default;
+}
+.el .k { display: inline-flex; align-items: center; gap: var(--sp-1h); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-muted); }
+.el .n { font-size: var(--fs-md); line-height: var(--lh-md); font-weight: var(--fw-semibold); color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.el .d { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.el.person { border-radius: 38px; padding-left: var(--sp-5); }
+.el.db { border-radius: 20px 20px var(--radius-lg) var(--radius-lg) / 9px 9px var(--radius-lg) var(--radius-lg); }
+.el.db::before { content: ""; position: absolute; left: -1px; right: -1px; top: 6px; height: 9px; border-bottom: var(--hairline) solid var(--border-quiet); border-radius: 0 0 50% 50% / 0 0 100% 100%; pointer-events: none; }
+.el.db .k { margin-top: 6px; }
+.el.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--elev-1); }
+.el.selected .sel-tag { position: absolute; right: var(--sp-2); top: var(--sp-2); font-size: var(--fs-xs); line-height: 16px; padding: 0 var(--sp-1); border-radius: var(--radius-sm); color: var(--accent-text); background: var(--accent-subtle); }
+/* Replay: quieter borders for uninvolved elements, never opacity */
+.replaying .el:not(.hl):not(.selected) { border-color: var(--border-quiet); box-shadow: none; }
+.el.hl { outline: var(--stroke-highlight) solid var(--replay-highlight); outline-offset: 2px; }
+.marker {
+  position: absolute; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--radius-pill);
+  display: grid; place-items: center; font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  background: var(--replay-highlight); color: var(--surface-panel); font-variant-numeric: tabular-nums;
+}
+.el .marker { left: -12px; top: -12px; }
+.el:not(.hl) .marker { display: none; }
+
+.port { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--border-strong); transform: translate(-6px, -6px); }
+.port::after { content: ""; position: absolute; inset: -7px; } /* 24 x 24 hit area */
+.plabel { position: absolute; font-family: var(--font-mono); font-size: 10.5px; line-height: 14px; color: var(--text-muted); white-space: nowrap; }
+.plabel.r { transform: translateX(-100%); }
+
+.rlabel {
+  position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: var(--sp-1);
+  font-size: var(--fs-xs); line-height: 18px; color: var(--text-secondary); white-space: nowrap;
+  background: var(--surface-canvas); padding: 0 var(--sp-1); border-radius: var(--radius-sm);
+}
+.rlabel.left { transform: translate(0, -50%); }
+.chip { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); line-height: 18px; padding: 0 var(--sp-1h); border-radius: var(--radius-sm); border: var(--hairline) solid var(--border-default); background: var(--surface-panel); color: var(--text-secondary); white-space: nowrap; }
+.chip.count { border: 1.5px solid var(--replay-highlight); background: var(--replay-highlight-ring); color: var(--text-primary); font-weight: var(--fw-semibold); }
+.chip.count .delta { font-weight: var(--fw-regular); color: var(--text-secondary); }
+.rlabel .marker { position: static; }
+
+.canvas-tools { position: absolute; right: var(--sp-3); bottom: var(--sp-3); display: flex; align-items: center; gap: 0; background: var(--surface-panel); border: var(--hairline) solid var(--border-default); border-radius: var(--radius-md); box-shadow: var(--elev-1); }
+.canvas-tools .btn { border: 0; border-radius: 0; min-height: 28px; }
+.canvas-tools .zoom { font-size: var(--fs-xs); color: var(--text-secondary); padding: 0 var(--sp-1h); min-width: 44px; text-align: center; }
+.canvas-hint { position: absolute; left: var(--sp-3); bottom: var(--sp-3); font-size: var(--fs-xs); color: var(--text-muted); background: var(--surface-canvas); padding: 0 var(--sp-1); }
+
+/* Bottom pane */
+.bottom { display: grid; grid-template-rows: var(--tabstrip-h) minmax(0, 1fr); background: var(--surface-panel); border-top: var(--hairline) solid var(--border-default); min-height: 0; }
+.tabs { display: flex; align-items: stretch; gap: var(--sp-1); padding: 0 var(--sp-2); border-bottom: var(--hairline) solid var(--border-hairline); }
+.tab {
+  border: 0; background: transparent; padding: 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-muted);
+  cursor: pointer; position: relative; display: inline-flex; align-items: center; gap: var(--sp-1h); white-space: nowrap;
+}
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--sp-2); right: var(--sp-2); bottom: -1px; height: 2px; background: var(--text-primary); }
+.tab .count { font-weight: var(--fw-regular); color: var(--text-muted); }
+.tabs .spacer { flex: 1; }
+.tabs .btn { align-self: center; }
+.panel[hidden] { display: none !important; }
+
+.pane-head { height: 32px; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3); border-bottom: var(--hairline) solid var(--border-hairline); }
+.pane-head h3 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.pane-head .spacer { flex: 1; }
+.toggle[aria-pressed="true"] { background: var(--surface-selected); color: var(--text-primary); border-color: var(--border-default); }
+.toggle .box { width: 12px; height: 12px; border-radius: 2px; border: 1.5px solid currentColor; display: grid; place-items: center; }
+.bm { display: grid; grid-template-rows: 32px minmax(0, 1fr); min-height: 0; height: 100%; }
+.bm-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
+.net { position: relative; overflow: hidden; border-right: var(--hairline) solid var(--border-hairline); background: var(--surface-canvas); }
+.net svg { width: 100%; height: 100%; display: block; }
+.net .pl { fill: var(--surface-raised); stroke: var(--border-strong); stroke-width: 1.25; }
+.net .tr { fill: var(--surface-raised); stroke: var(--border-strong); stroke-width: 1.25; }
+.net .tr.hl, .net .pl.hl { stroke: var(--replay-highlight); stroke-width: 2.5; }
+.net .tr.wait { stroke: var(--replay-highlight); stroke-width: 2; stroke-dasharray: 4 3; }
+.net .arc { fill: none; stroke: var(--edge); stroke-width: 1.25; }
+.net .arc.ext { stroke-dasharray: 4 3; }
+.net .ah { fill: var(--edge); }
+.net text { font-family: var(--font-sans); fill: var(--text-primary); }
+.net .tok { font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; }
+.net .nm { font-size: 11px; text-anchor: middle; font-family: var(--font-mono); }
+.net .cap { font-size: 10.5px; text-anchor: middle; fill: var(--text-muted); }
+.net .tn { font-size: 11px; text-anchor: middle; dominant-baseline: central; font-family: var(--font-mono); }
+.net .ptag { font-size: 9.5px; fill: var(--text-muted); text-anchor: middle; letter-spacing: 0.04em; }
+.net .dlt { font-size: 11px; font-weight: 600; fill: var(--text-primary); }
+.net .dltbg { fill: var(--replay-highlight-ring); stroke: var(--replay-highlight); stroke-width: 1; }
+.net .mk { fill: var(--replay-highlight); }
+.net .mkt { fill: var(--surface-panel); font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+.net .ext-label { font-size: 11px; fill: var(--text-secondary); }
+.net-note { position: absolute; inset: 0; display: none; place-items: center; padding: var(--sp-4); text-align: center; color: var(--text-muted); font-size: var(--fs-sm); }
+.net.placeholder svg { display: none; }
+.net.placeholder .net-note { display: grid; }
+.marking { overflow: auto; padding: var(--sp-2) var(--sp-3); }
+.marking h4 { margin-bottom: var(--sp-1); }
+table.mt { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); line-height: var(--lh-sm); }
+.mt th { text-align: left; font-weight: var(--fw-medium); color: var(--text-muted); font-size: var(--fs-xs); padding: var(--sp-1) var(--sp-1h); border-bottom: var(--hairline) solid var(--border-default); }
+.mt td { padding: var(--sp-1h) var(--sp-1h); border-bottom: var(--hairline) solid var(--border-hairline); vertical-align: top; }
+.mt td.n, .mt th.n { text-align: right; font-variant-numeric: tabular-nums; width: 52px; }
+.mt tr.chg td { background: var(--replay-highlight-ring); }
+.mt .delta { display: inline-flex; align-items: center; gap: 2px; font-weight: var(--fw-semibold); }
+.mt .same { color: var(--text-muted); }
+.segsw { margin-left: var(--sp-1); }
+
+/* Findings and problems */
+.list-head { height: 32px; display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3); border-bottom: var(--hairline) solid var(--border-hairline); font-size: var(--fs-sm); color: var(--text-secondary); }
+.list-head .spacer { flex: 1; }
+table.ft { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); line-height: var(--lh-sm); }
+.ft th { text-align: left; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-muted); padding: var(--sp-1h) var(--sp-3); border-bottom: var(--hairline) solid var(--border-default); white-space: nowrap; }
+.ft td { padding: var(--sp-2) var(--sp-3); border-bottom: var(--hairline) solid var(--border-hairline); vertical-align: top; }
+.ft .rule-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); display: block; }
+.ft .rule-name { font-weight: var(--fw-medium); }
+.sev { display: inline-flex; align-items: center; gap: var(--sp-1h); white-space: nowrap; }
+.sev .bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 12px; }
+.sev .bars i { width: 3px; background: var(--border-default); border-radius: 1px; }
+.sev .bars i:nth-child(1) { height: 5px; } .sev .bars i:nth-child(2) { height: 8px; } .sev .bars i:nth-child(3) { height: 12px; }
+.sev .bars i.on { background: var(--text-primary); }
+.elchip { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: var(--target-min); padding: 0 var(--sp-1h); margin: 0 var(--sp-1) var(--sp-1) 0; border: var(--hairline) solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-panel); font-size: var(--fs-xs); cursor: pointer; }
+.elchip:hover { background: var(--surface-hover); }
+.ft tr.suppressed td { color: var(--text-secondary); background: var(--surface-sunken); }
+.ft tr.suppressed .rule-name { text-decoration: none; }
+.supp { display: inline-flex; align-items: flex-start; gap: var(--sp-1h); margin-top: var(--sp-1); color: var(--text-secondary); }
+.supp b { font-weight: var(--fw-semibold); color: var(--text-primary); }
+.ft td.act { white-space: nowrap; text-align: right; }
+.empty { padding: var(--sp-4) var(--sp-3); color: var(--text-secondary); font-size: var(--fs-sm); display: flex; gap: var(--sp-2); align-items: center; }
+
+/* Right column */
+.right { display: grid; grid-template-rows: 36px minmax(0, 1fr); background: var(--surface-panel); border-left: var(--hairline) solid var(--border-default); min-height: 0; min-width: 0; }
+.right .tabs { padding: 0 var(--sp-2); }
+.scroll { overflow: auto; min-height: 0; }
+
+/* Verdict panel */
+.vtool { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); border-bottom: var(--hairline) solid var(--border-hairline); }
+.vtool .spacer { flex: 1; }
+.vrow { position: relative; padding: var(--sp-2h) var(--sp-4) var(--sp-3) var(--sp-4); border-bottom: var(--hairline) solid var(--border-hairline); }
+.vrow::before { content: ""; position: absolute; left: 0; top: var(--sp-2h); bottom: var(--sp-3); width: 2px; background: var(--rule, transparent); }
+.vrow.is-proved { --rule: var(--verdict-proved); }
+.vrow.is-disproved { --rule: var(--verdict-disproved); }
+.vrow.is-unknown { --rule: var(--verdict-unknown); }
+.vtitle { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.vname { font-size: var(--fs-base); line-height: 18px; font-weight: var(--fw-semibold); }
+.vscope { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-muted); margin-top: 1px; }
+.vhead { display: flex; align-items: center; gap: var(--sp-2); margin-top: 2px; }
+.vhead .vscope { margin: 0; flex: 1; min-width: 0; }
+.vline { display: inline-flex; align-items: center; gap: var(--sp-1h); font-size: var(--fs-base); line-height: 20px; font-weight: var(--fw-semibold); white-space: nowrap; }
+.vmeta { display: flex; gap: var(--sp-2); margin-top: var(--sp-1); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-muted); }
+.v-proved { color: var(--verdict-proved); }
+.v-disproved { color: var(--verdict-disproved); }
+.v-unknown { color: var(--verdict-unknown); }
+.vline .word { color: var(--text-primary); }
+.vdetail { margin-top: var(--sp-1h); font-size: var(--fs-sm); line-height: 17px; color: var(--text-secondary); max-width: 75ch; }
+.vdetail + .vdetail { margin-top: var(--sp-1); }
+.vdetail.quiet { color: var(--text-muted); }
+.vdetail .lbl { color: var(--text-primary); font-weight: var(--fw-medium); }
+.vactions { display: flex; gap: var(--sp-1h); margin-top: var(--sp-1h); flex-wrap: wrap; }
+.vfoot { padding: var(--sp-2) var(--sp-3); }
+.replaying-tag { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-primary); padding: 0 var(--sp-1h); line-height: 18px; border-radius: var(--radius-sm); border: 1.5px solid var(--replay-highlight); background: var(--replay-highlight-ring); }
+
+/* Step list (inside the Disproved row during replay) */
+.rp { margin-top: var(--sp-2); border: var(--hairline) solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-panel); overflow: hidden; }
+.rp-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-2); background: var(--surface-sunken); border-bottom: var(--hairline) solid var(--border-hairline); }
+.rp-head h4 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.rp-head .spacer { flex: 1; }
+.rp-cur { display: flex; align-items: center; flex-wrap: nowrap; gap: var(--sp-1); white-space: nowrap; font-size: var(--fs-xs); color: var(--text-secondary); }
+.rp-cur .elchip { margin: 0 var(--sp-1) 0 0; background: var(--surface-panel); }
+.rp-cur .lbl { color: var(--text-muted); margin-right: var(--sp-half); }
+.steps { max-height: 196px; overflow: auto; padding: var(--sp-1) 0; }
+.steps:focus-visible { outline-offset: -2px; }
+.step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 var(--sp-1); padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-1); min-height: var(--target-min); font-size: var(--fs-sm); line-height: 16px; color: var(--text-secondary); cursor: pointer; }
+.step:hover { background: var(--surface-hover); }
+.step .ix { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); text-align: right; padding-right: var(--sp-1); }
+.step .tx { color: var(--text-primary); }
+.step .sub { grid-column: 2; color: var(--text-secondary); margin-top: 2px; }
+.step .sub .v-disproved { display: inline-flex; vertical-align: -3px; margin-right: 2px; }
+.step[aria-selected="true"] { background: var(--replay-highlight-ring); box-shadow: inset 0 0 0 1.5px var(--replay-highlight); border-radius: var(--radius-sm); margin: 0 var(--sp-1); padding-left: 0; }
+.step[aria-selected="true"] .ix { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.step .cur { display: none; font-size: 10.5px; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-primary); }
+.step[aria-selected="true"] .cur { display: inline; margin-left: var(--sp-1h); }
+.step.done .tx { color: var(--text-secondary); }
+.rp-note { display: flex; gap: var(--sp-1h); padding: var(--sp-2); border-top: var(--hairline) solid var(--border-hairline); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-secondary); }
+.rp-note svg { color: var(--text-muted); margin-top: 1px; }
+
+/* Inspector */
+.ro-note { display: flex; align-items: center; gap: var(--sp-1h); padding: var(--sp-1h) var(--sp-4); background: var(--surface-sunken); border-bottom: var(--hairline) solid var(--border-hairline); font-size: var(--fs-sm); color: var(--text-secondary); }
+.ins-head { padding: var(--sp-3) var(--sp-4) var(--sp-2); }
+.ins-head h2 { font-size: var(--fs-lg); line-height: var(--lh-lg); font-weight: var(--fw-semibold); }
+.ins-head .k { display: inline-flex; align-items: center; gap: var(--sp-1h); font-size: var(--fs-xs); color: var(--text-muted); }
+.sec { padding: var(--sp-2) var(--sp-4) var(--sp-3); border-top: var(--hairline) solid var(--border-hairline); }
+.sec > .caps { display: block; margin-bottom: var(--sp-1h); }
+.field { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1h); }
+.field label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.field .opt { color: var(--text-muted); font-size: var(--fs-xs); }
+.input { min-height: 28px; padding: var(--sp-1) var(--sp-2); border: var(--hairline) solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-sunken); font-size: var(--fs-sm); color: var(--text-primary); width: 100%; }
+.input[readonly] { color: var(--text-secondary); }
+textarea.input { resize: none; line-height: 17px; }
+.kv { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-sm); padding: 3px 0; }
+.kv .mono { color: var(--text-primary); }
+.kv span:last-child { color: var(--text-muted); }
+.rel { display: flex; align-items: center; gap: var(--sp-1h); width: 100%; min-height: var(--target-min); border: 0; background: transparent; padding: 0 var(--sp-1); margin: 0 calc(var(--sp-1) * -1); border-radius: var(--radius-sm); font-size: var(--fs-sm); text-align: left; cursor: pointer; color: var(--text-primary); }
+.rel:hover { background: var(--surface-hover); }
+.rel .chip { margin-left: auto; }
+.subcaps { font-size: var(--fs-xs); color: var(--text-muted); margin: var(--sp-1h) 0 var(--sp-1); }
+.filepath { display: flex; align-items: center; gap: var(--sp-1); }
+.filepath .mono { flex: 1; font-size: var(--fs-sm); }
+
+/* Status bar */
+.status { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3); background: var(--surface-panel); border-top: var(--hairline) solid var(--border-default); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-secondary); min-width: 0; }
+.status .msg { display: flex; align-items: center; gap: var(--sp-1h); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .spacer { flex: 1; }
+.status .meta { display: flex; align-items: center; gap: var(--sp-3); white-space: nowrap; }
+.status .meta > span { display: inline-flex; align-items: center; gap: var(--sp-1h); }
+.status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary); }
+.status .vsep { width: 1px; height: 12px; background: var(--border-default); }
+
+/* Narrow windows (flows spec §2.3, §2.5): collapse order, never Check text, unsaved text or level */
+.z-fit { display: none; }
+@media (max-width: 1279px) {
+  :root { --right-w: 320px; }
+  .unsaved .long { display: none; }
+  .collapsible { width: 28px; padding: 0; justify-content: center; }
+  .collapsible .lbl, .btn.primary .lbl { display: none; }
+  .crumb { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .canvas .world { transform: scale(0.58); transform-origin: 0 0; }
+  .z-full { display: none; } .z-fit { display: inline; }
+  .plabel:not(.of-sel) { display: none; }   /* port names: selected element only below 100 % zoom */
+  .bm-body { grid-template-columns: minmax(0, 1fr) 280px; }
+}
+@media (max-height: 731px) { :root { --bottom-h: 240px; } }
+
+/* Forced colors: keep highlights, icons and focus visible with system colors */
+@media (forced-colors: active) {
+  .el.hl { outline-color: Highlight; }
+  .edges path.hl { stroke: Highlight; }
+  .step[aria-selected="true"] { outline: 2px solid Highlight; }
+  .marker, .net .mk { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- Icon sprite: generic lucide-style glyphs drawn inline (ADR 0007: no cloud provider icons) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-window" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/><path d="M6 4v4"/><path d="M10 4v4"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+    <symbol id="i-first" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8z"/><path d="M5 19V5"/></symbol>
+    <symbol id="i-last" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8z"/><path d="M19 5v14"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.73 5.08A10.74 10.74 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14"/><path d="m2 2 20 20"/></symbol>
+    <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></symbol>
+    <symbol id="i-up-tri" viewBox="0 0 24 24"><path d="M12 6 5 17h14z"/></symbol>
+    <symbol id="i-down-tri" viewBox="0 0 24 24"><path d="M12 18 5 7h14z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-replay" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 24 24"><circle cx="6" cy="12" r="3"/><rect x="14" y="8" width="6" height="8" rx="1"/><path d="M9 12h5"/></symbol>
+  </defs>
+</svg>
+
+<!-- Mockup controls: outside the app window, not product UI -->
+<div class="mock" role="region" aria-label="Mockup controls">
+  <span><strong>Mockup · Option 1 · Precision instrument</strong> · static HTML; tabs, replay steps and theme respond</span>
+  <span class="spacer"></span>
+  <span id="theme-label">Theme</span>
+  <div class="seg" role="group" aria-labelledby="theme-label">
+    <button type="button" data-theme-set="light" aria-pressed="true"><svg class="i xs"><use href="#i-sun"/></svg>Light</button>
+    <button type="button" data-theme-set="dark" aria-pressed="false"><svg class="i xs"><use href="#i-moon"/></svg>Dark</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ============================ HEADER ============================ -->
+  <header class="header" role="region" aria-label="Header">
+    <span class="brand" aria-hidden="true"><svg class="i"><use href="#i-mark"/></svg></span>
+    <div class="project">
+      <span class="project-name">order-platform</span>
+      <span class="unsaved"><span class="dot" aria-hidden="true"></span>Unsaved<span class="long"> changes</span></span>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li><button class="crumb" type="button">System Context</button></li>
+        <li><button class="crumb" type="button">Order System</button></li>
+        <li><button class="crumb" type="button" aria-current="page">Containers</button></li>
+      </ol>
+      <span class="level">Level: Container</span>
+    </nav>
+    <span class="spacer"></span>
+    <div class="group">
+      <button class="btn icon ghost" type="button" disabled aria-label="Undo" title="Undo (Ctrl+Z)"><svg class="i"><use href="#i-undo"/></svg></button>
+      <button class="btn icon ghost" type="button" disabled aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><svg class="i"><use href="#i-redo"/></svg></button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="group">
+      <button class="btn ghost collapsible" type="button" aria-label="Save" title="Save (Ctrl+S)"><svg class="i sm"><use href="#i-save"/></svg><span class="lbl">Save</span></button>
+      <button class="btn ghost collapsible" type="button" aria-label="Reload" title="Reload (Ctrl+R)"><svg class="i sm"><use href="#i-refresh"/></svg><span class="lbl">Reload</span></button>
+      <button class="btn primary" type="button" title="Check (Ctrl+Enter)">Check <kbd class="lbl">Ctrl+Enter</kbd></button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn ghost collapsible" type="button" aria-label="Commands" title="Commands (Ctrl+K)"><svg class="i sm"><use href="#i-cmd"/></svg><span class="lbl">Commands <kbd>Ctrl+K</kbd></span></button>
+  </header>
+
+  <div class="main">
+    <div class="center">
+
+      <!-- ============================ REPLAY BAR ============================ -->
+      <div class="replaybar" role="toolbar" aria-label="Replay controls">
+        <span class="replay-label"><svg class="i sm"><use href="#i-replay"/></svg>Replay <span class="tag">· read-only</span></span>
+        <button class="btn icon ghost" type="button" data-step="first" aria-label="First step" title="First step (Home)"><svg class="i"><use href="#i-first"/></svg></button>
+        <button class="btn icon ghost" type="button" data-step="prev" aria-label="Previous step" title="Previous step (←)"><svg class="i"><use href="#i-left"/></svg></button>
+        <div class="scrub">
+          <div class="ticks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="last"></span></div>
+          <input id="scrubber" type="range" min="0" max="7" step="1" value="4" aria-label="Replay position">
+        </div>
+        <button class="btn icon ghost" type="button" data-step="next" aria-label="Next step" title="Next step (→)"><svg class="i"><use href="#i-right"/></svg></button>
+        <button class="btn icon ghost" type="button" data-step="last" aria-label="Last step" title="Last step (End)"><svg class="i"><use href="#i-last"/></svg></button>
+        <span class="stepcount" id="stepcount"><b>Step 4</b> of 7</span>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="btn sm" type="button" data-exit>Exit replay <kbd>Esc</kbd></button>
+      </div>
+
+      <!-- ============================ CANVAS ============================ -->
+      <div class="canvas replaying" id="canvas" role="region" aria-label="Canvas">
+        <div class="world">
+          <svg class="edges" viewBox="0 0 1040 500" aria-hidden="true">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0 1 L9 5 L0 9 z"/></marker>
+              <marker id="ah-hl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah-hl" d="M0 1 L9 5 L0 9 z"/></marker>
+            </defs>
+            <path id="r-cust-web" d="M236 86 H334" marker-end="url(#ah)"/>
+            <path id="r-web-api"  d="M430 124 V222" marker-end="url(#ah)"/>
+            <path id="r-api-bill" d="M524 262 H790" marker-end="url(#ah)"/>
+            <path id="r-api-db"   d="M430 300 V430 H562" marker-end="url(#ah)"/>
+            <path id="r-bill-db"  d="M886 300 V430 H754" marker-end="url(#ah)"/>
+            <path id="r-bill-ship" d="M886 224 V126" marker-end="url(#ah)"/>
+          </svg>
+
+          <!-- Relationship labels: "From → To (meaning)" is the accessible name -->
+          <span class="rlabel" style="left:286px; top:72px" title="Customer → Web App (uses)">uses</span>
+          <span class="rlabel left" style="left:440px; top:170px">calls</span>
+          <span class="rlabel" style="left:658px; top:242px">
+            <svg class="i xs" aria-hidden="true"><use href="#i-layers"/></svg>publishes to
+            <span class="chip">capacity 3 · block</span>
+          </span>
+          <span class="rlabel" id="q-label" style="left:658px; top:284px">
+            <span class="marker" id="q-marker">4</span>
+            <span class="chip count" id="q-chip"><span id="q-count">1/3</span> <span class="delta" id="q-delta">+1</span></span>
+          </span>
+          <span class="rlabel left" style="left:440px; top:366px">writes to</span>
+          <span class="rlabel left" style="left:896px; top:366px">writes to</span>
+          <span class="rlabel left" style="left:896px; top:170px">calls</span>
+
+          <!-- Port labels (shown at canvas zoom >= 100 %) -->
+          <span class="plabel" style="left:436px; top:128px">call</span>
+          <span class="plabel" style="left:436px; top:206px">accept</span>
+          <span class="plabel" style="left:530px; top:266px">send</span>
+          <span class="plabel of-sel r" style="left:786px; top:266px">receive</span>
+          <span class="plabel" style="left:436px; top:304px">lock_row</span>
+          <span class="plabel of-sel r" style="left:880px; top:304px">lock_row</span>
+          <span class="plabel of-sel" style="left:892px; top:206px">ship</span>
+          <span class="plabel" style="left:894px; top:128px">dispatch</span>
+          <span class="plabel r" style="left:560px; top:412px">acquire</span>
+          <span class="plabel" style="left:756px; top:412px">acquire</span>
+
+          <!-- Elements -->
+          <button type="button" class="el person" id="el-customer" style="left:48px; top:48px" aria-label="Customer, Person">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i xs"><use href="#i-user"/></svg>Person</span>
+            <span class="n">Customer</span>
+            <span class="d">Places and tracks orders</span>
+          </button>
+          <button type="button" class="el" id="el-web" style="left:336px; top:48px" aria-label="Web App, Container">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i xs"><use href="#i-window"/></svg>Container · Web app</span>
+            <span class="n">Web App</span>
+            <span class="d">Checkout and order history</span>
+          </button>
+          <button type="button" class="el" id="el-ship" style="left:792px; top:48px" aria-label="Shipping, Container">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i xs"><use href="#i-box"/></svg>Container</span>
+            <span class="n">Shipping</span>
+            <span class="d">Books carriers for orders</span>
+          </button>
+          <button type="button" class="el hl" id="el-api" style="left:336px; top:224px" aria-label="Order API, Container. In step 4.">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i xs"><use href="#i-box"/></svg>Container</span>
+            <span class="n">Order API</span>
+            <span class="d">Accepts and publishes orders</span>
+          </button>
+          <button type="button" class="el selected" id="el-billing" style="left:792px; top:224px" aria-label="Billing, Container. Selected.">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="sel-tag" aria-hidden="true">Selected</span>
+            <span class="k"><svg class="i xs"><use href="#i-box"/></svg>Container</span>
+            <span class="n">Billing</span>
+            <span class="d">Charges and refunds orders</span>
+          </button>
+          <button type="button" class="el db" id="el-db" style="left:564px; top:392px" aria-label="Orders DB, Database">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i xs"><use href="#i-db"/></svg>Database</span>
+            <span class="n">Orders DB</span>
+          </button>
+
+          <!-- Port handles -->
+          <span class="port" style="left:430px; top:124px"></span>
+          <span class="port" style="left:430px; top:224px"></span>
+          <span class="port" style="left:524px; top:262px"></span>
+          <span class="port" style="left:792px; top:262px"></span>
+          <span class="port" style="left:430px; top:300px"></span>
+          <span class="port" style="left:886px; top:300px"></span>
+          <span class="port" style="left:886px; top:224px"></span>
+          <span class="port" style="left:886px; top:124px"></span>
+          <span class="port" style="left:564px; top:430px"></span>
+          <span class="port" style="left:752px; top:430px"></span>
+        </div>
+
+        <span class="canvas-hint">Exit replay to edit</span>
+        <div class="canvas-tools" role="group" aria-label="Canvas zoom">
+          <button class="btn icon ghost" type="button" aria-label="Zoom out" title="Zoom out (−)"><svg class="i sm"><use href="#i-minus"/></svg></button>
+          <span class="zoom num"><span class="z-full">100 %</span><span class="z-fit">58 %</span></span>
+          <button class="btn icon ghost" type="button" aria-label="Zoom in" title="Zoom in (+)"><svg class="i sm"><use href="#i-plus"/></svg></button>
+          <button class="btn icon ghost" type="button" aria-label="Fit view" title="Fit view (Shift+1)"><svg class="i sm"><use href="#i-fit"/></svg></button>
+        </div>
+      </div>
+
+      <!-- ============================ BOTTOM PANE ============================ -->
+      <section class="bottom" id="bottom" role="region" aria-label="Bottom pane: Behavior model">
+        <div class="tabs" role="tablist" aria-label="Bottom pane">
+          <button class="tab" role="tab" id="t-bm" aria-controls="p-bm" aria-selected="true" tabindex="0" data-label="Behavior model">Behavior model</button>
+          <button class="tab" role="tab" id="t-pr" aria-controls="p-pr" aria-selected="false" tabindex="-1" data-label="Problems">Problems</button>
+          <button class="tab" role="tab" id="t-fi" aria-controls="p-fi" aria-selected="false" tabindex="-1" data-label="Findings">Findings <span class="count">(2)</span></button>
+          <span class="spacer"></span>
+          <button class="btn icon ghost" type="button" aria-label="Hide the bottom pane" title="Hide the bottom pane (Ctrl+J)"><svg class="i sm"><use href="#i-down"/></svg></button>
+        </div>
+
+        <!-- Behavior model -->
+        <div class="panel bm" role="tabpanel" id="p-bm" aria-labelledby="t-bm">
+          <div class="pane-head">
+            <h3 id="bm-title">Behavior model: Order API</h3>
+            <div class="seg segsw" id="bm-switch" role="group" aria-label="Element in this step" hidden>
+              <button type="button" aria-pressed="true">Order API</button><button type="button" aria-pressed="false">Billing</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn sm toggle" type="button" aria-pressed="true" id="follow"><span class="box" aria-hidden="true"><svg class="i xs" style="width:9px;height:9px;stroke-width:3"><path d="M5 12l5 5L20 7"/></svg></span>Follow steps</button>
+            <button class="btn sm ghost" type="button"><svg class="i sm"><use href="#i-open"/></svg>Open file</button>
+            <button class="btn sm ghost" type="button" title="Fit (Shift+1)"><svg class="i sm"><use href="#i-fit"/></svg>Fit</button>
+          </div>
+          <div class="bm-body">
+            <div class="net" id="net">
+              <svg viewBox="0 0 640 200" preserveAspectRatio="xMinYMid meet" role="img" aria-labelledby="net-desc">
+                <desc id="net-desc">Petri net of Order API at the current step. Places ready, holding and outbox; transitions lock_row, send and commit. lock_row and send are ports.</desc>
+                <defs>
+                  <marker id="nah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 1 L9 5 L0 9 z"/></marker>
+                </defs>
+                <!-- arcs -->
+                <path class="arc" d="M79 82 H118" marker-end="url(#nah)"/>
+                <path class="arc" d="M198 82 H249" marker-end="url(#nah)"/>
+                <path class="arc" d="M287 74 C 310 60, 330 66, 358 74" marker-end="url(#nah)"/>
+                <path class="arc" d="M358 90 C 330 100, 310 102, 287 92" marker-end="url(#nah)"/>
+                <path class="arc" d="M284 146 C 320 140, 340 112, 372 96" marker-end="url(#nah)"/>
+                <path class="arc" d="M262 64 C 250 34, 238 30, 218 30" marker-end="url(#nah)"/>
+                <path class="arc" d="M158 30 C 100 30, 72 40, 64 62" marker-end="url(#nah)"/>
+                <path class="arc ext" d="M430 82 H486" marker-end="url(#nah)"/>
+                <!-- places -->
+                <circle class="pl" cx="60" cy="82" r="18"/><text class="tok" x="60" y="82" id="n-ready">0</text>
+                <text class="nm" x="60" y="118">ready</text><text class="cap" x="60" y="131">capacity 1 · block</text>
+                <circle class="pl" cx="268" cy="82" r="18"/><text class="tok" x="268" y="82" id="n-hold">1</text>
+                <text class="nm" x="282" y="38" style="text-anchor:start">holding</text><text class="cap" x="282" y="51" style="text-anchor:start">capacity 1 · block</text>
+                <circle class="pl" cx="268" cy="152" r="18"/><text class="tok" x="268" y="152" id="n-out">3</text>
+                <text class="nm" x="224" y="149" style="text-anchor:end">outbox</text><text class="cap" x="224" y="162" style="text-anchor:end">capacity 5 · block</text>
+                <g id="n-out-delta"><rect class="dltbg" x="290" y="160" width="28" height="18" rx="3"/><text class="dlt" x="304" y="173" text-anchor="middle">−1</text></g>
+                <g id="n-ready-delta" style="display:none"><rect class="dltbg" x="80" y="56" width="28" height="18" rx="3"/><text class="dlt" x="94" y="69" text-anchor="middle">−1</text></g>
+                <g id="n-hold-delta" style="display:none"><rect class="dltbg" x="290" y="100" width="28" height="18" rx="3"/><text class="dlt" x="304" y="113" text-anchor="middle">+1</text></g>
+                                <!-- transitions -->
+                <path class="tr" id="n-lock" d="M120 70 H198 V94 H120 V86 H124 V78 H120 Z"/><text class="tn" x="162" y="82">lock_row</text><text class="ptag" x="160" y="108">PORT</text>
+                <path class="tr hl" id="n-send" d="M360 70 H430 V94 H360 V86 H364 V78 H360 Z"/><text class="tn" x="398" y="82">send</text><text class="ptag" x="396" y="108">PORT</text>
+                <g id="n-send-mk"><circle class="mk" cx="432" cy="66" r="9"/><text class="mkt" x="432" y="66" id="n-mk-t">4</text></g>
+                <g id="n-lock-mk" style="display:none"><circle class="mk" cx="200" cy="66" r="9"/><text class="mkt" x="200" y="66">1</text></g>
+                <rect class="tr" x="160" y="20" width="58" height="22"/><text class="tn" x="189" y="31">commit</text>
+                <!-- generated place, outside this element -->
+                <text class="ext-label" x="492" y="78">to Order API → Billing</text>
+                <text class="ext-label" x="492" y="93">(publishes to)</text>
+                <text class="ext-label num" x="492" y="110" id="n-q" style="font-weight:600; fill:var(--text-primary)">1 of 3 messages</text>
+              </svg>
+              <div class="net-note" id="net-note"></div>
+            </div>
+            <div class="marking">
+              <h4 class="caps">Marking</h4>
+              <table class="mt">
+                <thead><tr><th scope="col">Place</th><th scope="col" class="n" id="mt-prev">Step 3</th><th scope="col" class="n" id="mt-cur">Step 4</th><th scope="col" class="n">Change</th></tr></thead>
+                <tbody id="mt-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Problems -->
+        <div class="panel" role="tabpanel" id="p-pr" aria-labelledby="t-pr" hidden>
+          <div class="empty"><svg class="i sm" aria-hidden="true"><use href="#i-info"/></svg>No problems. Every file loaded and every port is bound.</div>
+        </div>
+
+        <!-- Findings -->
+        <div class="panel" role="tabpanel" id="p-fi" aria-labelledby="t-fi" hidden style="overflow:auto">
+          <div class="list-head">
+            <span>5 rules ran on 6 elements.</span>
+            <span class="spacer"></span>
+            <button class="btn sm" type="button"><svg class="i sm"><use href="#i-scan"/></svg>Scan</button>
+          </div>
+          <table class="ft">
+            <thead><tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">Affected elements</th><th scope="col">Evidence</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="sev"><span class="bars" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>Medium</span></td>
+                <td><span class="rule-id">REL-SHARED-DB</span><span class="rule-name">Database shared by several containers</span></td>
+                <td><button class="elchip" type="button"><svg class="i xs"><use href="#i-db"/></svg>Orders DB</button><button class="elchip" type="button"><svg class="i xs"><use href="#i-box"/></svg>Order API</button><button class="elchip" type="button"><svg class="i xs"><use href="#i-box"/></svg>Billing</button></td>
+                <td>Order API → Orders DB (writes to) and Billing → Orders DB (writes to). Both containers write the same tables.</td>
+                <td class="act"><button class="btn sm" type="button">Suppress…</button></td>
+              </tr>
+              <tr class="suppressed">
+                <td><span class="sev"><span class="bars" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>High</span></td>
+                <td><span class="rule-id">REL-SPOF</span><span class="rule-name">Single point of failure</span></td>
+                <td><button class="elchip" type="button"><svg class="i xs"><use href="#i-db"/></svg>Orders DB</button></td>
+                <td>Every path from Web App to Billing passes through Orders DB.
+                  <div class="supp"><svg class="i sm" aria-hidden="true"><use href="#i-eye-off"/></svg><span><b>Suppressed:</b> Orders DB runs as a managed cluster with failover, which this level does not show.</span></div>
+                </td>
+                <td class="act"><button class="btn sm ghost" type="button">Remove suppression</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============================ RIGHT COLUMN ============================ -->
+    <aside class="right" id="right" role="region" aria-label="Verdicts">
+      <div class="tabs" role="tablist" aria-label="Right column">
+        <button class="tab" role="tab" id="t-ins" aria-controls="p-ins" aria-selected="false" tabindex="-1" data-label="Inspector">Inspector</button>
+        <button class="tab" role="tab" id="t-ver" aria-controls="p-ver" aria-selected="true" tabindex="0" data-label="Verdicts">Verdicts</button>
+        <span class="spacer"></span>
+        <button class="btn icon ghost" type="button" aria-label="Hide the right column" title="Hide the right column (Ctrl+Alt+B)"><svg class="i sm"><use href="#i-right"/></svg></button>
+      </div>
+
+      <!-- Verdicts -->
+      <div class="panel scroll" role="tabpanel" id="p-ver" aria-labelledby="t-ver">
+
+        <!-- Disproved, replaying -->
+        <article class="vrow is-disproved" aria-labelledby="p1-name">
+          <div class="vtitle"><h3 class="vname" id="p1-name">Deadlock-free</h3><span class="replaying-tag"><svg class="i xs"><use href="#i-replay"/></svg>Replaying</span></div>
+          <div class="vhead"><div class="vscope">Order System · Level: Container</div>
+            <div class="vline"><svg class="i v-disproved"><use href="#i-x-circle"/></svg><span class="word">Disproved</span></div></div>
+
+          <div class="rp">
+            <div class="rp-head">
+              <span class="rp-cur" id="rp-cur"><span class="lbl">Elements in this step:</span><span id="rp-els"><button class="elchip" type="button">Order API</button></span></span>
+              <span class="spacer"></span>
+              <button class="btn icon ghost" type="button" data-exit aria-label="Exit replay" title="Exit replay (Escape)"><svg class="i sm"><use href="#i-x"/></svg></button>
+            </div>
+            <ol class="steps" id="steps" role="listbox" aria-label="Replay: Deadlock-free · Disproved" tabindex="0" aria-activedescendant="s4"></ol>
+            <div class="rp-note"><svg class="i sm" aria-hidden="true"><use href="#i-info"/></svg><span>There are no final markings yet, so a run that stops also counts as a deadlock. To model a run that finishes, loop back to the initial marking.</span></div>
+          </div>
+        </article>
+
+        <!-- Proved -->
+        <article class="vrow is-proved" aria-labelledby="p2-name">
+          <h3 class="vname" id="p2-name">No capacity exceeded</h3>
+          <div class="vhead"><div class="vscope">Order System · Level: Container</div>
+            <div class="vline"><svg class="i v-proved"><use href="#i-check"/></svg><span class="word">Proved</span></div></div>
+          <p class="vdetail">Proved with a certificate; a second explorer re-checked the certificate.</p>
+          <p class="vdetail">Assumes: Customer → Web App (uses) binds no ports, so it adds no behavior.</p>
+          <p class="vdetail quiet">Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled.</p>
+          <div class="vactions"><button class="btn sm" type="button">Check again</button></div>
+        </article>
+
+        <!-- Unknown -->
+        <article class="vrow is-unknown" aria-labelledby="p3-name">
+          <h3 class="vname" id="p3-name">Never more than 2 in total in Billing: inflight and Shipping: inflight</h3>
+          <div class="vhead"><div class="vscope">Order System · Level: Container</div>
+            <div class="vline"><svg class="i v-unknown"><use href="#i-help"/></svg><span class="word">Unknown</span></div></div>
+          <p class="vdetail">Budget exhausted: explored 1,000,000 markings in 5.0 s without deciding.</p>
+          <p class="vdetail"><span class="lbl">Next step:</span> Lower capacities or initial tokens, or remove elements from this view.</p>
+          <div class="vactions"><button class="btn sm" type="button">Check again</button></div>
+        </article>
+        <div class="vfoot"><button class="btn sm ghost" type="button"><svg class="i sm"><use href="#i-plus"/></svg>Add property</button></div>
+      </div>
+
+      <!-- Inspector -->
+      <div class="panel scroll" role="tabpanel" id="p-ins" aria-labelledby="t-ins" hidden>
+        <div class="ro-note"><svg class="i sm" aria-hidden="true"><use href="#i-lock"/></svg>Exit replay to edit</div>
+        <div class="ins-head">
+          <span class="k"><svg class="i xs"><use href="#i-box"/></svg>Container · elements/billing.toml</span>
+          <h2>Billing</h2>
+        </div>
+        <div class="sec">
+          <div class="field"><label for="f-name">Name</label><input class="input" id="f-name" value="Billing" readonly></div>
+          <div class="field"><label for="f-kind">Kind</label><input class="input" id="f-kind" value="Container" readonly></div>
+          <div class="field" style="align-items:start"><label for="f-desc">Description <span class="opt">(optional)</span></label><textarea class="input" id="f-desc" rows="2" readonly>Charges and refunds orders</textarea></div>
+        </div>
+        <div class="sec">
+          <span class="caps">Behavior model</span>
+          <div class="kv"><span>Petri net: 4 places, 3 transitions, 3 ports</span></div>
+          <button class="btn sm" type="button" style="margin-top:4px">Show behavior model</button>
+        </div>
+        <div class="sec">
+          <span class="caps">Ports</span>
+          <div class="kv"><span class="mono">receive</span><span>receive · transition</span></div>
+          <div class="kv"><span class="mono">lock_row</span><span>send · transition</span></div>
+          <div class="kv"><span class="mono">ship</span><span>send · transition</span></div>
+        </div>
+        <div class="sec">
+          <span class="caps">Relationships</span>
+          <div class="subcaps">Outgoing (2)</div>
+          <button class="rel" type="button">Billing → Orders DB (writes to)</button>
+          <button class="rel" type="button">Billing → Shipping (calls)</button>
+          <div class="subcaps">Incoming (1)</div>
+          <button class="rel" type="button">Order API → Billing (publishes to)<span class="chip">capacity 3 · block</span></button>
+          <button class="btn sm ghost" type="button" disabled style="margin-top:4px"><svg class="i sm"><use href="#i-plus"/></svg>Add relationship…</button>
+        </div>
+        <div class="sec">
+          <span class="caps">File</span>
+          <div class="filepath"><span class="mono">elements/billing.toml</span>
+            <button class="btn icon ghost" type="button" aria-label="Copy file path" title="Copy file path"><svg class="i sm"><use href="#i-copy"/></svg></button>
+            <button class="btn icon ghost" type="button" aria-label="Open file" title="Open file"><svg class="i sm"><use href="#i-open"/></svg></button>
+          </div>
+        </div>
+        <div class="sec">
+          <button class="btn sm danger" type="button" disabled>Delete element</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================ STATUS BAR ============================ -->
+  <footer class="status">
+    <div class="msg" role="status" aria-live="polite" aria-label="Messages">
+      <svg class="i xs" aria-hidden="true"><use href="#i-info"/></svg>
+      <span>Checks finished: Deadlock-free Disproved, No capacity exceeded Proved.</span>
+    </div>
+    <span class="spacer"></span>
+    <div class="meta">
+      <span><span class="dot" aria-hidden="true"></span>Unsaved changes</span>
+      <span class="vsep" aria-hidden="true"></span>
+      <span class="num">Revision 42 · saved at 39</span>
+    </div>
+  </footer>
+</div>
+
+<div class="sr-only" aria-live="polite" id="replay-live"></div>
+
+<script>
+(() => {
+  /* ---------- Theme (mockup control; the app follows the OS) ---------- */
+  const root = document.documentElement;
+  const setTheme = (t) => {
+    root.dataset.theme = t;
+    document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+  };
+  setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const H = location.hash.slice(1).split(',');
+  if (H.includes('dark')) setTheme('dark');
+  if (H.includes('light')) setTheme('light');
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeSet)));
+
+  /* ---------- Tabs (APG tabs, manual activation not needed here) ---------- */
+  document.querySelectorAll('[role="tablist"]').forEach(list => {
+    const tabs = [...list.querySelectorAll('[role="tab"]')];
+    const region = list.closest('[role="region"]');
+    const select = (tab, focus) => {
+      tabs.forEach(t => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+      if (region) region.setAttribute('aria-label', region.id === 'bottom' ? 'Bottom pane: ' + tab.dataset.label : tab.dataset.label);
+      if (focus) tab.focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => select(t));
+      t.addEventListener('keydown', e => {
+        const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (d) { e.preventDefault(); e.stopPropagation(); select(tabs[(i + d + tabs.length) % tabs.length], true); }
+      });
+    });
+  });
+  if (H.includes('findings')) document.getElementById('t-fi').click();
+  if (H.includes('inspector')) document.getElementById('t-ins').click();
+
+  /* ---------- Replay data (names resolved; never IDs) ---------- */
+  const Q = 'Order API → Billing (publishes to)';
+  const S = [
+    { t: 'Start: initial marking', els: [], rels: [], q: 0, api: { ready: 1, hold: 0, out: 5 }, tr: null },
+    { t: 'Step 1 of 7: Order API → Orders DB (writes to): lock_row', els: ['el-api', 'el-db'], rels: ['r-api-db'], q: 0, api: { ready: 0, hold: 1, out: 5 }, tr: 'lock' },
+    { t: 'Step 2 of 7: Order API sends to Billing (publishes to): 1 of 3 messages waiting', els: ['el-api'], rels: ['r-api-bill'], q: 1, api: { ready: 0, hold: 1, out: 4 }, tr: 'send' },
+    { t: 'Step 3 of 7: Billing receives from Order API (publishes to): 0 of 3 messages waiting', els: ['el-billing'], rels: ['r-api-bill'], q: 0, api: null, tr: null },
+    { t: 'Step 4 of 7: Order API sends to Billing (publishes to): 1 of 3 messages waiting', els: ['el-api'], rels: ['r-api-bill'], q: 1, api: { ready: 0, hold: 1, out: 3 }, tr: 'send' },
+    { t: 'Step 5 of 7: Order API sends to Billing (publishes to): 2 of 3 messages waiting', els: ['el-api'], rels: ['r-api-bill'], q: 2, api: { ready: 0, hold: 1, out: 2 }, tr: 'send' },
+    { t: 'Step 6 of 7: Order API sends to Billing (publishes to): 3 of 3 messages waiting', els: ['el-api'], rels: ['r-api-bill'], q: 3, api: { ready: 0, hold: 1, out: 1 }, tr: 'send' },
+    { t: 'Step 7 of 7: Deadlock: no step is possible.', last: true,
+      sub: ['Order API waits at send for room in Order API → Billing (publishes to): 3 of 3 messages, when full: block.',
+            'Billing → Orders DB (writes to): lock_row waits for a token in Orders DB: row_lock.'],
+      els: ['el-api', 'el-billing'], rels: ['r-api-bill', 'r-bill-db'], q: 3, api: { ready: 0, hold: 1, out: 1 }, tr: 'wait' },
+  ];
+  const NAMES = { 'el-api': 'Order API', 'el-db': 'Orders DB', 'el-billing': 'Billing' };
+  const MID = { 'r-api-bill': [658, 262], 'r-api-db': [430, 380], 'r-bill-db': [886, 380] };
+
+  const list = document.getElementById('steps');
+  list.innerHTML = S.map((s, i) => `
+    <li class="step" role="option" id="s${i}" aria-selected="false" data-i="${i}" aria-label="${(s.t + (s.sub ? ' ' + s.sub.join(' ') : '')).replace(/"/g, '&quot;')}">
+      <span class="ix">${i === 0 ? '·' : i}</span>
+      <span><span class="tx">${s.t}</span><span class="cur">Current</span></span>
+      ${s.sub ? s.sub.map(x => `<span class="sub">${x}</span>`).join('') : ''}
+    </li>`).join('');
+
+  const live = document.getElementById('replay-live');
+  let cur = 4, liveTimer = null;
+  const fmt = (n) => n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '—';
+
+  function render(i, source) {
+    cur = Math.max(0, Math.min(S.length - 1, i));
+    const s = S[cur], p = S[Math.max(0, cur - 1)];
+    // bar + scrubber
+    document.getElementById('stepcount').innerHTML = cur === 0 ? '<b>Start</b>' : `<b>Step ${cur}</b> of 7`;
+    const sc = document.getElementById('scrubber');
+    sc.value = cur; sc.setAttribute('aria-valuetext', s.t);
+    // list
+    list.querySelectorAll('.step').forEach((li, k) => { li.setAttribute('aria-selected', String(k === cur)); li.classList.toggle('done', k < cur); });
+    list.setAttribute('aria-activedescendant', 's' + cur);
+    const sel = document.getElementById('s' + cur);
+    const anchor = document.getElementById('s' + Math.max(0, cur - 1));
+    const lt = list.getBoundingClientRect(), r = sel.getBoundingClientRect();
+    if (r.top < lt.top || r.bottom > lt.bottom || source === 'init') list.scrollTop = anchor.offsetTop - list.firstElementChild.offsetTop;
+    // canvas highlights: one class per element, no opacity
+    document.querySelectorAll('.el').forEach(el => {
+      const on = s.els.includes(el.id);
+      el.classList.toggle('hl', on);
+      el.querySelector('.marker').textContent = cur;
+    });
+    document.querySelectorAll('.edges path[id]').forEach(pth => {
+      const on = s.rels.includes(pth.id);
+      pth.classList.toggle('hl', on);
+      pth.setAttribute('marker-end', on ? 'url(#ah-hl)' : 'url(#ah)');
+    });
+    // queue chip on the generated place
+    const dq = s.q - p.q;
+    document.getElementById('q-count').textContent = `${s.q}/3`;
+    document.getElementById('q-delta').textContent = cur === 0 || dq === 0 ? '' : fmt(dq);
+    const qm = document.getElementById('q-marker');
+    qm.textContent = cur; qm.style.display = s.rels.includes('r-api-bill') ? '' : 'none';
+    // current step elements
+    document.getElementById('rp-els').innerHTML = s.els.length
+      ? s.els.map(id => `<button class="elchip" type="button">${NAMES[id]}</button>`).join('')
+      : '<span>none (initial marking)</span>';
+    // behavior model pane (Follow steps on: first element of the step)
+    const net = document.getElementById('net');
+    const title = document.getElementById('bm-title');
+    document.getElementById('bm-switch').hidden = s.els.length < 2;
+    if (!s.api) {
+      net.classList.add('placeholder');
+      title.textContent = 'Behavior model: Billing';
+      document.getElementById('net-note').textContent = "Mockup: Billing's Petri net is not drawn. The app shows it here, outlined the same way.";
+    } else {
+      net.classList.remove('placeholder');
+      title.textContent = 'Behavior model: Order API';
+      const pa = p.api || S[cur - 2].api;
+      document.getElementById('n-ready').textContent = s.api.ready;
+      document.getElementById('n-hold').textContent = s.api.hold;
+      document.getElementById('n-out').textContent = s.api.out;
+      const show = (id, d) => { const g = document.getElementById(id); g.style.display = cur && d ? '' : 'none'; if (d) g.querySelector('text').textContent = fmt(d); };
+      show('n-ready-delta', s.api.ready - pa.ready);
+      show('n-hold-delta', s.api.hold - pa.hold);
+      show('n-out-delta', s.api.out - pa.out);
+      document.getElementById('n-send').setAttribute('class', 'tr' + (s.tr === 'send' ? ' hl' : s.tr === 'wait' ? ' wait' : ''));
+      document.getElementById('n-lock').setAttribute('class', 'tr' + (s.tr === 'lock' ? ' hl' : ''));
+      document.getElementById('n-send-mk').style.display = s.tr === 'send' ? '' : 'none';
+      document.getElementById('n-mk-t').textContent = cur;
+      document.getElementById('n-lock-mk').style.display = s.tr === 'lock' ? '' : 'none';
+      document.getElementById('n-q').textContent = `${s.q} of 3 messages`;
+    }
+    // marking table
+    const pv = p.api || (S[cur - 2] && S[cur - 2].api) || s.api || S[cur + 1].api;
+    const a = s.api || S[cur - 1].api;
+    document.getElementById('mt-prev').textContent = cur <= 1 ? 'Start' : `Step ${cur - 1}`;
+    document.getElementById('mt-cur').textContent = cur === 0 ? 'Start' : `Step ${cur}`;
+    const rows = [
+      ['Order API: ready', pv.ready, a.ready], ['Order API: holding', pv.hold, a.hold],
+      ['Order API: outbox', pv.out, a.out], [Q, p.q, s.q, 'messages'],
+    ];
+    document.getElementById('mt-body').innerHTML = rows.map(([n, b, c]) => {
+      const d = cur === 0 ? 0 : c - b;
+      const delta = d === 0 ? '<span class="same">—</span>'
+        : `<span class="delta"><svg class="i xs" aria-hidden="true"><use href="#i-${d > 0 ? 'up' : 'down'}-tri"/></svg>${fmt(d)}</span>`;
+      return `<tr class="${d ? 'chg' : ''}"><td>${n}</td><td class="n">${cur === 0 ? '' : b}</td><td class="n">${c}</td><td class="n">${delta}</td></tr>`;
+    }).join('');
+    // announcements: list and scrubber speak for themselves; other controls use the live region after 300 ms rest
+    if (source === 'other') {
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(() => { live.textContent = ''; live.textContent = s.t + (s.sub ? ' ' + s.sub.join(' ') : ''); }, 300);
+    }
+  }
+
+  document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.step;
+    render(k === 'first' ? 0 : k === 'last' ? S.length - 1 : cur + (k === 'next' ? 1 : -1), 'other');
+  }));
+  document.getElementById('scrubber').addEventListener('input', e => render(+e.target.value, 'scrubber'));
+  list.addEventListener('click', e => { const li = e.target.closest('.step'); if (li) { render(+li.dataset.i, 'list'); list.focus(); } });
+  list.addEventListener('keydown', e => {
+    const m = { ArrowDown: cur + 1, ArrowUp: cur - 1, Home: 0, End: S.length - 1 };
+    if (e.key in m) { e.preventDefault(); e.stopPropagation(); render(m[e.key], 'list'); }
+  });
+  document.addEventListener('keydown', e => {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.getAttribute('role') === 'tab') return;
+    const m = { ArrowRight: cur + 1, ArrowLeft: cur - 1, Home: 0, End: S.length - 1 };
+    if (e.key in m) { e.preventDefault(); render(m[e.key], 'other'); }
+  });
+  const hs = H.find(h => /^step\d$/.test(h));
+  render(hs ? +hs.slice(4) : 4, 'init');
+})();
+</script>
+</body>
+</html>

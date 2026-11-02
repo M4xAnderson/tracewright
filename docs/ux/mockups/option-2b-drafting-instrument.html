@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>petrinet – main window mockup (option 2b, drafting instrument)</title>
+<style>
+/* Mockup of the main window at 1440 × 900. Static; the two switches above the window change theme and scene.
+   Fonts: the app bundles IBM Plex Sans and IBM Plex Mono (OFL). The stacks fall back to platform fonts here. */
+:root { color-scheme: light dark; }
+.stage {
+  --font-sans: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", "Ubuntu Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", "Ubuntu Sans Mono", ui-monospace, monospace;
+  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-16: 16px;
+  --r-1: 3px; --r-2: 5px; --r-3: 8px;
+  --header: 44px; --status: 26px; --right: 360px; --bottom: 252px;
+
+  --surface-app: #eef0f3; --surface-panel: #ffffff; --surface-canvas: #f8f9fb;
+  --surface-raised: #ffffff; --surface-sunken: #f2f4f6; --surface-hover: #e9ecf0; --surface-selected: #e8edfc;
+  --text-primary: #15181d; --text-secondary: #434a54; --text-muted: #5a626d; --text-disabled: #8d939b;
+  --border-hairline: #e1e4e9; --border-control: #7b828c; --border-quiet: #8a9099;
+  --edge: #69707a; --canvas-grid: #e3e6ea;
+  --accent: #3550c8; --accent-hover: #2b43ad; --accent-subtle: #e8edfc; --accent-text: #2f48b8; --focus: #3550c8;
+  --proved: #1c7047; --disproved: #c22f2a; --unknown: #5a626d;
+  --replay: #8a5a00; --replay-tint: #fdf3d8; --on-replay: #ffffff;
+  --shadow-pop: 0 6px 24px rgb(20 28 40 / .14), 0 1px 3px rgb(20 28 40 / .10);
+}
+.stage[data-theme="dark"] {
+  --surface-app: #0d1015; --surface-panel: #141920; --surface-canvas: #10141a;
+  --surface-raised: #1a2029; --surface-sunken: #0b0e12; --surface-hover: #1f2631; --surface-selected: #1c2647;
+  --text-primary: #e9ecf1; --text-secondary: #b2b9c3; --text-muted: #949ba6; --text-disabled: #5d636c;
+  --border-hairline: #232a34; --border-control: #6f7782; --border-quiet: #646c77;
+  --edge: #8a929d; --canvas-grid: #1b212a;
+  --accent: #4864e2; --accent-hover: #3a55c8; --accent-subtle: #1c2647; --accent-text: #a3b2ff; --focus: #8fa1ff;
+  --proved: #4bc48a; --disproved: #ff6b61; --unknown: #a0a7b1;
+  --replay: #e8b03a; --replay-tint: #2e2410; --on-replay: #15181d;
+  --shadow-pop: 0 8px 28px rgb(0 0 0 / .5);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { padding: 8px; font-family: system-ui, sans-serif; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Mockup switches (not part of the app) */
+.mock-switches { display: flex; gap: 16px; margin: 0 0 8px; font: 12px/1.4 system-ui, sans-serif; color: #5a626d; align-items: center; }
+.mock-switches fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 2px; align-items: center; }
+.mock-switches legend { float: left; margin-right: 6px; }
+.mock-switches button { border: 1px solid #b9bfc7; background: #fff; color: #15181d; padding: 2px 10px; border-radius: 4px; cursor: pointer; }
+.mock-switches button[aria-pressed="true"] { background: #15181d; color: #fff; border-color: #15181d; }
+
+.scaler { width: 1440px; }
+.stage {
+  width: 1440px; height: 900px; overflow: hidden; border-radius: var(--r-3);
+  border: 1px solid var(--border-hairline); background: var(--surface-app);
+  font-family: var(--font-sans); font-size: var(--fs-13); line-height: 1.45; color: var(--text-primary);
+  display: grid; grid-template-rows: var(--header) 1fr var(--status); font-variant-numeric: tabular-nums;
+}
+.mono { font-family: var(--font-mono); font-size: var(--fs-12); }
+
+/* Header */
+.header { display: flex; align-items: center; gap: 12px; padding: 0 12px 0 14px; background: var(--surface-panel); border-bottom: 1px solid var(--border-hairline); }
+.app-mark { width: 18px; height: 18px; color: var(--text-primary); flex: none; }
+.project { font-weight: 600; }
+.sep { width: 1px; height: 18px; background: var(--border-hairline); }
+.view-title { font-weight: 500; }
+.level { color: var(--text-secondary); }
+.level b { font-weight: 500; color: var(--text-primary); }
+.spacer { flex: 1; }
+.unsaved { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.unsaved::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+.btn { height: 28px; padding: 0 12px; border-radius: var(--r-2); border: 1px solid var(--border-control); background: var(--surface-raised); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--surface-hover); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--surface-hover); color: var(--text-primary); }
+kbd { font-family: var(--font-sans); font-size: var(--fs-11); color: var(--text-muted); border: 1px solid var(--border-hairline); border-radius: var(--r-1); padding: 0 4px; }
+.btn svg, .icon-btn svg { width: 16px; height: 16px; }
+
+/* Body grid */
+.body { display: grid; grid-template-columns: 1fr var(--right); min-height: 0; }
+.work { display: grid; grid-template-rows: 1fr var(--bottom); min-width: 0; min-height: 0; }
+
+/* Canvas */
+.canvas { position: relative; overflow: hidden; background-color: var(--surface-canvas);
+  background-image: radial-gradient(var(--canvas-grid) 1px, transparent 1.2px); background-size: 16px 16px; }
+.edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.25; }
+.edge.async { stroke-dasharray: 5 4; }
+.edge-label { font: 400 var(--fs-12) var(--font-sans); fill: var(--text-secondary); }
+.edge-label-bg { fill: var(--surface-canvas); }
+[data-mode="replay"] .edge.quiet { stroke: var(--border-quiet); opacity: .7; }
+[data-mode="replay"] .edge.trace { stroke: var(--replay); stroke-width: 2.5; }
+[data-mode="replay"] .edge.waiting { stroke: var(--replay); stroke-width: 2; stroke-dasharray: 2 4; }
+.replay-only { display: none; }
+[data-mode="replay"] .replay-only { display: inline; }
+[data-mode="replay"] g.replay-only { display: block; }
+.step-marker circle { fill: var(--replay); }
+.step-marker text { font: 600 11px var(--font-sans); fill: var(--on-replay); text-anchor: middle; dominant-baseline: central; }
+.wait-chip rect { fill: var(--surface-raised); stroke: var(--replay); stroke-width: 1.25; }
+.wait-chip text { font: 500 var(--fs-12) var(--font-sans); fill: var(--text-primary); }
+
+.slots rect { fill: var(--surface-raised); stroke: var(--edge); stroke-width: 1.25; }
+.slots rect.full { fill: var(--edge); }
+.slots text { font: 400 var(--fs-12) var(--font-sans); fill: var(--text-secondary); }
+
+.el { position: absolute; height: 58px; background: var(--surface-raised); border: 1.25px solid var(--border-control); border-radius: var(--r-2); padding: 9px 12px 9px 12px; display: grid; grid-template-columns: 18px 1fr auto; column-gap: 8px; align-items: start; cursor: default; }
+.el .glyph { width: 18px; height: 18px; color: var(--text-secondary); margin-top: 1px; }
+.el .name { font-weight: 600; font-size: var(--fs-14); line-height: 1.3; }
+.el .tech { grid-column: 2 / 4; color: var(--text-muted); font-size: var(--fs-12); }
+.el .bm { width: 16px; height: 16px; color: var(--text-muted); margin-top: 2px; }
+.el.person { border-radius: 22px; padding-left: 14px; }
+.el.database { border-radius: var(--r-2) var(--r-2) 14px 14px / var(--r-2) var(--r-2) 8px 8px; }
+.port { position: absolute; width: 7px; height: 7px; background: var(--surface-raised); border: 1.25px solid var(--edge); }
+[data-mode="replay"] .el.quiet { border-color: var(--border-quiet); }
+[data-mode="replay"] .el.quiet .name { color: var(--text-secondary); font-weight: 500; }
+[data-mode="replay"] .el.trace { border: 2.5px solid var(--replay); background: linear-gradient(var(--replay-tint), var(--replay-tint)), var(--surface-raised); padding: 8px 11px; }
+.el .badge { display: none; }
+[data-mode="replay"] .el .badge { position: absolute; top: -10px; right: -10px; width: 20px; height: 20px; border-radius: 50%; background: var(--replay); color: var(--on-replay); font: 600 11px/20px var(--font-sans); text-align: center; display: block; }
+/* Selection: corner brackets, distinct from focus ring and replay outline */
+[data-mode="verdicts"] .el.selected::before, [data-mode="verdicts"] .el.selected::after { content: ""; position: absolute; width: 10px; height: 10px; border: 2px solid var(--accent); }
+.el.selected::before { top: -6px; left: -6px; border-right: 0; border-bottom: 0; }
+.el.selected::after { bottom: -6px; right: -6px; border-left: 0; border-top: 0; }
+[data-mode="replay"] .el.selected::before, [data-mode="replay"] .el.selected::after { display: none; }
+
+.canvas-tools { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 2px; background: var(--surface-raised); border: 1px solid var(--border-hairline); border-radius: var(--r-2); padding: 2px; box-shadow: var(--shadow-pop); }
+.icon-btn { width: 28px; height: 28px; border: 0; background: transparent; border-radius: var(--r-1); display: grid; place-items: center; cursor: pointer; color: var(--text-secondary); }
+.icon-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.zoom-val { min-width: 48px; display: grid; place-items: center; color: var(--text-secondary); font-size: var(--fs-12); }
+.legend-btn { position: absolute; left: 12px; bottom: 12px; }
+
+/* Bottom pane */
+.pane { background: var(--surface-panel); border-top: 1px solid var(--border-hairline); display: grid; grid-template-rows: 34px 1fr; min-height: 0; }
+.pane-head { display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border-hairline); }
+.pane-title { font-weight: 600; }
+.pane-sub { color: var(--text-muted); }
+.pane-body { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+.net { border-right: 1px solid var(--border-hairline); position: relative; }
+.net svg { width: 100%; height: 100%; }
+.pl { fill: var(--surface-raised); stroke: var(--text-secondary); stroke-width: 1.25; }
+.tr { fill: var(--text-secondary); }
+.tok { fill: var(--text-primary); }
+.arc { stroke: var(--text-muted); stroke-width: 1.1; fill: none; }
+.net-label { font: 400 11px var(--font-mono); fill: var(--text-secondary); text-anchor: middle; }
+.net-port { fill: var(--surface-raised); stroke: var(--text-secondary); stroke-width: 1.25; }
+.boundary { fill: none; stroke: var(--border-hairline); stroke-width: 1.25; stroke-dasharray: 4 3; }
+[data-mode="replay"] .pl.hot { stroke: var(--replay); stroke-width: 2.5; }
+[data-mode="replay"] .tr.hot { fill: var(--replay); }
+[data-mode="replay"] .tr.blocked { fill: var(--surface-raised); stroke: var(--replay); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.marking { overflow: auto; padding: 8px 12px; }
+.marking h3, .panel h3 { font-size: var(--fs-13); font-weight: 600; margin: 4px 0 8px; }
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; font-weight: 500; color: var(--text-muted); font-size: var(--fs-12); padding: 4px 6px; border-bottom: 1px solid var(--border-hairline); }
+td { padding: 5px 6px; border-bottom: 1px solid var(--border-hairline); }
+td.num, th.num { text-align: right; }
+[data-mode="replay"] tr.changed td { background: var(--replay-tint); }
+[data-mode="verdicts"] .pane-body { grid-template-columns: 1fr; }
+[data-mode="verdicts"] .marking { display: none; }
+.delta { font-weight: 600; }
+
+/* Right panel */
+.panel { background: var(--surface-panel); border-left: 1px solid var(--border-hairline); display: grid; grid-template-rows: 36px 1fr; min-height: 0; }
+.tabs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--border-hairline); align-items: stretch; }
+.tab { border: 0; background: transparent; padding: 0 10px; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--text-primary); }
+.panel-body { overflow: auto; min-height: 0; }
+.scene-verdicts, .scene-replay { display: none; }
+[data-mode="verdicts"] .scene-verdicts { display: block; }
+[data-mode="replay"] .scene-replay { display: flex; flex-direction: column; min-height: 100%; }
+
+.scope { padding: 12px 14px 8px; color: var(--text-secondary); }
+.scope b { color: var(--text-primary); font-weight: 600; }
+.verdict { padding: 12px 14px 14px; border-top: 1px solid var(--border-hairline); display: grid; grid-template-columns: 22px 1fr; column-gap: 8px; }
+.verdict .vicon { width: 20px; height: 20px; margin-top: 1px; }
+.verdict .vhead { display: flex; align-items: baseline; gap: 8px; }
+.verdict .vword { font-weight: 600; }
+.verdict .prop { color: var(--text-primary); }
+.verdict p { margin: 4px 0 0; color: var(--text-secondary); max-width: 62ch; }
+.verdict p b { color: var(--text-primary); font-weight: 500; }
+.verdict .actions { margin-top: 10px; display: flex; gap: 8px; }
+.v-disproved .vword, .v-disproved .vicon { color: var(--disproved); }
+.v-proved .vword, .v-proved .vicon { color: var(--proved); }
+.v-unknown .vword, .v-unknown .vicon { color: var(--unknown); }
+.v-unknown { position: relative; }
+.v-unknown::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 10px; width: 0; border-left: 2px dashed var(--unknown); }
+.v-disproved::before, .v-proved::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 10px; width: 2px; }
+.v-disproved, .v-proved { position: relative; }
+.v-disproved::before { background: var(--disproved); }
+.v-proved::before { background: var(--proved); }
+.verdict { padding-left: 16px; }
+.dl { display: grid; grid-template-columns: 74px 1fr; gap: 2px 8px; margin-top: 6px; color: var(--text-secondary); }
+.dl dt { color: var(--text-muted); }
+.dl dd { margin: 0; }
+
+.replay-head { padding: 12px 14px 10px; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; border-bottom: 1px solid var(--border-hairline); }
+.replay-head h2 { font-size: var(--fs-14); margin: 0; font-weight: 600; }
+.replay-head .of { color: var(--text-secondary); grid-column: 1; }
+.replay-head .btn { grid-row: 1 / 3; grid-column: 2; align-self: center; }
+.others { padding: 8px 14px; color: var(--text-muted); border-bottom: 1px solid var(--border-hairline); }
+.scrub { padding: 12px 14px 10px; border-bottom: 1px solid var(--border-hairline); }
+.track { position: relative; height: 22px; margin: 0 6px; }
+.track .rail { position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: var(--border-hairline); }
+.track .done { position: absolute; left: 0; top: 10px; height: 2px; background: var(--replay); width: 100%; }
+.track .tick { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--replay); }
+.track .tick.cur { background: var(--replay); box-shadow: 0 0 0 3px var(--replay-tint); }
+.ticklabels { display: flex; justify-content: space-between; color: var(--text-muted); font-size: var(--fs-11); margin: 2px 0 8px; }
+.controls { display: flex; align-items: center; gap: 2px; }
+.controls .pos { margin-left: auto; color: var(--text-secondary); }
+
+ol.steps { list-style: none; margin: 0; padding: 4px 0 0; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 8px 14px; }
+.steps .n { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border-control); color: var(--text-secondary); font-weight: 600; font-size: var(--fs-11); display: grid; place-items: center; }
+.steps .what { color: var(--text-primary); }
+.steps .rel { color: var(--text-secondary); }
+.steps .effect { color: var(--text-secondary); margin-top: 2px; }
+.steps li[aria-current="step"] { background: var(--replay-tint); }
+.steps li[aria-current="step"] .n { background: var(--replay); border-color: var(--replay); color: var(--on-replay); }
+.steps .start .n { border-style: dashed; }
+.violation { margin: 6px 14px 14px; padding: 10px 12px 12px; border: 1px solid var(--border-control); border-left: 3px solid var(--disproved); border-radius: var(--r-2); background: var(--surface-raised); }
+.violation h3 { margin: 0 0 6px; font-size: var(--fs-13); }
+.violation ul { margin: 0; padding-left: 18px; color: var(--text-secondary); }
+.violation li { margin: 4px 0; max-width: 60ch; }
+.violation li b { color: var(--text-primary); font-weight: 500; }
+.link { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* Status bar */
+.status { display: flex; align-items: center; gap: 14px; padding: 0 12px; background: var(--surface-panel); border-top: 1px solid var(--border-hairline); font-size: var(--fs-12); color: var(--text-secondary); }
+.status .div { width: 1px; height: 12px; background: var(--border-hairline); }
+.status .disp { color: var(--disproved); font-weight: 500; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) { .steps li, .el { transition: background-color 120ms; } }
+</style>
+</head>
+<body>
+<div class="mock-switches" aria-label="Mockup controls">
+  <fieldset><legend>Scene</legend>
+    <button type="button" data-set-mode="verdicts" aria-pressed="false">Verdicts</button>
+    <button type="button" data-set-mode="replay" aria-pressed="true">Replay</button>
+  </fieldset>
+  <fieldset><legend>Theme</legend>
+    <button type="button" data-set-theme="light" aria-pressed="true">Light</button>
+    <button type="button" data-set-theme="dark" aria-pressed="false">Dark</button>
+  </fieldset>
+</div>
+
+<div class="scaler">
+<div class="stage" id="stage" data-theme="light" data-mode="replay">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="var(--edge)"/></marker>
+      <marker id="arrow-replay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="var(--replay)"/></marker>
+      <marker id="arrow-net" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="var(--text-muted)"/></marker>
+      <symbol id="i-container" viewBox="0 0 18 18"><rect x="2" y="3" width="14" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.5h14" stroke="currentColor" stroke-width="1.4"/></symbol>
+      <symbol id="i-person" viewBox="0 0 18 18"><circle cx="9" cy="6" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 16c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+      <symbol id="i-db" viewBox="0 0 18 18"><ellipse cx="9" cy="4.5" rx="6" ry="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M3 4.5v9c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2v-9M3 9c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+      <symbol id="i-net" viewBox="0 0 16 16"><circle cx="4" cy="8" r="2.6" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="8" y="4" width="2" height="8" fill="currentColor"/><path d="M6.6 8H8M10 8h3.5" stroke="currentColor" stroke-width="1.3"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="header">
+    <svg class="app-mark" viewBox="0 0 18 18" aria-hidden="true"><circle cx="5" cy="9" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="10.5" y="3.5" width="2.6" height="11" fill="currentColor"/><path d="M8.4 9h2.1" stroke="currentColor" stroke-width="1.6"/></svg>
+    <span class="project">order-platform</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span class="view-title">Order platform</span>
+    <span class="level">Level <b>Container</b></span>
+    <span class="spacer"></span>
+    <span class="unsaved">Unsaved changes</span>
+    <button class="btn btn-ghost" type="button">Reload</button>
+    <button class="btn" type="button">Save <kbd>Ctrl S</kbd></button>
+    <button class="btn btn-primary" type="button">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Check</button>
+    <button class="btn btn-ghost" type="button" aria-label="Open command palette">Commands <kbd>Ctrl K</kbd></button>
+  </header>
+
+  <div class="body">
+    <div class="work">
+      <section class="canvas" aria-label="Canvas: Order platform, Container level" tabindex="0">
+        <svg class="edges" viewBox="0 0 1080 562" aria-hidden="true">
+          <!-- Customer → Web shop -->
+          <path class="edge quiet" d="M130,94 V234" marker-end="url(#arrow)"/>
+          <rect class="edge-label-bg" x="138" y="156" width="34" height="18"/><text class="edge-label" x="140" y="169">uses</text>
+          <!-- Web shop → Order API (calls) -->
+          <path class="edge trace" d="M220,265 H328" marker-end="url(#arrow)"/>
+          <text class="edge-label" x="252" y="255">calls</text>
+          <!-- Order API → Billing (calls) -->
+          <path class="edge waiting" d="M530,250 H596 V127 H658" marker-end="url(#arrow)"/>
+          <rect class="edge-label-bg" x="560" y="176" width="34" height="16"/><text class="edge-label" x="562" y="188">calls</text>
+          <!-- Order API → Orders database (writes to) -->
+          <path class="edge trace" d="M530,280 H620 V420 H658" marker-end="url(#arrow)"/>
+          <text class="edge-label" x="628" y="372">writes to</text>
+          <!-- Billing → Orders database (writes to) -->
+          <path class="edge trace" d="M760,154 V388" marker-end="url(#arrow)"/>
+          <text class="edge-label" x="770" y="236">writes to</text>
+          <!-- Order API → Notifier (publishes to, asynchronous, capacity 3, overflow) -->
+          <path class="edge async quiet" d="M430,294 V450" marker-end="url(#arrow)"/>
+          <text class="edge-label" x="442" y="336">publishes to</text>
+          <g class="slots" transform="translate(442,348)">
+            <rect x="0" y="0" width="12" height="12"/><rect x="14" y="0" width="12" height="12"/><rect x="28" y="0" width="12" height="12"/>
+            <text x="48" y="10">0 of 3</text><text x="0" y="32">overflow when full</text>
+          </g>
+
+          <!-- Replay overlay: step markers and waits -->
+          <g class="replay-only">
+            <g class="step-marker"><circle cx="276" cy="265" r="10"/><text x="276" y="265">1</text></g>
+            <g class="step-marker"><circle cx="620" cy="330" r="10"/><text x="620" y="330">2</text></g>
+            <g class="step-marker"><circle cx="760" cy="290" r="10"/><text x="760" y="290">4</text></g>
+            <g class="wait-chip" transform="translate(470,96)"><rect width="118" height="22" rx="11"/><text x="10" y="15">waits for a worker</text></g>
+            <g class="wait-chip" transform="translate(772,304)"><rect width="140" height="22" rx="11"/><text x="10" y="15">waits for <tspan font-family="var(--font-mono)">order_row</tspan></text></g>
+          </g>
+        </svg>
+
+        <div class="el person quiet" style="left:40px;top:36px;width:180px">
+          <svg class="glyph"><use href="#i-person"/></svg><span class="name">Customer</span><span></span>
+          <span class="tech">Person</span>
+        </div>
+        <div class="el quiet" style="left:40px;top:236px;width:180px">
+          <svg class="glyph"><use href="#i-container"/></svg><span class="name">Web shop</span><span></span>
+          <span class="tech">React web app</span>
+        </div>
+        <div class="el trace" style="left:330px;top:236px;width:200px">
+          <svg class="glyph"><use href="#i-container"/></svg><span class="name">Order API</span><svg class="bm" role="img" aria-label="Has a behavior model"><use href="#i-net"/></svg>
+          <span class="tech">Rust service</span>
+          <span class="port" style="left:-5px;top:24px"></span><span class="port" style="right:-5px;top:9px"></span><span class="port" style="right:-5px;top:39px"></span><span class="port" style="left:95px;bottom:-5px"></span>
+        </div>
+        <div class="el trace selected" style="left:660px;top:96px;width:200px">
+          <svg class="glyph"><use href="#i-container"/></svg><span class="name">Billing</span><svg class="bm" role="img" aria-label="Has a behavior model"><use href="#i-net"/></svg>
+          <span class="tech">Rust worker, 1 worker</span>
+          <span class="badge" aria-label="Step 3 happens inside Billing">3</span>
+          <span class="port" style="left:-5px;top:26px"></span><span class="port" style="left:95px;bottom:-5px"></span>
+        </div>
+        <div class="el database trace" style="left:660px;top:390px;width:200px">
+          <svg class="glyph"><use href="#i-db"/></svg><span class="name">Orders database</span><svg class="bm" role="img" aria-label="Has a behavior model"><use href="#i-net"/></svg>
+          <span class="tech">PostgreSQL</span>
+          <span class="port" style="left:-5px;top:25px"></span><span class="port" style="left:95px;top:-5px"></span>
+        </div>
+        <div class="el quiet" style="left:330px;top:452px;width:200px">
+          <svg class="glyph"><use href="#i-container"/></svg><span class="name">Notifier</span><svg class="bm" role="img" aria-label="Has a behavior model"><use href="#i-net"/></svg>
+          <span class="tech">Rust worker</span>
+        </div>
+
+        <button class="btn btn-ghost legend-btn" type="button" aria-expanded="false">Legend</button>
+        <div class="canvas-tools" role="toolbar" aria-label="Zoom">
+          <button class="icon-btn" type="button" aria-label="Zoom out"><svg viewBox="0 0 16 16"><path d="M3 8h10" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <span class="zoom-val">100%</span>
+          <button class="icon-btn" type="button" aria-label="Zoom in"><svg viewBox="0 0 16 16"><path d="M3 8h10M8 3v10" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <button class="icon-btn" type="button" aria-label="Fit view"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+        </div>
+      </section>
+
+      <section class="pane" aria-label="Behavior model pane">
+        <div class="pane-head">
+          <span class="pane-title">Behavior model: Billing</span>
+          <span class="pane-sub">Petri net, read-only. Edit elements/billing.toml, then Reload.</span>
+        </div>
+        <div class="pane-body">
+          <div class="net">
+            <svg viewBox="0 0 680 216" aria-label="Billing’s Petri net at step 4">
+              <rect class="boundary" x="40" y="14" width="600" height="188" rx="6"/>
+              <!-- places -->
+              <circle class="pl" cx="110" cy="70" r="14"/><text class="net-label" x="110" y="104">worker_free</text>
+              <circle class="pl" cx="270" cy="70" r="14"/><text class="net-label" x="270" y="104">running</text>
+              <circle class="pl hot" cx="430" cy="70" r="14"/><circle class="tok" cx="430" cy="70" r="4"/><text class="net-label" x="430" y="104">has_invoice_row</text>
+              <circle class="pl" cx="590" cy="70" r="14"/><text class="net-label" x="590" y="104">has_both_rows</text>
+              <!-- transitions -->
+              <rect class="tr" x="186" y="53" width="8" height="34"/><text class="net-label" x="190" y="44">start_invoice_run</text>
+              <rect class="tr hot" x="346" y="53" width="8" height="34"/><text class="net-label" x="350" y="44">lock_invoice_row</text>
+              <rect class="tr blocked" x="506" y="53" width="8" height="34"/><text class="net-label" x="510" y="44">lock_order_row</text>
+              <rect class="tr blocked" x="186" y="143" width="8" height="34"/><text class="net-label" x="190" y="195">accept_create_invoice</text>
+              <!-- arcs -->
+              <path class="arc" d="M124,70 H184" marker-end="url(#arrow-net)"/><path class="arc" d="M196,70 H254" marker-end="url(#arrow-net)"/>
+              <path class="arc" d="M284,70 H344" marker-end="url(#arrow-net)"/><path class="arc" d="M356,70 H414" marker-end="url(#arrow-net)"/>
+              <path class="arc" d="M444,70 H504" marker-end="url(#arrow-net)"/><path class="arc" d="M516,70 H574" marker-end="url(#arrow-net)"/>
+              <path class="arc" d="M112,84 L186,152" marker-end="url(#arrow-net)"/>
+              <!-- ports crossing the boundary -->
+              <rect class="net-port" x="346" y="200" width="8" height="8" transform="translate(0,-6)"/><path class="arc" d="M350,87 V194"/>
+              <rect class="net-port" x="506" y="200" width="8" height="8" transform="translate(0,-6)"/><path class="arc" d="M510,87 V194"/>
+              <rect class="net-port" x="36" y="156" width="8" height="8"/><path class="arc" d="M44,160 H184" marker-end="url(#arrow-net)"/>
+              <text class="net-label" x="402" y="190" style="text-anchor:start">to Orders database</text>
+              <text class="net-label" x="70" y="150" style="text-anchor:start">from Order API</text>
+            </svg>
+          </div>
+          <div class="marking">
+            <h3>Marking</h3>
+            <table>
+              <thead><tr><th scope="col">Place</th><th scope="col" class="num">Step 3</th><th scope="col" class="num">Step 4</th><th scope="col" class="num">Change</th></tr></thead>
+              <tbody>
+                <tr class="changed"><td class="mono">billing/running</td><td class="num">1</td><td class="num">0</td><td class="num delta">−1</td></tr>
+                <tr class="changed"><td class="mono">billing/has_invoice_row</td><td class="num">0</td><td class="num">1</td><td class="num delta">+1</td></tr>
+                <tr class="changed"><td class="mono">orders-db/invoice_row_free</td><td class="num">1</td><td class="num">0</td><td class="num delta">−1</td></tr>
+                <tr><td class="mono">orders-db/order_row_free</td><td class="num">0</td><td class="num">0</td><td class="num">none</td></tr>
+                <tr><td class="mono">order-api/holds_order_row</td><td class="num">1</td><td class="num">1</td><td class="num">none</td></tr>
+                <tr><td class="mono">billing/worker_free</td><td class="num">0</td><td class="num">0</td><td class="num">none</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="panel" aria-label="Verdict panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" type="button">Verdicts</button>
+        <button class="tab" role="tab" aria-selected="false" type="button">Inspector</button>
+      </div>
+      <div class="panel-body">
+
+        <div class="scene-verdicts">
+          <div class="scope">Scope <b>Order platform</b>, Container level. Built-in properties.</div>
+          <article class="verdict v-disproved">
+            <svg class="vicon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="1.8"/></svg>
+            <div>
+              <div class="vhead"><span class="vword">Disproved</span><span class="prop">Deadlock-free</span></div>
+              <p>Order API and Billing can wait for each other forever. Counterexample of <b>4 steps</b>, replayed on the model.</p>
+              <div class="actions"><button class="btn btn-primary" type="button">Replay counterexample</button></div>
+            </div>
+          </article>
+          <article class="verdict v-unknown">
+            <svg class="vicon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2.4"/><path d="M7.6 7.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="14.3" r="1" fill="currentColor"/></svg>
+            <div>
+              <div class="vhead"><span class="vword">Unknown</span><span class="prop">No dead transitions</span></div>
+              <dl class="dl"><dt>Why</dt><dd>You cancelled the check after 4.2 s.</dd><dt>Next step</dt><dd>Check again and let it finish.</dd></dl>
+              <div class="actions"><button class="btn" type="button">Check again</button></div>
+            </div>
+          </article>
+          <article class="verdict v-proved">
+            <svg class="vicon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.2 10.3l2.5 2.5 5-5.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+            <div>
+              <div class="vhead"><span class="vword">Proved</span><span class="prop">No capacity exceeded</span></div>
+              <p>Explored all <b>1,284 markings</b>; the second explorer confirmed it. This says nothing about load or timing.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="scene-replay">
+          <div class="replay-head">
+            <h2>Replay: Deadlock-free</h2>
+            <span class="of">Counterexample in Order platform</span>
+            <button class="btn" type="button">Exit replay <kbd>Esc</kbd></button>
+          </div>
+          <div class="others">Other properties: 1 Proved, 1 Unknown</div>
+          <div class="scrub">
+            <div class="track" aria-hidden="true">
+              <div class="rail"></div><div class="done"></div>
+              <span class="tick" style="left:0%"></span><span class="tick" style="left:25%"></span><span class="tick" style="left:50%"></span><span class="tick" style="left:75%"></span><span class="tick cur" style="left:100%"></span>
+            </div>
+            <div class="ticklabels" aria-hidden="true"><span>Start</span><span>1</span><span>2</span><span>3</span><span>4</span></div>
+            <div class="controls">
+              <button class="icon-btn" type="button" aria-label="First step"><svg viewBox="0 0 16 16"><path d="M4 3v10M12 3L6 8l6 5z" fill="currentColor" stroke="currentColor" stroke-width="1.2"/></svg></button>
+              <button class="icon-btn" type="button" aria-label="Previous step"><svg viewBox="0 0 16 16"><path d="M11 3L5 8l6 5z" fill="currentColor"/></svg></button>
+              <button class="icon-btn" type="button" aria-label="Next step" disabled style="opacity:.45"><svg viewBox="0 0 16 16"><path d="M5 3l6 5-6 5z" fill="currentColor"/></svg></button>
+              <button class="icon-btn" type="button" aria-label="Last step" disabled style="opacity:.45"><svg viewBox="0 0 16 16"><path d="M12 3v10M4 3l6 5-6 5z" fill="currentColor" stroke="currentColor" stroke-width="1.2"/></svg></button>
+              <span class="pos">Step 4 of 4</span>
+            </div>
+          </div>
+          <ol class="steps" aria-label="Counterexample steps">
+            <li class="start"><span class="n" aria-hidden="true">S</span><div><div class="what">Start</div><div class="effect">Billing has one free worker. Both rows in Orders database are free.</div></div></li>
+            <li><span class="n" aria-hidden="true">1</span><div><div class="what">Web shop → Order API <span class="rel">(calls)</span></div><div class="effect"><span class="mono">place_order</span>. Order API starts handling an order.</div></div></li>
+            <li><span class="n" aria-hidden="true">2</span><div><div class="what">Order API → Orders database <span class="rel">(writes to)</span></div><div class="effect"><span class="mono">lock_row</span>. Order API now holds <span class="mono">order_row</span>.</div></div></li>
+            <li><span class="n" aria-hidden="true">3</span><div><div class="what">Billing</div><div class="effect"><span class="mono">start_invoice_run</span>. Billing’s only worker is now busy.</div></div></li>
+            <li aria-current="step"><span class="n" aria-hidden="true">4</span><div><div class="what">Billing → Orders database <span class="rel">(writes to)</span></div><div class="effect"><span class="mono">lock_invoice_row</span>. Billing now holds <span class="mono">invoice_row</span>.</div></div></li>
+          </ol>
+          <section class="violation" aria-live="polite">
+            <h3>Deadlock after step 4: no step can happen</h3>
+            <ul>
+              <li><b>Order API</b> waits at <span class="mono">call_billing</span> for a free Billing worker, held by Billing since step 3.</li>
+              <li><b>Billing</b> waits at <span class="mono">lock_order_row</span> for <span class="mono">order_row</span>, held by Order API since step 2.</li>
+            </ul>
+            <p style="margin:10px 0 0"><button class="link" type="button">Show in behavior model</button></p>
+          </section>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <footer class="status">
+    <span>Unsaved changes</span><span class="div" aria-hidden="true"></span>
+    <span>3 checks: <span class="disp">1 Disproved</span>, 1 Unknown, 1 Proved</span>
+    <span class="spacer"></span>
+    <span>6 elements</span><span class="div" aria-hidden="true"></span><span>Zoom 100%</span>
+  </footer>
+</div>
+</div>
+
+<script>
+const stage = document.getElementById('stage');
+const scaler = document.querySelector('.scaler');
+function fit() {
+  const avail = document.documentElement.clientWidth - 16;
+  const z = Math.min(1, avail / 1440);
+  scaler.style.zoom = z;
+}
+fit(); addEventListener('resize', fit);
+const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+function set(attr, val, sel) {
+  stage.dataset[attr] = val;
+  document.querySelectorAll(sel).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[sel.includes('mode') ? 'setMode' : 'setTheme'] === val)));
+}
+document.querySelectorAll('[data-set-mode]').forEach(b => b.onclick = () => set('mode', b.dataset.setMode, '[data-set-mode]'));
+document.querySelectorAll('[data-set-theme]').forEach(b => b.onclick = () => set('theme', b.dataset.setTheme, '[data-set-theme]'));
+if (prefersDark) set('theme', 'dark', '[data-set-theme]');
+</script>
+</body>
+</html>

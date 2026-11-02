@@ -11,3 +11,5 @@ A project is stored as a directory of human-readable TOML files: one file per el
 ## Consequences
 
 The format is data that outlives a release: it carries a version, and every format change ships with a migration and a test that old projects still load.
+
+Amended by ADR 0020.

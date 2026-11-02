@@ -15,3 +15,5 @@ Amends ADR 0008. The second explorer in `recheck` never sees the net that `engin
 
 - A Proved by exhaustion is limited by what a plain breadth-first search can explore within half the budget; once `verify` gains reductions, `recheck`'s search also supplies the shortest counterexample for display.
 - Every rule above has a golden test in E1 that both crates must pass.
+
+Amended by ADR 0016, ADR 0017, ADR 0018.

@@ -12,3 +12,5 @@ Every place has a capacity (glossary) and a `when_full` choice. `block`: a trans
 
 - Deadlock-free on a model with an `overflow` place is decided only for the behavior before the first overflow; the verdict panel says so and the fix is one attribute away.
 - The pattern library offers "bounded buffer, blocking", "bounded buffer, shed when full" and "retry with budget" on top of these three choices.
+
+Amended by ADR 0017.

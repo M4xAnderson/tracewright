@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>● order-platform – Mockup option 3: Calm editorial</title>
+<style>
+/* =====================================================================
+   DESIGN TOKENS: option 3 "Calm editorial"
+   Warm paper (light) and deep ink (dark) are separate palettes, not
+   inversions. Every text/graphic pair is checked for contrast in both
+   (text >= 4.5:1, borders, edges, icons, focus >= 3:1). No hex values
+   below this block.
+   ===================================================================== */
+:root {
+  /* Type */
+  --font-display: "Iowan Old Style", "Charter", "Bitstream Charter", "Sitka Text", "Cambria", "Source Serif 4", "Noto Serif", "DejaVu Serif", Georgia, serif;
+  --font-ui: system-ui, "Segoe UI Variable Text", "Segoe UI", "Noto Sans", "Ubuntu", "Cantarell", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", "Ubuntu Mono", "DejaVu Sans Mono", monospace;
+  --fs-2xs: 11px;    /* kickers (uppercase, tracked) */
+  --fs-xs: 12px;     /* meta, labels, status bar */
+  --fs-sm: 13px;     /* controls */
+  --fs-md: 14px;     /* body, step text */
+  --fs-lg: 16px;     /* element names, section titles */
+  --fs-xl: 18px;     /* property names */
+  --fs-2xl: 24px;    /* canvas caption */
+  --lh-tight: 1.25;
+  --lh-body: 1.55;
+  --tracking-kicker: 0.08em;
+
+  /* Spacing (4 px base) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+
+  /* Radius: softer surfaces */
+  --r-sm: 5px; --r-md: 8px; --r-lg: 12px; --r-xl: 18px; --r-pill: 999px;
+
+  /* Layout (flows spec section 2.3) */
+  --h-header: 44px; --h-status: 24px; --h-replay: 36px; --w-right: 360px; --h-bottom: 280px;
+
+  /* Color: light, warm paper */
+  --surface-app: #F6F2EA;
+  --surface-panel: #FBF8F2;
+  --surface-raised: #FFFDF9;
+  --surface-canvas: #EFE9DE;
+  --surface-hover: #F1EBDF;
+  --surface-selected: #E9E1D2;
+  --canvas-dot: #D8CFBE;
+  --text-primary: #1E1B16;
+  --text-secondary: #4F4940;
+  --text-muted: #6B6458;
+  --text-on-accent: #FBF8F2;
+  --border-subtle: #E2DACB;
+  --border-control: #8B8273;
+  --border-element: #7A7266;
+  --border-element-quiet: #8B8273;
+  --edge: #7A7266;
+  --accent: #1F2D4A;
+  --accent-hover: #2C3D61;
+  --focus-ring: #2457C5;
+  --selection: #1F2D4A;
+  --verdict-proved: #2C6A3F;
+  --verdict-disproved: #A3342A;
+  --verdict-unknown: #5E5A53;
+  --verdict-stale: #6F695F;
+  --verdict-pending: #8B8273;
+  --replay-highlight: #93540C;
+  --replay-highlight-ring: #F1D9AE;
+  --replay-tint: #F6E3BF;
+  --on-replay-highlight: #FFFDF9;
+  --problem: #9B3B1F;
+  --danger: #A3342A;
+
+  /* Elevation: warm, low shadows */
+  --shadow-1: 0 1px 0 rgb(70 50 20 / 0.05), 0 1px 3px rgb(70 50 20 / 0.08);
+  --shadow-2: 0 1px 2px rgb(70 50 20 / 0.06), 0 6px 18px rgb(70 50 20 / 0.10);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+[data-theme="dark"] {
+  /* Color: dark, deep ink */
+  --surface-app: #121419;
+  --surface-panel: #171A20;
+  --surface-raised: #1E2229;
+  --surface-canvas: #0E1014;
+  --surface-hover: #22262E;
+  --surface-selected: #2A2F38;
+  --canvas-dot: #262A32;
+  --text-primary: #ECE6DA;
+  --text-secondary: #BDB6A8;
+  --text-muted: #9D968A;
+  --text-on-accent: #14161B;
+  --border-subtle: #2A2E36;
+  --border-control: #7C776D;
+  --border-element: #8A8478;
+  --border-element-quiet: #7C776D;
+  --edge: #8A8478;
+  --accent: #E8E1D3;
+  --accent-hover: #F5EFE3;
+  --focus-ring: #8DB4FF;
+  --selection: #B9C8EA;
+  --verdict-proved: #7CC28D;
+  --verdict-disproved: #F2907F;
+  --verdict-unknown: #ABA59B;
+  --verdict-stale: #8F897F;
+  --verdict-pending: #7C776D;
+  --replay-highlight: #E7B565;
+  --replay-highlight-ring: #4A3A1C;
+  --replay-tint: #3A2E17;
+  --on-replay-highlight: #14161B;
+  --problem: #F0A070;
+  --danger: #F2907F;
+
+  --shadow-1: 0 1px 0 rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.35), 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 0.03);
+}
+
+/* ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-ui); font-size: var(--fs-md); line-height: var(--lh-body);
+  color: var(--text-primary); background: var(--surface-app);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--r-sm); }
+.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.i-sm { width: 14px; height: 14px; }
+.i-lg { width: 18px; height: 18px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.kicker { font-size: var(--fs-2xs); font-weight: 600; letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--text-secondary); }
+.kbd { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted); border: 1px solid var(--border-subtle); border-radius: var(--r-sm); padding: 0 5px; line-height: 18px; background: var(--surface-app); }
+.serif { font-family: var(--font-display); }
+.mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+/* ---------- Mockup frame (not part of the app) ---------- */
+.mock-bar { height: 36px; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-4);
+  background: var(--surface-selected); border-bottom: 1px solid var(--border-subtle); font-size: var(--fs-xs); color: var(--text-secondary); }
+.mock-bar strong { color: var(--text-primary); font-weight: 600; }
+.mock-group { display: flex; align-items: center; gap: var(--sp-1); }
+.mock-group button { height: 24px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border-control); background: var(--surface-raised); cursor: pointer; font-size: var(--fs-xs); }
+.mock-group button[aria-pressed="true"] { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
+
+/* ---------- App shell ---------- */
+.app { height: calc(100dvh - 36px); min-height: 604px; display: grid; grid-template-rows: var(--h-header) 1fr var(--h-status); background: var(--surface-app); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: var(--r-md);
+  border: 1px solid var(--border-control); background: var(--surface-raised); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; white-space: nowrap; box-shadow: var(--shadow-inset); }
+.btn:hover { background: var(--surface-hover); }
+.btn-primary { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); box-shadow: var(--shadow-1); }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary .kbd { color: inherit; border-color: currentColor; background: transparent; opacity: 0.85; }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
+.btn-ghost:hover { background: var(--surface-hover); }
+.btn-icon { width: 30px; padding: 0; justify-content: center; }
+.btn-danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn[disabled], .btn[aria-disabled="true"] { color: var(--text-muted); cursor: not-allowed; }
+.btn-sm { height: 26px; padding: 0 10px; font-size: var(--fs-xs); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--border-control); text-underline-offset: 3px; cursor: pointer; font-size: var(--fs-sm); }
+.link-btn:hover { text-decoration-color: currentColor; }
+
+/* ---------- Header ---------- */
+.hdr { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3) 0 var(--sp-4); background: var(--surface-panel); border-bottom: 1px solid var(--border-subtle); min-width: 0; }
+.proj { display: flex; align-items: baseline; gap: var(--sp-2); white-space: nowrap; }
+.proj-name { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.005em; }
+.unsaved { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.unsaved .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+.vsep { width: 1px; height: 20px; background: var(--border-subtle); flex: none; }
+.crumbs { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.crumbs ol { display: flex; align-items: center; gap: 2px; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.crumbs li { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.crumbs li + li::before { content: "›"; color: var(--text-muted); padding: 0 4px; }
+.crumb { background: none; border: 0; padding: 3px 6px; border-radius: var(--r-sm); color: var(--text-secondary); font-size: var(--fs-sm); cursor: pointer; }
+.crumb:hover { background: var(--surface-hover); color: var(--text-primary); }
+.crumb[aria-current="page"] { color: var(--text-primary); font-weight: 600; cursor: default; }
+.crumb[aria-current="page"]:hover { background: none; }
+.level { font-size: var(--fs-xs); color: var(--text-secondary); border: 1px solid var(--border-control); border-radius: var(--r-pill); padding: 1px 9px; white-space: nowrap; }
+.spacer { flex: 1; }
+.hdr-actions { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* ---------- Main ---------- */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) var(--w-right); min-height: 0; }
+.center { display: grid; grid-template-rows: auto minmax(240px, 1fr) var(--h-bottom); min-width: 0; min-height: 0; border-right: 1px solid var(--border-subtle); }
+.center > * { min-width: 0; }
+.replaybar { overflow: hidden; }
+
+/* Replay bar */
+.replaybar { grid-row: 1; height: var(--h-replay); display: none; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-3) 0 var(--sp-4);
+  background: var(--surface-panel); border-bottom: 1px solid var(--border-subtle); }
+[data-scene="replay"] .replaybar { display: flex; }
+.replaybar .tag { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.replaybar .tag .swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--replay-highlight); }
+.replaybar .ro { font-weight: 400; color: var(--text-secondary); }
+.step-count { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--text-primary); min-width: 84px; white-space: nowrap; }
+.scrub { flex: 1; min-width: 120px; max-width: 420px; display: flex; align-items: center; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 24px; background: transparent; cursor: pointer; margin: 0; }
+input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--replay-highlight) var(--fill, 57%), var(--border-control) var(--fill, 57%)); }
+input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--border-control); }
+input[type="range"]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--replay-highlight); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--replay-highlight); box-shadow: 0 0 0 3px var(--surface-panel); }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--replay-highlight); }
+
+/* ---------- Canvas ---------- */
+.canvas { grid-row: 2; position: relative; overflow: hidden; background-color: var(--surface-canvas);
+  background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1.2px); background-size: 20px 20px; container-type: size; container-name: canvas; }
+.world { position: absolute; left: 40px; top: 28px; width: 1000px; height: 472px; transform-origin: 0 0; }
+@container canvas (max-width: 1060px) { .world { transform: scale(0.86); left: 24px; } }
+@container canvas (max-width: 900px) { .world { transform: scale(0.7); left: 20px; top: 20px; } }
+@container canvas (max-width: 720px) { .world { transform: scale(0.6); left: 16px; top: 16px; } }
+@container canvas (max-height: 400px) { .world { transform: scale(0.6); top: 12px; } }
+
+.caption { position: absolute; left: 0; top: 0; max-width: 320px; }
+.caption .kicker { color: var(--text-muted); }
+.caption h2 { margin: 2px 0 0; font-family: var(--font-display); font-weight: 500; font-size: var(--fs-2xl); line-height: var(--lh-tight); letter-spacing: -0.01em; color: var(--text-primary); }
+.caption p { margin: 4px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+
+.edges { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.edges path { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.edges path.async { stroke-dasharray: 6 4; }
+.edges path.hl { stroke: var(--replay-highlight); stroke-width: 3; }
+.edges .arrow { fill: var(--edge); stroke: none; }
+.edges .arrow-hl { fill: var(--replay-highlight); stroke: none; }
+
+.el { position: absolute; width: 176px; min-height: 92px; padding: 10px 12px 11px; border-radius: var(--r-lg);
+  background: var(--surface-raised); border: 1px solid var(--border-element); box-shadow: var(--shadow-1); cursor: pointer; text-align: left; display: block; }
+.el:hover { box-shadow: var(--shadow-2); }
+.el .k { display: flex; align-items: center; gap: 6px; }
+.el .k .i { color: var(--text-secondary); width: 14px; height: 14px; }
+.el .name { display: block; margin-top: 4px; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); color: var(--text-primary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.el .tech { display: block; margin-top: 3px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.el.person { border-radius: var(--r-xl) var(--r-xl) var(--r-lg) var(--r-lg); }
+.el.db { border-radius: var(--r-lg) var(--r-lg) var(--r-xl) var(--r-xl); border-bottom-width: 3px; border-bottom-style: double; }
+.el.is-selected { border-color: var(--selection); box-shadow: 0 0 0 1.5px var(--selection), var(--shadow-2); }
+.el.is-selected::after { content: "Selected"; position: absolute; right: 0; top: -24px; padding: 0 6px; border-radius: var(--r-sm); background: var(--surface-canvas); line-height: 16px; font-size: 10px; letter-spacing: var(--tracking-kicker); text-transform: uppercase; font-weight: 600; color: var(--selection); }
+[data-scene="replay"] .el:not(.is-hl) { border-color: var(--border-element-quiet); box-shadow: none; }
+[data-scene="replay"] .el.is-selected:not(.is-hl) { border-color: var(--selection); }
+.el.is-hl { background: linear-gradient(var(--replay-tint), var(--replay-tint)) padding-box, var(--surface-raised); outline: 2px solid var(--replay-highlight); outline-offset: 3px; box-shadow: 0 0 0 7px var(--replay-highlight-ring); }
+.marker { position: absolute; top: -13px; left: -13px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: var(--r-pill);
+  background: var(--replay-highlight); color: var(--on-replay-highlight); font-size: var(--fs-xs); font-weight: 700; line-height: 24px; text-align: center; font-variant-numeric: tabular-nums; display: none; }
+.is-hl > .marker { display: block; }
+
+.port { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--border-element); transform: translate(-50%, -50%); }
+.port::before { content: ""; position: absolute; inset: -6px; }
+.port-name { position: absolute; transform: translate(10px, -50%); font-size: var(--fs-2xs); color: var(--text-secondary); white-space: nowrap; font-family: var(--font-mono); }
+.port-name.left { transform: translate(calc(-100% - 10px), -50%); }
+
+.rel { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
+.rel-text { font-size: var(--fs-xs); color: var(--text-secondary); background: var(--surface-canvas); padding: 0 5px; border-radius: var(--r-sm); white-space: nowrap; }
+.cap-chip { position: relative; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-2xs); font-weight: 500; color: var(--text-primary); background: var(--surface-raised);
+  border: 1px solid var(--border-control); border-radius: var(--r-pill); padding: 1px 9px 1px 7px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cap-chip .i { width: 12px; height: 12px; color: var(--text-secondary); }
+.cap-chip .live { display: none; }
+[data-scene="replay"] .cap-chip .live { display: inline; }
+[data-scene="replay"] .cap-chip .static { display: none; }
+.cap-chip.is-hl { border: 2px solid var(--replay-highlight); background: var(--replay-tint); padding: 0 8px 0 6px; }
+.cap-chip .marker { top: -12px; left: -16px; }
+
+.canvas-tools { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 2px; padding: 3px; border-radius: var(--r-md); background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-1); }
+.canvas-tools .btn { height: 26px; }
+.legend { position: absolute; left: 12px; bottom: 12px; display: none; gap: var(--sp-3); align-items: center; padding: 4px 10px; border-radius: var(--r-md); background: var(--surface-raised); border: 1px solid var(--border-subtle); font-size: var(--fs-xs); color: var(--text-secondary); }
+[data-scene="replay"] .legend { display: flex; }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 2px solid var(--replay-highlight); background: var(--replay-tint); }
+.legend .sw-dash { display: inline-block; width: 18px; border-top: 2px dashed var(--edge); vertical-align: 3px; margin-right: 5px; }
+
+/* ---------- Tabs (shared) ---------- */
+.tabs { display: flex; align-items: stretch; gap: var(--sp-1); padding: 0 var(--sp-3); border-bottom: 1px solid var(--border-subtle); background: var(--surface-panel); min-height: 38px; }
+.tab { position: relative; background: none; border: 0; padding: 0 10px; font-size: var(--fs-sm); color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--text-primary); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--text-primary); }
+.tab .count { font-weight: 400; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+[role="tabpanel"][hidden] { display: none !important; }
+
+/* ---------- Bottom pane ---------- */
+.bottom { grid-row: 3; overflow: hidden; display: grid; grid-template-rows: auto 1fr; min-height: 0; background: var(--surface-panel); border-top: 1px solid var(--border-subtle); }
+.pane-body { min-height: 0; overflow: auto; }
+.pane-head { display: flex; align-items: center; gap: var(--sp-3); padding: 6px var(--sp-4); white-space: nowrap; }
+.pane-head h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; }
+.pane-head .meta { font-size: var(--fs-xs); color: var(--text-secondary); }
+.seg { display: inline-flex; padding: 2px; border-radius: var(--r-md); background: var(--surface-app); border: 1px solid var(--border-control); }
+.seg button { height: 24px; padding: 0 10px; border: 0; border-radius: 6px; background: none; font-size: var(--fs-xs); cursor: pointer; color: var(--text-secondary); }
+.seg button[aria-pressed="true"] { background: var(--surface-raised); color: var(--text-primary); font-weight: 600; box-shadow: var(--shadow-1); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px 0 6px; border-radius: var(--r-pill); border: 1px solid var(--border-control); background: var(--surface-raised); font-size: var(--fs-xs); cursor: pointer; }
+.toggle .knob { width: 26px; height: 14px; border-radius: 7px; background: var(--border-control); position: relative; }
+.toggle .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-raised); }
+.toggle[aria-pressed="true"] .knob { background: var(--accent); }
+.toggle[aria-pressed="true"] .knob::after { left: 14px; background: var(--text-on-accent); }
+.replay-only { display: none !important; }
+[data-scene="replay"] .replay-only { display: inline-flex !important; }
+[data-scene="replay"] .edit-only { display: none !important; }
+
+.net { display: block; height: calc(var(--h-bottom) - 92px); width: auto; max-width: calc(100% - 32px); margin: 0 var(--sp-4); }
+.net text { font-family: var(--font-ui); fill: var(--text-primary); }
+.net .lbl { font-size: 12.5px; }
+.net .meta { font-size: 11px; fill: var(--text-secondary); }
+.net .count { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.net .diff { font-size: 11.5px; font-weight: 700; fill: var(--replay-highlight); }
+.net .place { fill: var(--surface-raised); stroke: var(--border-element); stroke-width: 1.5; }
+.net .trans { fill: var(--surface-raised); stroke: var(--border-element); stroke-width: 1.5; }
+.net .port-outline { fill: none; stroke: var(--border-element); stroke-width: 1.5; stroke-dasharray: 2 3; }
+.net .arc { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+.net .gen { fill: var(--surface-app); stroke: var(--border-element); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.net .tag { font-size: 10px; letter-spacing: var(--tracking-kicker); text-transform: uppercase; fill: var(--text-secondary); font-weight: 600; }
+.net .cur { stroke: var(--replay-highlight); stroke-width: 3; fill: var(--replay-tint); }
+.net .wait { stroke: var(--replay-highlight); stroke-width: 3; stroke-dasharray: 5 3; }
+.net .mk { display: none; }
+.net .mk.on { display: inline; }
+.net .mk circle { fill: var(--replay-highlight); }
+.net .mk text { fill: var(--on-replay-highlight); font-size: 11px; font-weight: 700; }
+.net-note { margin: 0 var(--sp-4) var(--sp-3); font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Findings */
+.findings-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-2); }
+.findings-head .meta { font-size: var(--fs-xs); color: var(--text-secondary); }
+table.findings { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+table.findings th { text-align: left; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--text-secondary); padding: 6px var(--sp-3); border-bottom: 1px solid var(--border-subtle); }
+table.findings td { vertical-align: top; padding: var(--sp-3); border-bottom: 1px solid var(--border-subtle); }
+table.findings th:first-child, table.findings td:first-child { padding-left: var(--sp-4); }
+.sev { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.sev.high { color: var(--problem); }
+.sev.medium { color: var(--text-primary); }
+.rule-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-secondary); display: block; }
+.rule-name { font-weight: 600; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border-control); background: var(--surface-raised); font-size: var(--fs-xs); cursor: pointer; }
+.chip .i { width: 12px; height: 12px; color: var(--text-secondary); }
+.evidence { color: var(--text-primary); max-width: 62ch; }
+.explain { color: var(--text-secondary); font-size: var(--fs-xs); margin-top: 4px; max-width: 62ch; }
+tr.suppressed td { background: var(--surface-app); }
+tr.suppressed .rule-name, tr.suppressed .evidence { color: var(--text-secondary); }
+.supp { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; font-size: var(--fs-xs); color: var(--text-primary); }
+.supp strong { font-weight: 600; }
+.row-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; white-space: nowrap; }
+.empty-note { padding: var(--sp-4); color: var(--text-secondary); font-size: var(--fs-sm); }
+
+/* ---------- Right column ---------- */
+.right { display: grid; grid-template-rows: auto 1fr; min-height: 0; background: var(--surface-panel); }
+.right .panel { overflow: auto; min-height: 0; }
+.section { padding: var(--sp-5) var(--sp-5); border-bottom: 1px solid var(--border-subtle); }
+.section:last-child { border-bottom: 0; }
+.col-title { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-2); }
+.col-title h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; line-height: var(--lh-tight); }
+.col-title .meta { font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Verdict rows */
+.vrow { position: relative; padding: var(--sp-4) var(--sp-5) var(--sp-5) calc(var(--sp-5) + 4px); border-top: 1px solid var(--border-subtle); }
+.vrow::before { content: ""; position: absolute; left: var(--sp-3); top: var(--sp-4); bottom: var(--sp-5); width: 3px; border-radius: 2px; background: var(--rule, var(--border-subtle)); }
+.vrow.proved { --rule: var(--verdict-proved); }
+.vrow.disproved { --rule: var(--verdict-disproved); }
+.vrow.unknown { --rule: var(--verdict-unknown); }
+.vrow h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; line-height: var(--lh-tight); }
+.scope { margin-top: 2px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.verdict { display: inline-flex; align-items: center; gap: 7px; margin-top: var(--sp-3); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.01em; }
+.verdict.proved { color: var(--verdict-proved); }
+.verdict.disproved { color: var(--verdict-disproved); }
+.verdict.unknown { color: var(--verdict-unknown); }
+.verdict .i { width: 18px; height: 18px; }
+.detail { margin-top: var(--sp-2); font-size: var(--fs-md); color: var(--text-primary); max-width: 75ch; }
+.detail p { margin: 0 0 var(--sp-2); }
+.detail .sub { color: var(--text-secondary); font-size: var(--fs-sm); }
+.detail dl { margin: 0; display: grid; gap: var(--sp-2); }
+.detail dt { margin-top: var(--sp-1); }
+.detail dd { margin: 0; }
+.waiting { list-style: none; margin: var(--sp-2) 0; padding: 0; display: grid; gap: var(--sp-2); }
+.waiting li { position: relative; padding-left: 16px; font-size: var(--fs-sm); }
+.waiting li::before { content: ""; position: absolute; left: 2px; top: 0.6em; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--text-secondary); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.note { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--surface-app); border: 1px solid var(--border-subtle); font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Inspector */
+.ro-note { display: none; align-items: center; gap: 8px; margin: var(--sp-4) var(--sp-5) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--replay-tint); border: 1px solid var(--replay-highlight); font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
+[data-scene="replay"] .ro-note { display: flex; }
+.field { display: grid; gap: 5px; margin-bottom: var(--sp-4); }
+.field:last-child { margin-bottom: 0; }
+.field label, .field .label { font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); }
+.field .opt { font-weight: 400; color: var(--text-secondary); }
+.input { height: 34px; padding: 0 10px; border-radius: var(--r-md); border: 1px solid var(--border-control); background: var(--surface-raised); font-size: var(--fs-md); width: 100%; }
+textarea.input { height: auto; min-height: 60px; padding: 8px 10px; resize: vertical; line-height: var(--lh-body); }
+.input[readonly], .input:disabled { background: var(--surface-app); color: var(--text-primary); border-style: dashed; }
+.insp-head { padding: var(--sp-5) var(--sp-5) var(--sp-3); }
+.insp-head h2 { margin: 4px 0 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; line-height: var(--lh-tight); }
+.sec-title { margin: 0 0 var(--sp-3); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--text-secondary); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.list li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-sm); }
+.list .row-btn { flex: 1; text-align: left; background: none; border: 0; padding: 5px 6px; margin: 0 -6px; border-radius: var(--r-sm); cursor: pointer; font-size: var(--fs-sm); min-height: 28px; }
+.list .row-btn:hover { background: var(--surface-hover); }
+.list .meta { color: var(--text-secondary); font-size: var(--fs-xs); font-family: var(--font-mono); }
+.subhead { font-size: var(--fs-xs); color: var(--text-secondary); margin: var(--sp-3) 0 var(--sp-1); font-weight: 600; }
+.subhead:first-child { margin-top: 0; }
+.path { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-primary); background: var(--surface-app); border: 1px solid var(--border-subtle); padding: 3px 7px; border-radius: var(--r-sm); }
+
+/* Step list */
+.replay-head { padding: var(--sp-5) var(--sp-5) var(--sp-4); border-bottom: 1px solid var(--border-subtle); }
+.replay-head .top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.replay-head h2 { margin: 3px 0 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; line-height: var(--lh-tight); }
+.replay-head .verdict { margin-top: 6px; font-size: var(--fs-sm); }
+.cur-step { margin-top: var(--sp-4); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface-app); border: 1px solid var(--border-subtle); }
+.cur-step .label { font-size: var(--fs-xs); color: var(--text-secondary); font-weight: 600; }
+.cur-step .chips { margin-top: 6px; }
+.steps { list-style: none; margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-5); display: grid; gap: 2px; }
+.steps [role="option"] { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 0 var(--sp-2); padding: 9px 10px 9px 8px; border-radius: var(--r-md); border: 1.5px solid transparent; cursor: pointer; font-size: var(--fs-md); line-height: 1.45; min-height: 36px; }
+.steps [role="option"]:hover { background: var(--surface-hover); }
+.steps [role="option"][aria-selected="true"] { background: var(--replay-tint); border-color: var(--replay-highlight); }
+.steps [role="option"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.steps .n { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-control); font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.steps [aria-selected="true"] .n { background: var(--replay-highlight); color: var(--on-replay-highlight); border-color: var(--replay-highlight); }
+.steps .txt { min-width: 0; overflow-wrap: anywhere; }
+.steps .txt .more { display: block; color: var(--text-secondary); font-size: var(--fs-sm); margin-top: 2px; }
+.steps .cur-tag { display: none; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--replay-highlight); }
+.steps [aria-selected="true"] .cur-tag { display: inline; }
+.steps .viol { display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; color: var(--verdict-disproved); font-weight: 700; }
+.steps .viol .i { margin-top: 2px; }
+.steps .waiting li { color: var(--text-primary); font-weight: 400; }
+
+/* ---------- Status bar ---------- */
+.status { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-4); font-size: var(--fs-xs); background: var(--surface-panel); border-top: 1px solid var(--border-subtle); color: var(--text-secondary); min-width: 0; }
+.status .msg { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-primary); }
+.status .msg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status .msg .i { width: 13px; height: 13px; color: var(--text-secondary); }
+.status .right-part { display: flex; align-items: center; gap: var(--sp-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.status .unsaved .dot { width: 6px; height: 6px; }
+
+[data-scene="edit"] .scene-replay { display: none !important; }
+[data-scene="replay"] .scene-edit { display: none !important; }
+
+/* Narrow window (1024 min): collapse order from flows spec section 2.5 */
+@media (max-width: 1279px) {
+  :root { --w-right: 320px; }
+  .hdr { gap: var(--sp-2); padding-left: var(--sp-3); }
+  .hdr .lbl-c { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hdr .btn:has(.lbl-c) { width: 30px; padding: 0; justify-content: center; }
+  .hdr .kbd, .unsaved .long, .replaybar .kbd, .pane-head .meta, .legend { display: none !important; }
+  .crumb { max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-height: 700px) { :root { --h-bottom: 240px; } .pane-head { padding-block: 2px; } }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (forced-colors: active) {
+  .el.is-hl, .cap-chip.is-hl, .steps [aria-selected="true"] { outline: 3px solid Highlight; }
+  .marker { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .vrow::before { background: CanvasText; }
+}
+</style>
+</head>
+<body data-scene="replay">
+
+<!-- Icon sprite: generic, lucide-style outlines (MIT); no cloud provider icons (ADR 0007) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M6 6.5h.01M9 6.5h.01"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4.5v15l13-7.5z"/></symbol>
+  <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></symbol>
+  <symbol id="i-first" viewBox="0 0 24 24"><path d="m17 18-6-6 6-6"/><path d="M7 6v12"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-last" viewBox="0 0 24 24"><path d="m7 18 6-6-6-6"/><path d="M17 6v12"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.73 5.08A10.74 10.74 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+</svg>
+
+<!-- Mockup controls: outside the app window, not part of the product -->
+<div class="mock-bar" aria-label="Mockup controls">
+  <strong>Mockup · option 3 · Calm editorial</strong>
+  <span>not part of the app</span>
+  <span class="spacer"></span>
+  <div class="mock-group" role="group" aria-label="Scene">
+    <span>Scene</span>
+    <button type="button" data-scene-btn="replay" aria-pressed="true">Replay at step 4 of 7</button>
+    <button type="button" data-scene-btn="edit" aria-pressed="false">Edit: verdicts and findings</button>
+  </div>
+  <div class="mock-group" role="group" aria-label="Theme">
+    <span>Theme</span>
+    <button type="button" data-theme-btn="light" aria-pressed="true">Light</button>
+    <button type="button" data-theme-btn="dark" aria-pressed="false">Dark</button>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ================= Header ================= -->
+  <header class="hdr" role="region" aria-label="Header">
+    <div class="proj">
+      <span class="proj-name">order-platform</span>
+      <span class="unsaved"><span class="dot" aria-hidden="true"></span>Unsaved<span class="long"> changes</span></span>
+    </div>
+    <span class="vsep" aria-hidden="true"></span>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li><button type="button" class="crumb">System Context</button></li>
+        <li><button type="button" class="crumb">Order System</button></li>
+        <li><button type="button" class="crumb" aria-current="page">Containers</button></li>
+      </ol>
+      <span class="level">Level: Container</span>
+    </nav>
+    <span class="spacer"></span>
+    <div class="hdr-actions">
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Undo" title="Undo (Ctrl+Z)" aria-keyshortcuts="Control+Z" data-edit><svg class="i"><use href="#i-undo"/></svg></button>
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" aria-keyshortcuts="Control+Shift+Z" disabled><svg class="i"><use href="#i-redo"/></svg></button>
+      <span class="vsep" aria-hidden="true"></span>
+      <button type="button" class="btn" title="Save (Ctrl+S)" aria-keyshortcuts="Control+S"><svg class="i"><use href="#i-save"/></svg><span class="lbl-c">Save</span></button>
+      <button type="button" class="btn" title="Reload (Ctrl+R)" aria-keyshortcuts="Control+R"><svg class="i"><use href="#i-reload"/></svg><span class="lbl-c">Reload</span></button>
+      <button type="button" class="btn btn-primary" title="Check (Ctrl+Enter)" aria-keyshortcuts="Control+Enter"><svg class="i i-sm"><use href="#i-play"/></svg>Check<span class="kbd">Ctrl+Enter</span></button>
+      <span class="vsep" aria-hidden="true"></span>
+      <button type="button" class="btn btn-ghost" aria-keyshortcuts="Control+K"><svg class="i"><use href="#i-cmd"/></svg><span class="lbl-c">Commands</span><span class="kbd">Ctrl+K</span></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="center">
+      <!-- ================= Replay bar ================= -->
+      <div class="replaybar" role="toolbar" aria-label="Replay controls" id="replaybar">
+        <span class="tag"><span class="swatch" aria-hidden="true"></span>Replay <span class="ro">· read-only</span></span>
+        <span class="vsep" aria-hidden="true"></span>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="First step" title="First step (Home)" data-go="first"><svg class="i"><use href="#i-first"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Previous step" title="Previous step (←)" data-go="prev"><svg class="i"><use href="#i-prev"/></svg></button>
+        <div class="scrub"><input type="range" id="scrubber" min="0" max="7" step="1" value="4" aria-label="Replay position"></div>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Next step" title="Next step (→)" data-go="next"><svg class="i"><use href="#i-next"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Last step" title="Last step (End)" data-go="last"><svg class="i"><use href="#i-last"/></svg></button>
+        <span class="step-count" id="step-count">Step 4 of 7</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-sm" data-exit-replay><svg class="i i-sm"><use href="#i-close"/></svg>Exit replay<span class="kbd">Esc</span></button>
+      </div>
+
+      <!-- ================= Canvas ================= -->
+      <section class="canvas" role="region" aria-label="Canvas" id="canvas" tabindex="-1">
+        <div class="world">
+          <div class="caption" aria-hidden="true">
+            <div class="kicker">Container view</div>
+            <h2>Order System</h2>
+            <p>6 elements · 6 relationships</p>
+          </div>
+
+          <svg class="edges" width="1000" height="472" viewBox="0 0 1000 472" aria-hidden="true">
+            <defs>
+              <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="arrow" d="M0 1 L9 5 L0 9 z"/></marker>
+              <marker id="ar-hl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arrow-hl" d="M0 1 L9 5 L0 9 z"/></marker>
+            </defs>
+            <path d="M176 242 H234" marker-end="url(#ar)"/>
+            <path d="M412 242 H486" marker-end="url(#ar)"/>
+            <path data-rel="pub" class="async" d="M670 224 H812" marker-end="url(#ar)"/>
+            <path data-rel="calls-back" d="M814 268 H672" marker-end="url(#ar)"/>
+            <path d="M576 196 V110" marker-end="url(#ar)"/>
+            <path d="M576 288 V378" marker-end="url(#ar)"/>
+          </svg>
+
+          <!-- Relationship labels: From → To (meaning) is the accessible name -->
+          <div class="rel" style="left:206px; top:226px" aria-label="Customer → Web App (uses)"><span class="rel-text">uses</span></div>
+          <div class="rel" style="left:450px; top:226px" aria-label="Web App → Order API (calls)"><span class="rel-text">calls</span></div>
+          <div class="rel" style="left:742px; top:192px" aria-label="Order API → Billing (publishes to), asynchronous, capacity 2, when full: block">
+            <span class="rel-text">publishes to</span>
+            <span class="cap-chip" data-rel-chip="pub">
+              <span class="marker" aria-hidden="true">4</span>
+              <svg class="i"><use href="#i-layers"/></svg>
+              <span class="static">capacity 2 · block</span>
+              <span class="live"><span id="q-count">1/2</span> messages</span>
+            </span>
+          </div>
+          <div class="rel" style="left:742px; top:286px" aria-label="Billing → Order API (calls)"><span class="rel-text">calls</span></div>
+          <div class="rel" style="left:612px; top:152px" aria-label="Order API → Audit (logs to)"><span class="rel-text">logs to</span></div>
+          <div class="rel" style="left:616px; top:334px" aria-label="Order API → Orders DB (writes to)"><span class="rel-text">writes to</span></div>
+
+          <!-- Elements (app-managed tab ring in reading order) -->
+          <button type="button" class="el" data-el="audit" style="left:488px; top:16px" aria-label="Audit, Container">
+            <span class="marker" aria-hidden="true"></span>
+            <span class="k"><svg class="i"><use href="#i-box"/></svg><span class="kicker">Container</span></span>
+            <span class="name">Audit</span><span class="tech">Append-only log writer</span>
+          </button>
+          <button type="button" class="el person" data-el="customer" style="left:0; top:196px" aria-label="Customer, Person">
+            <span class="marker" aria-hidden="true"></span>
+            <span class="k"><svg class="i"><use href="#i-user"/></svg><span class="kicker">Person</span></span>
+            <span class="name">Customer</span><span class="tech">Places and tracks orders</span>
+          </button>
+          <button type="button" class="el" data-el="webapp" style="left:236px; top:196px" aria-label="Web App, Container">
+            <span class="marker" aria-hidden="true"></span>
+            <span class="k"><svg class="i"><use href="#i-window"/></svg><span class="kicker">Container</span></span>
+            <span class="name">Web App</span><span class="tech">Single-page app</span>
+          </button>
+          <button type="button" class="el is-hl" data-el="oa" style="left:488px; top:196px" aria-label="Order API, Container">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i"><use href="#i-box"/></svg><span class="kicker">Container</span></span>
+            <span class="name">Order API</span><span class="tech">HTTP API · 1 worker</span>
+          </button>
+          <button type="button" class="el is-hl is-selected" data-el="billing" style="left:820px; top:196px" aria-label="Billing, Container, selected">
+            <span class="marker" aria-hidden="true">4</span>
+            <span class="k"><svg class="i"><use href="#i-box"/></svg><span class="kicker">Container</span></span>
+            <span class="name">Billing</span><span class="tech">Charges and confirms</span>
+          </button>
+          <button type="button" class="el db" data-el="db" style="left:488px; top:380px" aria-label="Orders DB, Database">
+            <span class="marker" aria-hidden="true"></span>
+            <span class="k"><svg class="i"><use href="#i-db"/></svg><span class="kicker">Database</span></span>
+            <span class="name">Orders DB</span><span class="tech">Relational store</span>
+          </button>
+
+          <!-- Port handles (names shown for the selected element) -->
+          <span class="port" style="left:664px; top:224px" aria-hidden="true"></span>
+          <span class="port" style="left:664px; top:268px" aria-hidden="true"></span>
+          <span class="port" style="left:820px; top:224px" aria-hidden="true"></span>
+          <span class="port" style="left:820px; top:268px" aria-hidden="true"></span>
+          <span class="port-name" style="left:812px; top:224px; transform:translate(-100%, 4px)">receive</span>
+          <span class="port-name" style="left:812px; top:268px; transform:translate(-100%, calc(-100% - 4px))">confirm</span>
+        </div>
+
+        <div class="legend" aria-hidden="true">
+          <span><span class="sw"></span>In this step</span>
+          <span><span class="sw-dash"></span>Asynchronous</span>
+        </div>
+        <div class="canvas-tools" role="toolbar" aria-label="Canvas view">
+          <button type="button" class="btn btn-ghost btn-icon" aria-label="Zoom in" title="Zoom in (+)"><svg class="i"><use href="#i-plus"/></svg></button>
+          <button type="button" class="btn btn-ghost btn-icon" aria-label="Zoom out" title="Zoom out (−)"><svg class="i"><use href="#i-minus"/></svg></button>
+          <button type="button" class="btn btn-ghost btn-icon" aria-label="Fit view" title="Fit view (Shift+1)"><svg class="i"><use href="#i-fit"/></svg></button>
+        </div>
+      </section>
+
+      <!-- ================= Bottom pane ================= -->
+      <section class="bottom" role="region" aria-label="Bottom pane: Behavior model" id="bottom">
+        <div class="tabs" role="tablist" aria-label="Bottom pane">
+          <button type="button" class="tab" role="tab" id="t-bm" aria-controls="p-bm" aria-selected="true">Behavior model</button>
+          <button type="button" class="tab" role="tab" id="t-pr" aria-controls="p-pr" aria-selected="false" tabindex="-1">Problems</button>
+          <button type="button" class="tab" role="tab" id="t-fi" aria-controls="p-fi" aria-selected="false" tabindex="-1">Findings <span class="count">(2)</span></button>
+        </div>
+
+        <div class="pane-body" role="tabpanel" id="p-bm" aria-labelledby="t-bm">
+          <div class="pane-head">
+            <h3 id="bm-title">Behavior model: Order API</h3>
+            <span class="meta" id="bm-meta">Petri net · 3 places, 3 transitions, 2 ports</span>
+            <span class="spacer"></span>
+            <div class="seg replay-only" role="group" aria-label="Element in this step" id="bm-seg">
+              <button type="button" data-bm="oa" aria-pressed="true">Order API</button>
+              <button type="button" data-bm="billing" aria-pressed="false">Billing</button>
+            </div>
+            <button type="button" class="toggle replay-only" aria-pressed="true" id="follow"><span class="knob" aria-hidden="true"></span>Follow steps</button>
+            <button type="button" class="btn btn-sm btn-ghost"><svg class="i i-sm"><use href="#i-open"/></svg>Open file</button>
+            <button type="button" class="btn btn-sm btn-ghost" title="Fit (Shift+1)"><svg class="i i-sm"><use href="#i-fit"/></svg>Fit</button>
+          </div>
+
+          <!-- Order API net -->
+          <svg class="net" id="net-oa" viewBox="0 0 800 200" role="img" aria-labelledby="net-oa-desc">
+            <desc id="net-oa-desc">Order API: places orders, worker_free and sending; transitions accept, send (port) and confirm (port).</desc>
+            <defs><marker id="na" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="var(--edge)"/></marker></defs>
+            <!-- arcs -->
+            <path class="arc" d="M96 140 H155" marker-end="url(#na)"/>
+            <path class="arc" d="M235 140 H302" marker-end="url(#na)"/>
+            <path class="arc" d="M354 140 H428" marker-end="url(#na)"/>
+            <path class="arc" d="M512 140 H566" marker-end="url(#na)"/>
+            <path class="arc" d="M312 60 L222 122" marker-end="url(#na)"/>
+            <path class="arc" d="M448 122 L350 60" marker-end="url(#na)"/>
+            <path class="arc" d="M356 40 H428" marker-start="url(#na)" marker-end="url(#na)"/>
+            <!-- places -->
+            <circle class="place" cx="72" cy="140" r="24" data-p="oa-orders"/>
+            <text class="count" x="72" y="146" text-anchor="middle" data-c="oa-orders">2</text>
+            <text class="diff" x="100" y="116" data-d="oa-orders"></text>
+            <text class="lbl" x="72" y="184" text-anchor="middle">orders</text>
+            <text class="meta" x="72" y="198" text-anchor="middle">capacity 4 · block</text>
+
+            <circle class="place" cx="330" cy="40" r="24" data-p="oa-wf"/>
+            <text class="count" x="330" y="46" text-anchor="middle" data-c="oa-wf">1</text>
+            <text class="diff" x="300" y="20" text-anchor="end" data-d="oa-wf">+1</text>
+            <text class="lbl" x="296" y="44" text-anchor="end">worker_free</text>
+            <text class="meta" x="296" y="58" text-anchor="end">capacity 1 · block</text>
+
+            <circle class="place" cx="330" cy="140" r="24" data-p="oa-sending"/>
+            <text class="count" x="330" y="146" text-anchor="middle" data-c="oa-sending">0</text>
+            <text class="diff" x="358" y="116" data-d="oa-sending">−1</text>
+            <text class="lbl" x="330" y="184" text-anchor="middle">sending</text>
+            <text class="meta" x="330" y="198" text-anchor="middle">capacity 1 · block</text>
+            <!-- transitions -->
+            <rect class="trans" x="157" y="124" width="76" height="32" rx="3" data-t="oa-accept"/>
+            <text class="lbl" x="195" y="145" text-anchor="middle">accept</text>
+            <rect class="port-outline" x="426" y="118" width="90" height="44" rx="6"/>
+            <rect class="trans cur" x="432" y="124" width="78" height="32" rx="3" data-t="oa-send"/>
+            <text class="lbl" x="471" y="145" text-anchor="middle">send</text>
+            <text class="tag" x="471" y="178" text-anchor="middle">port</text>
+            <g class="mk on" data-mk="oa-send"><circle cx="512" cy="120" r="10"/><text x="512" y="124" text-anchor="middle" class="mk-n">4</text></g>
+            <g class="mk" data-mk="oa-accept"><circle cx="233" cy="120" r="10"/><text x="233" y="124" text-anchor="middle" class="mk-n">4</text></g>
+            <rect class="port-outline" x="426" y="18" width="90" height="44" rx="6"/>
+            <rect class="trans" x="432" y="24" width="78" height="32" rx="3"/>
+            <text class="lbl" x="471" y="45" text-anchor="middle">confirm</text>
+            <text class="tag" x="530" y="45">port · sync</text>
+            <!-- generated place (belongs to the relationship) -->
+            <rect class="gen" x="570" y="114" width="214" height="52" rx="10" data-p="gen-oa"/>
+            <text class="lbl" x="677" y="136" text-anchor="middle">Order API → Billing (publishes to)</text>
+            <text class="meta" x="677" y="154" text-anchor="middle"><tspan data-c="gen">1</tspan> of 2 messages · when full: block</text>
+          </svg>
+
+          <!-- Billing net -->
+          <svg class="net" id="net-billing" viewBox="0 0 800 200" role="img" aria-labelledby="net-b-desc" hidden>
+            <desc id="net-b-desc">Billing: places lock_b and working; transitions receive (port) and confirm (port).</desc>
+            <path class="arc" d="M226 140 H286" marker-end="url(#na)"/>
+            <path class="arc" d="M376 140 H428" marker-end="url(#na)"/>
+            <path class="arc" d="M480 140 H538" marker-end="url(#na)"/>
+            <path class="arc" d="M430 62 L332 122" marker-end="url(#na)"/>
+            <path class="arc" d="M580 122 L478 52" marker-end="url(#na)"/>
+            <rect class="gen" x="12" y="114" width="214" height="52" rx="10" data-p="gen-b"/>
+            <text class="lbl" x="119" y="136" text-anchor="middle">Order API → Billing (publishes to)</text>
+            <text class="meta" x="119" y="154" text-anchor="middle"><tspan data-c="gen">1</tspan> of 2 messages · when full: block</text>
+            <rect class="port-outline" x="282" y="118" width="96" height="44" rx="6"/>
+            <rect class="trans cur" x="288" y="124" width="84" height="32" rx="3" data-t="b-receive"/>
+            <text class="lbl" x="330" y="145" text-anchor="middle">receive</text>
+            <text class="tag" x="330" y="178" text-anchor="middle">port</text>
+            <g class="mk on" data-mk="b-receive"><circle cx="374" cy="120" r="10"/><text x="374" y="124" text-anchor="middle">4</text></g>
+            <circle class="place" cx="454" cy="40" r="24" data-p="b-lock"/>
+            <text class="count" x="454" y="46" text-anchor="middle" data-c="b-lock">0</text>
+            <text class="diff" x="484" y="20" data-d="b-lock">−1</text>
+            <text class="lbl" x="490" y="44">lock_b</text>
+            <text class="meta" x="490" y="58">capacity 1 · block</text>
+            <circle class="place" cx="454" cy="140" r="24" data-p="b-working"/>
+            <text class="count" x="454" y="146" text-anchor="middle" data-c="b-working">1</text>
+            <text class="diff" x="482" y="116" data-d="b-working">+1</text>
+            <text class="lbl" x="454" y="184" text-anchor="middle">working</text>
+            <text class="meta" x="454" y="198" text-anchor="middle">capacity 1 · block</text>
+            <rect class="port-outline" x="536" y="118" width="96" height="44" rx="6"/>
+            <rect class="trans" x="542" y="124" width="84" height="32" rx="3"/>
+            <text class="lbl" x="584" y="145" text-anchor="middle">confirm</text>
+            <text class="tag" x="584" y="178" text-anchor="middle">port · sync</text>
+            <text class="meta" x="650" y="136">Billing → Order API (calls):</text>
+            <text class="meta" x="650" y="150">fused with Order API: confirm</text>
+          </svg>
+        </div>
+
+        <div class="pane-body" role="tabpanel" id="p-pr" aria-labelledby="t-pr" hidden>
+          <p class="empty-note">No problems. Every file loaded and every port is bound.</p>
+        </div>
+
+        <div class="pane-body" role="tabpanel" id="p-fi" aria-labelledby="t-fi" hidden>
+          <div class="findings-head">
+            <span class="meta">5 rules ran on 6 elements · 1 finding, 1 suppressed</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-sm"><svg class="i i-sm"><use href="#i-scan"/></svg>Scan</button>
+          </div>
+          <table class="findings">
+            <thead><tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">Affected elements</th><th scope="col">Evidence</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="sev high"><svg class="i"><use href="#i-alert"/></svg>High</span></td>
+                <td><span class="rule-id">REL-CALLBACK</span><span class="rule-name">Synchronous call back to an asynchronous sender</span></td>
+                <td><div class="chips"><button type="button" class="chip"><svg class="i"><use href="#i-box"/></svg>Billing</button><button type="button" class="chip"><svg class="i"><use href="#i-box"/></svg>Order API</button></div></td>
+                <td><div class="evidence">Billing → Order API (calls) goes back to Order API, which publishes to Billing.</div>
+                    <div class="explain">A call back into the sender can wait on the sender's own back-pressure.</div></td>
+                <td><div class="row-actions"><button type="button" class="btn btn-sm">Suppress…</button></div></td>
+              </tr>
+              <tr class="suppressed">
+                <td><span class="sev medium"><svg class="i"><use href="#i-circle-alert"/></svg>Medium</span></td>
+                <td><span class="rule-id">REL-SPOF</span><span class="rule-name">Single point of failure</span></td>
+                <td><div class="chips"><button type="button" class="chip"><svg class="i"><use href="#i-db"/></svg>Orders DB</button></div></td>
+                <td><div class="evidence">Order API writes to Orders DB only; no replica is modeled.</div>
+                    <div class="supp"><svg class="i i-sm"><use href="#i-eye-off"/></svg><span><strong>Suppressed:</strong> Managed database with automatic failover, outside this model.</span></div></td>
+                <td><div class="row-actions"><button type="button" class="btn btn-sm btn-ghost">Remove suppression</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= Right column ================= -->
+    <aside class="right" role="region" aria-label="Verdicts" id="right">
+      <div class="tabs" role="tablist" aria-label="Right column">
+        <button type="button" class="tab" role="tab" id="t-insp" aria-controls="p-insp" aria-selected="false" tabindex="-1">Inspector</button>
+        <button type="button" class="tab" role="tab" id="t-ver" aria-controls="p-ver" aria-selected="true">Verdicts</button>
+      </div>
+
+      <!-- Inspector: Billing selected -->
+      <div class="panel" role="tabpanel" id="p-insp" aria-labelledby="t-insp" hidden>
+        <div class="ro-note"><svg class="i"><use href="#i-info"/></svg>Exit replay to edit</div>
+        <div class="insp-head">
+          <span class="k" style="display:flex;align-items:center;gap:6px"><svg class="i i-sm"><use href="#i-box"/></svg><span class="kicker">Container</span></span>
+          <h2>Billing</h2>
+        </div>
+        <div class="section" style="padding-top:var(--sp-2)">
+          <div class="field"><label for="f-name">Name</label><input class="input" id="f-name" value="Billing" data-ro></div>
+          <div class="field"><label for="f-kind">Kind</label>
+            <select class="input" id="f-kind" data-ro><option selected>Container</option><option>Database</option><option>Queue</option></select></div>
+          <div class="field"><label for="f-desc">Description <span class="opt">(optional)</span></label>
+            <textarea class="input" id="f-desc" rows="2" data-ro>Charges the customer, then confirms the order with Order API.</textarea></div>
+        </div>
+        <div class="section">
+          <h3 class="sec-title">Behavior model</h3>
+          <p style="margin:0 0 var(--sp-2)">Petri net: 2 places, 2 transitions, 2 ports</p>
+          <button type="button" class="link-btn">Show behavior model</button>
+        </div>
+        <div class="section">
+          <h3 class="sec-title">Ports</h3>
+          <ul class="list">
+            <li><span class="mono">receive</span><span class="meta">receive · transition</span></li>
+            <li><span class="mono">confirm</span><span class="meta">call · transition</span></li>
+          </ul>
+        </div>
+        <div class="section">
+          <h3 class="sec-title">Relationships</h3>
+          <div class="subhead">Outgoing (1)</div>
+          <ul class="list"><li><button type="button" class="row-btn">Billing → Order API (calls)</button></li></ul>
+          <div class="subhead">Incoming (1)</div>
+          <ul class="list"><li><button type="button" class="row-btn">Order API → Billing (publishes to)</button></li></ul>
+          <div class="actions edit-only"><button type="button" class="btn btn-sm">Add relationship…</button></div>
+        </div>
+        <div class="section">
+          <h3 class="sec-title">File</h3>
+          <span class="path">elements/billing.toml</span>
+          <div class="actions">
+            <button type="button" class="btn btn-sm btn-ghost"><svg class="i i-sm"><use href="#i-copy"/></svg>Copy file path</button>
+            <button type="button" class="btn btn-sm btn-ghost"><svg class="i i-sm"><use href="#i-open"/></svg>Open file</button>
+          </div>
+        </div>
+        <div class="section edit-only">
+          <button type="button" class="btn btn-sm btn-danger"><svg class="i i-sm"><use href="#i-trash"/></svg>Delete element</button>
+        </div>
+      </div>
+
+      <!-- Verdicts tab -->
+      <div class="panel" role="tabpanel" id="p-ver" aria-labelledby="t-ver">
+        <!-- Edit scene: verdict panel -->
+        <div class="scene-edit">
+          <div class="col-title">
+            <h2>Properties</h2>
+            <span class="meta">3 properties</span>
+          </div>
+
+          <article class="vrow disproved" aria-labelledby="v1-h">
+            <h3 id="v1-h" tabindex="-1">Deadlock-free</h3>
+            <div class="scope">Order System · Level: Container</div>
+            <div class="verdict disproved"><svg class="i"><use href="#i-x"/></svg>Disproved</div>
+            <div class="detail">
+              <p>Deadlock: no step is possible.</p>
+              <ul class="waiting" aria-label="Waiting steps">
+                <li>Order API waits at send for room in Order API → Billing (publishes to): 2 of 2 messages, when full: block.</li>
+                <li>Billing → Order API (calls): confirm waits for a token in Order API: worker_free.</li>
+              </ul>
+              <p class="sub">There are no final markings yet, so a run that stops also counts as a deadlock. To model a run that finishes, loop back to the initial marking.</p>
+            </div>
+            <div class="actions"><button type="button" class="btn btn-primary" id="replay-btn"><svg class="i i-sm"><use href="#i-play"/></svg>Replay counterexample</button></div>
+          </article>
+
+          <article class="vrow unknown" aria-labelledby="v3-h">
+            <h3 id="v3-h">Can always get back to Billing: lock_b = 1</h3>
+            <div class="scope">Order System · Level: Container</div>
+            <div class="verdict unknown"><svg class="i"><use href="#i-help"/></svg>Unknown</div>
+            <div class="detail">
+              <dl>
+                <div><dt class="kicker">Why</dt><dd>Budget exhausted: explored 1,000,000 markings in 5.0 s without deciding.</dd></div>
+                <div><dt class="kicker">Next step</dt><dd>Lower capacities or initial tokens, or remove elements from this view.</dd></div>
+              </dl>
+            </div>
+            <div class="actions"><button type="button" class="btn btn-sm">Check again</button></div>
+          </article>
+          <article class="vrow proved" aria-labelledby="v2-h">
+            <h3 id="v2-h">No capacity exceeded</h3>
+            <div class="scope">Order System · Level: Container</div>
+            <div class="verdict proved"><svg class="i"><use href="#i-check"/></svg>Proved</div>
+            <div class="detail">
+              <dl>
+                <div><dt class="kicker">Evidence</dt><dd>Proved with a certificate; a second explorer re-checked the certificate.</dd></div>
+                <div><dt class="kicker">Assumptions</dt><dd>Assumes: Order API → Audit (logs to) binds no ports, so it adds no behavior.</dd></div>
+                <div><dt class="kicker">Scope</dt><dd class="sub">Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled.</dd></div>
+              </dl>
+            </div>
+            <div class="actions"><button type="button" class="btn btn-sm">Check again</button></div>
+          </article>
+
+        </div>
+
+        <!-- Replay scene: step list replaces the Verdicts content -->
+        <div class="scene-replay">
+          <div class="replay-head">
+            <div class="top">
+              <div>
+                <div class="kicker">Replay</div>
+                <h2>Deadlock-free</h2>
+                <div class="verdict disproved"><svg class="i"><use href="#i-x"/></svg>Disproved</div>
+              </div>
+              <button type="button" class="btn btn-sm" data-exit-replay>Exit replay</button>
+            </div>
+            <div class="cur-step">
+              <div class="label">Elements in this step:</div>
+              <div class="chips" id="step-els">
+                <button type="button" class="chip" data-show="oa"><svg class="i"><use href="#i-box"/></svg>Order API</button>
+                <button type="button" class="chip" data-show="billing"><svg class="i"><use href="#i-box"/></svg>Billing</button>
+              </div>
+            </div>
+          </div>
+          <ol class="steps" role="listbox" aria-label="Steps" id="steps"></ol>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ================= Status bar ================= -->
+  <footer class="status" role="region" aria-label="Messages">
+    <div class="msg" role="status" aria-live="polite" id="status-msg"><svg class="i" aria-hidden="true"><use href="#i-info"/></svg><span id="status-text">Checks finished: Deadlock-free Disproved, No capacity exceeded Proved, Can always get back to Billing: lock_b = 1 Unknown.</span></div>
+    <span class="spacer"></span>
+    <div class="right-part">
+      <span class="unsaved"><span class="dot" aria-hidden="true"></span>Unsaved changes</span>
+      <span class="vsep" aria-hidden="true" style="height:12px"></span>
+      <span>Revision 42</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const body = document.body, root = document.documentElement;
+
+  /* ---- Theme: follows the OS, the mockup toggle overrides ---- */
+  const setTheme = t => {
+    root.dataset.theme = t;
+    $$('[data-theme-btn]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeBtn === t)));
+  };
+  setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  $$('[data-theme-btn]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeBtn)));
+
+  /* ---- Tabs (roving tabindex, arrow keys) ---- */
+  const selectTab = tab => {
+    const list = tab.closest('[role=tablist]');
+    $$('[role=tab]', list).forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (list.closest('#bottom')) $('#bottom').setAttribute('aria-label', 'Bottom pane: ' + tab.textContent.replace(/\s*\(\d+\)/, ''));
+    if (list.closest('#right')) $('#right').setAttribute('aria-label', tab.textContent.trim());
+  };
+  $$('[role=tab]').forEach(t => {
+    t.addEventListener('click', () => selectTab(t));
+    t.addEventListener('keydown', e => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      const tabs = $$('[role=tab]', t.closest('[role=tablist]'));
+      const n = tabs[(tabs.indexOf(t) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      selectTab(n); n.focus(); e.preventDefault();
+    });
+  });
+
+  /* ---- Replay data: 7 steps plus Start (contract R5) ---- */
+  const S = [
+    { t: 'Start: initial marking', els: [], rels: [], q: 0, m: { 'oa-orders': 4, 'oa-wf': 1, 'oa-sending': 0, 'b-lock': 1, 'b-working': 0 }, fire: [] },
+    { t: 'Step 1 of 7: Order API: accept', els: ['oa'], rels: [], q: 0, m: { 'oa-orders': 3, 'oa-wf': 0, 'oa-sending': 1, 'b-lock': 1, 'b-working': 0 }, fire: ['oa-accept'] },
+    { t: 'Step 2 of 7: Order API sends to Billing (publishes to): 1 of 2 messages waiting', els: ['oa'], rels: ['pub'], q: 1, m: { 'oa-orders': 3, 'oa-wf': 1, 'oa-sending': 0, 'b-lock': 1, 'b-working': 0 }, fire: ['oa-send'] },
+    { t: 'Step 3 of 7: Order API: accept', els: ['oa'], rels: [], q: 1, m: { 'oa-orders': 2, 'oa-wf': 0, 'oa-sending': 1, 'b-lock': 1, 'b-working': 0 }, fire: ['oa-accept'] },
+    { t: 'Step 4 of 7: Order API: send, Billing: receive', more: ['Order API → Billing (publishes to): 1 of 2 messages waiting'], els: ['oa', 'billing'], rels: ['pub'], q: 1, m: { 'oa-orders': 2, 'oa-wf': 1, 'oa-sending': 0, 'b-lock': 0, 'b-working': 1 }, fire: ['oa-send', 'b-receive'] },
+    { t: 'Step 5 of 7: Order API: accept', els: ['oa'], rels: [], q: 1, m: { 'oa-orders': 1, 'oa-wf': 0, 'oa-sending': 1, 'b-lock': 0, 'b-working': 1 }, fire: ['oa-accept'] },
+    { t: 'Step 6 of 7: Order API sends to Billing (publishes to): 2 of 2 messages waiting', els: ['oa'], rels: ['pub'], q: 2, m: { 'oa-orders': 1, 'oa-wf': 1, 'oa-sending': 0, 'b-lock': 0, 'b-working': 1 }, fire: ['oa-send'] },
+    { t: 'Step 7 of 7: Order API: accept', last: true, els: ['oa', 'billing'], rels: ['pub', 'calls-back'], q: 2, m: { 'oa-orders': 0, 'oa-wf': 0, 'oa-sending': 1, 'b-lock': 0, 'b-working': 1 }, fire: ['oa-accept'], wait: ['oa-wf', 'gen-oa', 'gen-b'] },
+  ];
+  const NAMES = { oa: 'Order API', billing: 'Billing' };
+  const WAIT = ['Order API waits at send for room in Order API → Billing (publishes to): 2 of 2 messages, when full: block.',
+                'Billing → Order API (calls): confirm waits for a token in Order API: worker_free.'];
+  const fullText = s => [s.t, ...(s.more || []), ...(s.last ? ['Deadlock: no step is possible.', ...WAIT] : [])].join(' ');
+
+  // Build the step list (listbox; options hold no interactive content)
+  const list = $('#steps');
+  list.innerHTML = S.map((s, i) => `
+    <li role="option" id="opt-${i}" aria-selected="false" tabindex="-1" aria-label="${fullText(s).replace(/"/g, '&quot;')}">
+      <span class="n" aria-hidden="true">${i === 0 ? 'S' : i}</span>
+      <span class="txt">${s.t}<span class="cur-tag" aria-hidden="true">Current</span>
+        ${(s.more || []).map(x => `<span class="more">${x}</span>`).join('')}
+        ${s.last ? `<span class="viol"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>Deadlock: no step is possible.</span>
+          <ul class="waiting">${WAIT.map(w => `<li>${w}</li>`).join('')}</ul>` : ''}
+      </span>
+    </li>`).join('');
+
+  let cur = 4, bmShown = 'oa', follow = true, announceTimer;
+  const statusText = $('#status-text');
+  const announce = txt => { // clear, then set, so a repeat is announced again
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(() => { statusText.textContent = ''; requestAnimationFrame(() => { statusText.textContent = txt; }); }, 300);
+  };
+
+  const showNet = id => {
+    bmShown = id;
+    $('#net-oa').hidden = id !== 'oa';
+    $('#net-billing').hidden = id !== 'billing';
+    $('#bm-title').textContent = 'Behavior model: ' + NAMES[id];
+    $('#bm-meta').textContent = id === 'oa' ? 'Petri net · 3 places, 3 transitions, 2 ports' : 'Petri net · 2 places, 2 transitions, 2 ports';
+    $$('#bm-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bm === id)));
+  };
+
+  const go = (i, source) => {
+    i = Math.max(0, Math.min(S.length - 1, i));
+    cur = i; const s = S[i], prev = S[Math.max(0, i - 1)];
+    // step list
+    $$('[role=option]', list).forEach((o, k) => { o.setAttribute('aria-selected', String(k === i)); o.tabIndex = k === i ? 0 : -1; });
+    list.setAttribute('aria-activedescendant', 'opt-' + i);
+    // bar + scrubber
+    $('#step-count').textContent = i === 0 ? 'Start' : `Step ${i} of 7`;
+    const sc = $('#scrubber'); sc.value = i; sc.setAttribute('aria-valuetext', fullText(s)); sc.style.setProperty('--fill', (i / 7 * 100) + '%');
+    // canvas highlights (one class per element; no opacity)
+    $$('[data-el]').forEach(el => { const on = s.els.includes(el.dataset.el); el.classList.toggle('is-hl', on); $('.marker', el).textContent = on ? i : ''; });
+    $$('[data-rel]').forEach(p => { const on = s.rels.includes(p.dataset.rel); p.classList.toggle('hl', on); p.setAttribute('marker-end', on ? 'url(#ar-hl)' : 'url(#ar)'); });
+    const chip = $('[data-rel-chip="pub"]'); chip.classList.toggle('is-hl', s.rels.includes('pub')); $('.marker', chip).textContent = i;
+    $('#q-count').textContent = s.q + '/2';
+    // elements in this step
+    $('#step-els').innerHTML = s.els.length ? s.els.map(e => `<button type="button" class="chip" data-show="${e}"><svg class="i"><use href="#i-box"/></svg>${NAMES[e]}</button>`).join('') : '<span style="font-size:var(--fs-sm);color:var(--text-secondary)">None. This is the initial marking.</span>';
+    // behavior model pane: counts, +1/−1, current transition, waiting places
+    Object.entries(s.m).forEach(([k, v]) => {
+      $$(`[data-c="${k}"]`).forEach(t => t.textContent = v);
+      const d = i === 0 ? 0 : v - prev.m[k];
+      $$(`[data-d="${k}"]`).forEach(t => t.textContent = d > 0 ? `▲ +${d}` : d < 0 ? `▼ −${-d}` : '');
+    });
+    $$('[data-c="gen"]').forEach(t => t.textContent = s.q);
+    $$('[data-t]').forEach(r => r.classList.toggle('cur', s.fire.includes(r.dataset.t)));
+    $$('[data-mk]').forEach(g => { const on = s.fire.includes(g.dataset.mk); g.classList.toggle('on', on); $('text', g).textContent = i; });
+    $$('[data-p]').forEach(p => p.classList.toggle('wait', !!(s.wait && s.wait.includes(p.dataset.p))));
+    $('#bm-seg').style.visibility = s.els.length > 1 ? 'visible' : 'hidden';
+    if (follow && s.els.length) showNet(s.els[0]);
+    if (source === 'other') announce(fullText(s));
+  };
+
+  // step list keyboard: selection follows focus
+  list.addEventListener('keydown', e => {
+    const map = { ArrowDown: cur + 1, ArrowUp: cur - 1, Home: 0, End: S.length - 1 };
+    if (e.key in map) { e.preventDefault(); go(map[e.key], 'list'); $('#opt-' + cur).focus(); }
+  });
+  list.addEventListener('click', e => { const o = e.target.closest('[role=option]'); if (o) { go(+o.id.split('-')[1], 'list'); o.focus(); } });
+  $('#scrubber').addEventListener('input', e => go(+e.target.value, 'scrubber'));
+  const jump = { first: () => 0, prev: () => cur - 1, next: () => cur + 1, last: () => S.length - 1 };
+  $$('[data-go]').forEach(b => b.addEventListener('click', () => go(jump[b.dataset.go](), 'other')));
+  document.addEventListener('keydown', e => {
+    if (body.dataset.scene !== 'replay') return;
+    if (e.key === 'Escape') { exitReplay(); return; }
+    const inCanvas = e.target.closest && (e.target.closest('#canvas') || e.target.closest('#replaybar')) && e.target.type !== 'range';
+    if (!inCanvas) return;
+    const map = { ArrowRight: cur + 1, ArrowLeft: cur - 1, Home: 0, End: S.length - 1 };
+    if (e.key in map) { e.preventDefault(); go(map[e.key], 'other'); }
+  });
+  $('#follow').addEventListener('click', e => { follow = e.currentTarget.getAttribute('aria-pressed') !== 'true'; e.currentTarget.setAttribute('aria-pressed', String(follow)); if (follow) go(cur); });
+  $$('#bm-seg button').forEach(b => b.addEventListener('click', () => showNet(b.dataset.bm)));
+  $('#step-els').addEventListener('click', e => { const c = e.target.closest('[data-show]'); if (!c) return; follow = false; $('#follow').setAttribute('aria-pressed', 'false'); showNet(c.dataset.show); });
+
+  /* ---- Scenes: replay vs edit ---- */
+  const setScene = (sc, focusTarget) => {
+    body.dataset.scene = sc;
+    $$('[data-scene-btn]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sceneBtn === sc)));
+    $$('[data-ro]').forEach(f => { if (f.tagName === 'SELECT') f.disabled = sc === 'replay'; else f.readOnly = sc === 'replay'; });
+    $$('[data-edit]').forEach(b => { b.disabled = sc === 'replay'; });
+    if (sc === 'replay') {
+      selectTab($('#t-ver')); selectTab($('#t-bm'));
+      follow = true; $('#follow').setAttribute('aria-pressed', 'true');
+      go(4);
+      $('#status-text').textContent = 'Replay opened: Deadlock-free, Disproved. Use ← and → to step.';
+      if (focusTarget) $('#opt-' + cur).focus();
+    } else {
+      selectTab($('#t-ver')); selectTab($('#t-fi'));
+      $$('[data-el]').forEach(el => el.classList.remove('is-hl'));
+      $$('[data-rel]').forEach(p => { p.classList.remove('hl'); p.setAttribute('marker-end', 'url(#ar)'); });
+      $('[data-rel-chip="pub"]').classList.remove('is-hl');
+      showNet('billing');
+      $$('[data-t]').forEach(r => r.classList.remove('cur'));
+      $$('[data-mk]').forEach(g => g.classList.remove('on'));
+      $$('[data-d]').forEach(t => t.textContent = '');
+      $$('[data-p]').forEach(p => p.classList.remove('wait'));
+      Object.entries(S[0].m).forEach(([k, v]) => $$(`[data-c="${k}"]`).forEach(t => t.textContent = v));
+      $$('[data-c="gen"]').forEach(t => t.textContent = 0);
+      $('#status-text').textContent = 'Checks finished: Deadlock-free Disproved, No capacity exceeded Proved, Can always get back to Billing: lock_b = 1 Unknown.';
+      if (focusTarget) focusTarget.focus();
+    }
+  };
+  const exitReplay = () => setScene('edit', $('#replay-btn'));
+  $$('[data-exit-replay]').forEach(b => b.addEventListener('click', exitReplay));
+  $('#replay-btn').addEventListener('click', () => setScene('replay', true));
+  $$('[data-scene-btn]').forEach(b => b.addEventListener('click', () => setScene(b.dataset.sceneBtn)));
+
+  setScene('replay');
+})();
+</script>
+</body>
+</html>

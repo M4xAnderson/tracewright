@@ -1,0 +1,15 @@
+# "Never p" is evaluated on overflow markings, a net without an overflow place is Proved by a certificate, and Unknown has seven reasons
+
+Amends ADR 0008, ADR 0010 and ADR 0014. The counts of an overflow marking are defined by the firing rule, and ADR 0010's replay rule already lets a counterexample end in one, so **"never p" is evaluated on overflow markings**: a p-marking reached as an overflow marking is Disproved by its run, and the panel says that the run also exceeds a capacity. No other property reads an overflow marking's counts. **"Always reachable p"** is Disproved only from a marking from which neither a p-marking nor an overflow marking is reachable, and its confirmation by the second explorer checks both. **"No dead transitions"** is Unknown "capacity exceeded first" whenever an overflow marking is reachable, even if some transition is clearly dead, because a dead-set claim is global over the reachable markings. "Capacity exceeded first" names the smallest-ID exceeded place of the first overflow marking in discovery order and carries the run to it, which the second explorer replays. **"No capacity exceeded"** on a scope without any `overflow` place is Proved by the certificate `NoOverflowPlace { drop_places }`, which `recheck::check_certificate` accepts on its own composition only if no place of that composition overflows and the drop places match; the verdict names the drop places. So the two Proved paths of ADR 0008 (a certificate accepted by the independent checker, or agreement of the second explorer) remain the only ones. **Unknown** carries one of exactly seven reasons: model incomplete, property cannot be checked (a property error, a failed template precondition, or a property kind not checked in this slice), internal disagreement (the two compositions or the two explorers differ, or a certificate is rejected), internal error (a panic, a failed replay, an arithmetic overflow, an explorer rejecting its input), cancelled, budget exhausted (main or re-check phase), capacity exceeded first. An initial marking above capacity is "model incomplete". "No counterexample up to depth N" and "unsupported construct" are not reasons this tool produces.
+
+## Considered Options
+
+- **Do not evaluate p on overflow markings** (net-semantics revision 2): the template "never overflows" could never be Disproved and duplicated "no capacity exceeded".
+- **A structural Proved as a third constructor:** code outside the certificate checker would produce a Proved, against ADR 0008 and CODING_STANDARDS VER-1.
+- **Reuse "model incomplete" for property errors:** sends the user to the model when the fix is in the property.
+
+## Consequences
+
+- The shortest "never p" counterexample may end in an overflow marking; its last marking is still never a step's start.
+- The reason list is fixed before the slice 0 ts-rs bindings are generated; a new reason is an amendment of this ADR.
+- `docs/specs/net-semantics.md` revision 3 §8–§10 and `docs/specs/decisions.md` D-02, D-03, D-08, D-09, D-22, D-24 carry the rules.

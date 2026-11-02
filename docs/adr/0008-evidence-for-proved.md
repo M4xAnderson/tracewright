@@ -6,4 +6,4 @@ The glossary requires that the tool has re-checked the evidence for every Proved
 
 An exhaustive Proved costs roughly twice the exploration time, so the second explorer shares the check's budget; when the budget runs out during re-checking, the verdict is Unknown, never Proved.
 
-Amended by ADR 0010.
+Amended by ADR 0010, ADR 0017.

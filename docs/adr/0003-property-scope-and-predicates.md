@@ -5,3 +5,5 @@ A property is stored with the element that is its scope, either for that element
 ## Consequences
 
 Properties like "eventually" (liveness) and temporal logic beyond reachability are not expressible in v1.
+
+Amended by ADR 0015, ADR 0018.

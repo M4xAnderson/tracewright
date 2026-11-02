@@ -13,3 +13,5 @@ An element has at most one behavior model, either a Petri net or a state machine
 - v1 composes only siblings inside one view; there is no composition across levels.
 - An asynchronous place is a bag: message order and request/reply matching are lost. Properties that need them must wait for colored nets or an export to TLA+.
 - v1 state machines are flat (no nested states) and have no data variables, so they compile to 1-safe nets.
+
+Amended by ADR 0015, ADR 0016.

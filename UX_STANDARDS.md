@@ -12,7 +12,7 @@ As of 2026-11-02. Adapted from the raubritter project. Domain terms follow `GLOS
 
 Finding format:
 ```
-VRD-2 must · verify-panel__disproved__default__dark.png (Verify panel, disproved, 1440 × 900, dark)
+VRD-2 must · verdict-panel__disproved__default__dark.png (Verdict panel, disproved, 1440 × 900, dark)
 Observation: the panel says "Failed" but offers no way to replay the counterexample.
 Recommendation: add "Replay counterexample" next to the verdict.
 Code: app/ui/src/features/verify/verdict-panel.tsx:42
@@ -51,15 +51,15 @@ Code: app/ui/src/features/verify/verdict-panel.tsx:42
 
 The tool never claims a result it did not get.
 
-- **VRD-1 must** Every check shows exactly one verdict, *Proved*, *Disproved* or *Unknown*, in text with an icon, not by color alone. *Unknown* never looks like success. ❌ A green check mark for a check that timed out.
-- **VRD-2 must** *Disproved* offers the counterexample: a step-by-step replay on the canvas with the involved elements highlighted, plus the steps as a text list.
-- **VRD-3 must** *Unknown* says why (budget exhausted, unsupported construct, missing data, internal error) and what to do next.
-- **VRD-4 must** A verdict names the property, the level and elements it covers. A verdict for an older version of the model is marked as stale.
-- **VRD-5 must** An anti-pattern finding names the rule, severity, affected elements (selectable on the canvas) and evidence. Suppressed findings stay listed with their reason.
+- **VRD-1 must** Every check shows exactly one verdict, *Proved*, *Disproved* or *Unknown*, in text with an icon, not by color alone. *Unknown* never looks like success. ❌ A green check mark for a check whose budget was exhausted.
+- **VRD-2 must** *Disproved* offers the counterexample: a step-by-step replay on the canvas with the involved elements highlighted, plus the steps as a text list. Exception: *Disproved* no dead transitions has no counterexample; it lists the dead transitions and the number of reachable markings explored.
+- **VRD-3 must** *Unknown* names one of the seven reasons in the glossary's words (model incomplete, property cannot be checked, internal disagreement, internal error, cancelled, budget exhausted, capacity exceeded first; budget exhausted covers both phases and says "budget exhausted while re-checking" when the re-check ran out) and what to do next. *Nothing to check* is not a verdict and never shows a verdict icon.
+- **VRD-4 must** A verdict names the property, its scope (own or combined), the level and the elements it covers. A verdict for an older version of the model is marked as stale; a verdict pending re-evaluation is shown neither as current nor as stale.
+- **VRD-5 must** An anti-pattern finding names the rule, severity (High or Medium), affected elements (selectable on the canvas) and evidence. Suppressed findings stay listed with their disposition (accepted or not real) and reason. A finding is never shown as a problem, and a problem never as a finding.
 - **VRD-6 should** Long checks show elapsed time and can be cancelled. Cancelling gives *Unknown (cancelled)*.
 
 ## TXT – Language
 
-- **TXT-1 must** UI text uses the terms from `GLOSSARY.md` and none of its _Avoid_ words.
+- **TXT-1 must** UI text uses the terms from `GLOSSARY.md` and none of its _Avoid_ words. A word-sense exception is allowed only where the glossary states the sense (for example "timeout" in REL-NO-TIMEOUT) or the curated exception list in the repo names it and cites the glossary. "State" is never used for Petri nets; an attribute the model does not give is "not stated", never "unknown".
 - **TXT-2 should** Error messages give the cause and the next step in plain English, never raw Rust errors. ✅ "Could not save elements/order-api.toml: the file is read-only." ❌ "Os { code: 13, kind: PermissionDenied }"
-- **TXT-3 should** Math terms get a short plain-language explanation on first use. ✅ "Not bounded: the queue between Order API and Billing can grow without limit."
+- **TXT-3 should** Math terms get a short plain-language explanation on first use. ✅ "Checked all 1,970 reachable markings (every combination of tokens this design can get into)."

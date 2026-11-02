@@ -6,3 +6,5 @@ Amends ADR 0006. Every computation that can trip an assertion on user data runs 
 
 - Assertions stay on in release; the cost of a wrong assertion is one Unknown or one failed Save, not a dead app.
 - The Session tests include a lowering panic that yields Unknown "internal error" while the Session keeps accepting edits.
+
+Amended by ADR 0021.

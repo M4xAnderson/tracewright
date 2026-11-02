@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="en-US" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>● order-platform – Option 2: Blueprint (mockup)</title>
+<script>
+  /* Theme before first paint: hash (#dark / #light) wins, else the OS setting (flows §8). */
+  (function () {
+    var h = location.hash, t = /dark/.test(h) ? 'dark' : /light/.test(h) ? 'light'
+      : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+/* =====================================================================
+   DESIGN TOKENS  (Option 2 · Blueprint)
+   Light and dark are separate palettes, not inversions (flows §3.4).
+   Components below reference tokens only; no hex values after this block.
+   ===================================================================== */
+:root {
+  /* ---- Typography ---- */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --fs-2xs: 10.5px;   /* drafting markings (mono caps) */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;      /* body */
+  --fs-lg: 14px;
+  --fs-xl: 16px;
+  --fs-2xl: 18px;
+  --lh-tight: 1.25;
+  --lh-body: 1.45;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --tracking-marking: 0.08em;
+
+  /* ---- Spacing (4 px base) ---- */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+
+  /* ---- Radius: small and precise ---- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-pill: 999px;
+
+  /* ---- Layout (flows §2.3) ---- */
+  --header-h: 44px;
+  --status-h: 24px;
+  --right-w: 360px;
+  --bottom-h: 280px;
+  --replaybar-h: 36px;
+  --grid-step: 16px;
+
+  /* ---- Color: light ---- */
+  --surface-app: #e6ebf2;
+  --surface-canvas: #f3f6fa;
+  --surface-panel: #fbfcfd;
+  --surface-raised: #ffffff;
+  --surface-sunken: #edf1f6;
+  --surface-hover: #e4eaf3;
+  --surface-selected: #dce7f8;
+  --canvas-dot: #bccadb;
+  --canvas-dot-major: #9fb1c8;
+
+  --text-primary: #0e1a2b;
+  --text-secondary: #33455d;
+  --text-muted: #52637b;
+  --text-on-accent: #ffffff;
+
+  --border-subtle: #d6dee9;
+  --border-default: #b3c0d1;
+  --border-strong: #5f7189;   /* element borders, ≥ 3:1 on canvas */
+  --border-quiet: #7e8ea4;    /* elements not involved in a replay step, still ≥ 3:1 */
+  --edge: #5a6c85;
+  --port: #1f57c3;
+
+  --accent: #1f57c3;
+  --accent-hover: #1a479f;
+  --accent-subtle: #e2ebfa;
+  --accent-text: #1a4fb3;
+  --focus-ring: #1f57c3;
+
+  --verdict-proved: #13744a;
+  --verdict-proved-bg: #e4f3ea;
+  --verdict-disproved: #b8282b;
+  --verdict-disproved-bg: #fbeaea;
+  --verdict-unknown: #5b616b;       /* neutral ramp: no blue, no amber, no green */
+  --verdict-unknown-bg: #eef0f2;
+  --verdict-stale: #676d77;
+  --verdict-pending: #a3acb8;
+
+  --replay-highlight: #b04a06;
+  --replay-highlight-ring: rgba(176, 74, 6, 0.18);
+  --replay-highlight-bg: #fdf0e3;
+  --problem: #9a3f0c;
+  --severity-medium: #85520a;
+  --danger: #b8282b;
+
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(18, 36, 66, 0.08);
+  --elev-2: 0 1px 2px rgba(18, 36, 66, 0.06), 0 3px 8px rgba(18, 36, 66, 0.08);
+  --elev-3: 0 10px 28px rgba(18, 36, 66, 0.18), 0 2px 6px rgba(18, 36, 66, 0.08);
+}
+
+[data-theme="dark"] {
+  --surface-app: #050b14;
+  --surface-canvas: #0a1320;
+  --surface-panel: #0e1828;
+  --surface-raised: #132134;
+  --surface-sunken: #0b1422;
+  --surface-hover: #182a42;
+  --surface-selected: #1a3253;
+  --canvas-dot: #213650;
+  --canvas-dot-major: #2e4a6c;
+
+  --text-primary: #e4ebf5;
+  --text-secondary: #b6c3d4;
+  --text-muted: #8e9fb6;
+  --text-on-accent: #06111f;
+
+  --border-subtle: #1d2d44;
+  --border-default: #2c405d;
+  --border-strong: #7189aa;
+  --border-quiet: #566d8d;
+  --edge: #8196b3;
+  --port: #7eb0ff;
+
+  --accent: #7eb0ff;
+  --accent-hover: #a4c7ff;
+  --accent-subtle: #13294a;
+  --accent-text: #8dbaff;
+  --focus-ring: #8dbaff;
+
+  --verdict-proved: #5fd29a;
+  --verdict-proved-bg: #0e2a20;
+  --verdict-disproved: #ff8f86;
+  --verdict-disproved-bg: #33171b;
+  --verdict-unknown: #a9afb8;
+  --verdict-unknown-bg: #1a1f27;
+  --verdict-stale: #858b95;
+  --verdict-pending: #4b596c;
+
+  --replay-highlight: #f7b545;
+  --replay-highlight-ring: rgba(247, 181, 69, 0.22);
+  --replay-highlight-bg: #34270f;
+  --problem: #ffa46e;
+  --severity-medium: #e9b85c;
+  --danger: #ff8f86;
+
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35);
+  --elev-3: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* =====================================================================
+   BASE
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font: var(--fw-regular) var(--fs-md)/var(--lh-body) var(--font-sans);
+  color: var(--text-primary);
+  background: var(--surface-app);
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.mono { font-family: var(--font-mono); font-size: 0.94em; }
+.marking {
+  font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-marking); text-transform: uppercase; color: var(--text-muted);
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+svg.i.sm { width: 14px; height: 14px; }
+kbd {
+  font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted);
+  border: 1px solid var(--border-default); border-bottom-width: 2px; border-radius: var(--radius-sm);
+  padding: 0 var(--space-2); background: var(--surface-raised); line-height: 16px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  height: 28px; padding: 0 var(--space-5); border-radius: var(--radius-md);
+  border: 1px solid var(--border-default); background: var(--surface-raised); color: var(--text-primary);
+  font-size: var(--fs-md); font-weight: var(--fw-medium); white-space: nowrap;
+}
+.btn:hover { background: var(--surface-hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--text-on-accent); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--surface-hover); color: var(--text-primary); }
+.btn.sm { height: 24px; padding: 0 var(--space-4); font-size: var(--fs-sm); }
+.btn.icon { width: 28px; padding: 0; justify-content: center; }
+.btn.danger { color: var(--danger); border-color: var(--border-default); }
+.btn[disabled] { opacity: 1; color: var(--text-muted); background: var(--surface-sunken); cursor: not-allowed; }
+.link { background: none; border: 0; padding: 0; color: var(--accent-text); font-weight: var(--fw-medium); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+
+/* =====================================================================
+   MOCKUP CONTROLS (outside the app window)
+   ===================================================================== */
+.mock {
+  flex: none; height: 30px; display: flex; align-items: center; gap: var(--space-5);
+  padding: 0 var(--space-5); background: #1b2433; color: #dbe3ee; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden;
+  border-bottom: 1px solid #000;
+}
+.mock .ttl { font-family: var(--font-mono); letter-spacing: var(--tracking-marking); text-transform: uppercase; color: #9fb0c6; }
+.mock .seg { display: inline-flex; border: 1px solid #44536a; border-radius: var(--radius-md); overflow: hidden; }
+.mock .seg button { background: transparent; border: 0; color: #dbe3ee; padding: 2px var(--space-4); font-size: var(--fs-xs); }
+.mock .seg button[aria-pressed="true"] { background: #e6edf7; color: #0e1a2b; }
+.mock .seg button + button { border-left: 1px solid #44536a; }
+.mock :focus-visible { outline-color: #9cc3ff; }
+.mock .note { margin-left: auto; color: #9fb0c6; }
+
+/* =====================================================================
+   APP FRAME
+   ===================================================================== */
+.app {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-rows: var(--header-h) 1fr var(--status-h);
+  grid-template-columns: 1fr var(--right-w);
+  grid-template-areas: "header header" "main right" "status status";
+  background: var(--surface-panel);
+}
+
+/* ---- Header ---- */
+.header {
+  grid-area: header; display: flex; align-items: center; gap: var(--space-5);
+  padding: 0 var(--space-5); border-bottom: 1px solid var(--border-default); background: var(--surface-panel);
+  min-width: 0;
+}
+.brand { display: flex; align-items: center; gap: var(--space-4); min-width: 96px; }
+.brand-mark { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.project { font-family: var(--font-mono); font-size: var(--fs-md); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unsaved { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
+.unsaved .short { display: none; }
+.unsaved .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); }
+.vsep { width: 1px; height: 20px; background: var(--border-default); flex: none; }
+.crumbs { display: flex; align-items: center; gap: var(--space-2); min-width: 80px; overflow: hidden; }
+.crumbs ol { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: 0; list-style: none; white-space: nowrap; }
+.crumbs li { display: flex; align-items: center; gap: var(--space-2); }
+.crumbs .sep { color: var(--text-muted); font-family: var(--font-mono); }
+.crumb { background: none; border: 0; padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--fs-md); }
+.crumb:hover { background: var(--surface-hover); color: var(--text-primary); }
+.crumb[aria-current="page"] { color: var(--text-primary); font-weight: var(--fw-semibold); cursor: default; }
+.crumb .marking { margin-right: var(--space-2); }
+.level {
+  display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; flex: none;
+  font-size: var(--fs-sm); color: var(--text-secondary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 1px var(--space-3);
+  background: var(--surface-sunken);
+}
+.level b { font-weight: var(--fw-semibold); color: var(--text-primary); }
+.header .spacer { flex: 1; }
+.header .actions { display: flex; align-items: center; gap: var(--space-3); }
+
+/* ---- Main column ---- */
+.main { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--border-default); }
+
+/* Replay bar */
+.replaybar {
+  display: none; height: var(--replaybar-h); flex: none; align-items: center; gap: var(--space-3);
+  padding: 0 var(--space-4) 0 var(--space-5); background: var(--replay-highlight-bg);
+  border-bottom: 1px solid var(--replay-highlight); color: var(--text-primary);
+}
+.replaying .replaybar { display: flex; }
+.replaybar .tag { display: inline-flex; align-items: center; gap: var(--space-3); font-weight: var(--fw-semibold); font-size: var(--fs-sm); white-space: nowrap; margin-right: var(--space-4); }
+.replaybar .tag .marking { color: var(--text-primary); }
+.scrub { position: relative; width: 240px; height: 24px; display: flex; align-items: center; }
+.scrub input { width: 100%; height: 24px; margin: 0; accent-color: var(--replay-highlight); background: transparent; }
+.scrub .ticks { position: absolute; left: 8px; right: 8px; bottom: 0; height: 4px; display: flex; justify-content: space-between; pointer-events: none; }
+.scrub .ticks i { width: 1px; height: 4px; background: var(--text-muted); }
+.stepcount { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: var(--fw-semibold); min-width: 92px; white-space: nowrap; }
+.replaybar .spacer { flex: 1; }
+
+/* Canvas */
+.canvas {
+  position: relative; flex: 1; min-height: 240px; overflow: hidden;
+  background-color: var(--surface-canvas);
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--canvas-dot-major) 1.2px, transparent 1.3px),
+    radial-gradient(circle at 1px 1px, var(--canvas-dot) 1px, transparent 1.1px);
+  background-size: calc(var(--grid-step) * 5) calc(var(--grid-step) * 5), var(--grid-step) var(--grid-step);
+  background-position: 24px 16px, 24px 16px;
+}
+.viewport { position: absolute; left: 0; top: 0; width: 1080px; height: 460px; transform: translate(4px, 8px); }
+svg.edges { position: absolute; inset: 0; width: 1080px; height: 460px; overflow: visible; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.edge.async { stroke-dasharray: none; }
+.edge-arrow { fill: var(--edge); }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 12; }
+.gplace rect.frame { fill: var(--surface-raised); stroke: var(--edge); stroke-width: 1.5; }
+.gplace rect.cell { fill: none; stroke: var(--edge); stroke-width: 1; }
+.replaying .gplace rect.cell.on { fill: var(--edge); }
+
+.elabel {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  font-size: var(--fs-sm); color: var(--text-secondary); background: var(--surface-canvas);
+  padding: 0 var(--space-2); line-height: 16px; border-radius: var(--radius-xs);
+}
+.elabel.left { transform: translate(0, -50%); }
+.chip {
+  position: absolute; transform: translate(0, -50%); display: inline-flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-secondary); white-space: nowrap;
+  background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 0 var(--space-3); line-height: 18px;
+}
+
+/* Elements */
+.el {
+  position: absolute; width: 184px; height: 100px; padding: 10px 10px 8px 12px;
+  background: var(--surface-raised); border: 1.5px solid var(--border-strong); border-radius: var(--radius-md);
+  box-shadow: var(--elev-1); cursor: default; text-align: left;
+}
+.el:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.el .kind { display: flex; align-items: center; gap: var(--space-3); color: var(--text-muted); height: 14px; }
+.el .kind svg { width: 13px; height: 13px; }
+.el .name { margin-top: 6px; font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: 18px; color: var(--text-primary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.el .tech { font-size: var(--fs-sm); color: var(--text-muted); line-height: 16px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.el.person { border-radius: 22px var(--radius-md) var(--radius-md) var(--radius-md); }
+.el.db { border-radius: 50% 50% 50% 50% / 14px 14px 14px 14px; padding-top: 30px; }
+.el.db .name { margin-top: 4px; }
+.el.db::before { content: ""; position: absolute; left: -1.5px; right: -1.5px; top: -1.5px; height: 28px; border: 1.5px solid var(--border-strong); border-radius: 50%; pointer-events: none; }
+.el.ext { background: var(--surface-sunken); }
+/* Port handles (12 px drawn; 24 px hit area via ::after) */
+.port {
+  position: absolute; width: 10px; height: 10px; transform: translate(-50%, -50%);
+  background: var(--surface-raised); border: 2px solid var(--port); border-radius: var(--radius-xs);
+}
+.port::after { content: ""; position: absolute; inset: -9px; }
+.zoomed-out .el:not(.selected) .pname { display: none; }
+.pname { position: absolute; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-secondary); line-height: 12px; white-space: nowrap; }
+/* Selection: drafting corner brackets plus a 2 px accent border */
+.el.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--elev-2); }
+.el.selected::after {
+  content: ""; position: absolute; inset: -8px; pointer-events: none;
+  --c: var(--accent);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 10px 2px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 2px 10px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 10px 2px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 2px 10px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 10px 2px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 2px 10px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 2px 10px no-repeat;
+}
+.el.db.selected::before { border-color: var(--accent); }
+
+/* Replay: one wrapper class plus one boolean per element (flows §4.10). No opacity. */
+.replaying .el.selected { border-color: var(--border-quiet); box-shadow: var(--elev-1); }
+.replaying .el.selected::after { display: none; }
+.replaying .el { border-color: var(--border-quiet); box-shadow: none; }
+.replaying .el.db::before { border-color: var(--border-quiet); }
+.replaying .el.hl { border-color: var(--replay-highlight); box-shadow: 0 0 0 1px var(--replay-highlight), 0 0 0 6px var(--replay-highlight-ring); }
+.replaying .el.db.hl::before { border-color: var(--replay-highlight); }
+.stepmark {
+  display: none; position: absolute; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
+  background: var(--replay-highlight); color: var(--surface-raised); font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 700;
+  align-items: center; justify-content: center; transform: translate(-50%, -50%); line-height: 1; box-shadow: 0 0 0 2px var(--surface-canvas);
+}
+.replaying .hl > .stepmark, .replaying .stepmark.on { display: inline-flex; }
+.replaying .edge { stroke: var(--border-quiet); }
+.replaying .edge-arrow { fill: var(--border-quiet); }
+.replaying .edge.hl { stroke: var(--replay-highlight); stroke-width: 3.5; }
+.replaying .edge-arrow.hl { fill: var(--replay-highlight); }
+.replaying .gplace.hl rect.frame { stroke: var(--replay-highlight); stroke-width: 2.5; }
+.replaying .gplace.hl rect.cell { stroke: var(--replay-highlight); }
+.replaying .gplace.hl rect.cell.on { fill: var(--replay-highlight); }
+.replaying .chip.hl { border-color: var(--replay-highlight); color: var(--text-primary); box-shadow: 0 0 0 3px var(--replay-highlight-ring); font-weight: 700; }
+.chip .count { display: none; }
+.replaying .chip .count { display: inline; }
+.replaying .chip .cap { display: none; }
+
+/* Title block (drawing-sheet style canvas controls) */
+.titleblock {
+  position: absolute; right: 12px; bottom: 12px; display: flex; align-items: stretch;
+  background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  box-shadow: var(--elev-1); font-size: var(--fs-sm);
+}
+.titleblock > div { display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); height: 30px; }
+.titleblock > div + div { border-left: 1px solid var(--border-default); }
+.titleblock .val { color: var(--text-primary); font-weight: var(--fw-medium); white-space: nowrap; }
+.titleblock .btn.icon { width: 24px; height: 24px; border-color: transparent; background: transparent; color: var(--text-secondary); }
+.titleblock .btn.icon:hover { background: var(--surface-hover); }
+
+/* ---- Bottom pane ---- */
+.bottom { flex: none; height: var(--bottom-h); display: flex; flex-direction: column; border-top: 1px solid var(--border-default); background: var(--surface-panel); min-height: 0; }
+.tabs { display: flex; align-items: stretch; gap: var(--space-1); height: 32px; padding: 0 var(--space-4); border-bottom: 1px solid var(--border-subtle); flex: none; background: var(--surface-panel); }
+.tab {
+  position: relative; display: inline-flex; align-items: center; gap: var(--space-3);
+  background: none; border: 0; padding: 0 var(--space-4); color: var(--text-secondary); font-size: var(--fs-md); font-weight: var(--fw-medium);
+}
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] { color: var(--text-primary); font-weight: var(--fw-semibold); }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: var(--space-3); right: var(--space-3); bottom: -1px; height: 2px; background: var(--accent); }
+.tab .count { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+.tabs .spacer { flex: 1; }
+.tabpanel { flex: 1; min-height: 0; overflow: auto; }
+.tabpanel[hidden] { display: none; }
+
+/* Findings */
+.ptools { display: flex; align-items: center; gap: var(--space-5); padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border-subtle); font-size: var(--fs-sm); color: var(--text-secondary); }
+table.findings { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+table.findings th {
+  text-align: left; padding: var(--space-3) var(--space-5); position: sticky; top: 0; background: var(--surface-panel);
+  border-bottom: 1px solid var(--border-subtle); font-weight: var(--fw-medium);
+}
+table.findings td { padding: var(--space-4) var(--space-5); vertical-align: top; border-bottom: 1px solid var(--border-subtle); }
+table.findings tr.group td { padding: var(--space-3) var(--space-5); background: var(--surface-sunken); }
+.sev { display: inline-flex; align-items: center; gap: var(--space-3); font-weight: var(--fw-semibold); color: var(--severity-medium); white-space: nowrap; }
+.sev.muted { color: var(--text-muted); font-weight: var(--fw-medium); }
+.rule-id { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-primary); font-weight: var(--fw-semibold); }
+.rule-name { color: var(--text-secondary); }
+.echip {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 24px; padding: 0 var(--space-4); margin: 0 var(--space-2) var(--space-2) 0;
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); font-size: var(--fs-sm); color: var(--text-primary);
+}
+.echip svg { width: 13px; height: 13px; color: var(--text-muted); }
+.evidence { max-width: 60ch; color: var(--text-secondary); }
+.suppressed-reason { max-width: 60ch; }
+.suppressed-reason b { font-weight: var(--fw-semibold); }
+tr.is-suppressed td { color: var(--text-secondary); }
+
+/* Behavior model pane */
+.bm-head { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.bm-head h3 { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.segmented { display: inline-flex; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+.segmented button { border: 0; background: var(--surface-raised); padding: 0 var(--space-4); height: 24px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.segmented button + button { border-left: 1px solid var(--border-default); }
+.segmented button[aria-pressed="true"] { background: var(--accent-subtle); color: var(--text-primary); font-weight: var(--fw-semibold); }
+.toggle { display: inline-flex; align-items: center; gap: var(--space-3); }
+.toggle .sw { width: 26px; height: 14px; border-radius: 7px; background: var(--border-default); position: relative; }
+.toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface-raised); }
+.toggle[aria-pressed="true"] .sw { background: var(--accent); }
+.toggle[aria-pressed="true"] .sw::after { left: 14px; }
+.net { display: block; margin: var(--space-4) var(--space-6); }
+.net text { font-family: var(--font-mono); font-size: 11px; fill: var(--text-secondary); }
+.net .lbl { font-family: var(--font-sans); font-size: 12px; fill: var(--text-primary); font-weight: 600; }
+.net .count { font-family: var(--font-mono); font-size: 15px; fill: var(--text-primary); font-weight: 700; }
+.net .place, .net .trans { fill: var(--surface-raised); stroke: var(--border-strong); stroke-width: 1.5; }
+.net .arc { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.net .arrow { fill: var(--edge); }
+.net .cur { stroke: var(--replay-highlight); stroke-width: 3; }
+.net .delta { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--replay-highlight); }
+.net .delta-bg { fill: var(--replay-highlight-bg); stroke: var(--replay-highlight); stroke-width: 1; }
+.net .portnotch { fill: none; stroke: var(--port); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.net .porttag { fill: var(--port); font-size: 10px; letter-spacing: 0.06em; }
+.net .mk { fill: var(--replay-highlight); }
+.net .mk-t { fill: var(--surface-raised); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+.empty-note { padding: var(--space-6); color: var(--text-secondary); }
+
+/* ---- Right column ---- */
+.right { grid-area: right; display: flex; flex-direction: column; min-height: 0; background: var(--surface-panel); }
+.right .tabpanel { padding: 0; }
+.sec { padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.sec > h3 { margin: 0 0 var(--space-4); }
+.sec h3.marking { font-weight: var(--fw-semibold); }
+
+/* Inspector */
+.insp-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.insp-head .kindrow { display: flex; align-items: center; gap: var(--space-3); color: var(--text-muted); }
+.insp-head h2 { margin: 0; font-size: var(--fs-2xl); line-height: var(--lh-tight); font-weight: var(--fw-semibold); overflow-wrap: anywhere; }
+.readonly-note { display: none; align-items: center; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background: var(--replay-highlight-bg); border: 1px solid var(--replay-highlight); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.replaying .readonly-note { display: flex; }
+.field { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-5); }
+.field:last-child { margin-bottom: 0; }
+.field label { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-secondary); }
+.field label .opt { font-weight: var(--fw-regular); color: var(--text-muted); }
+.input {
+  height: 28px; padding: 0 var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--surface-raised); font-size: var(--fs-md);
+}
+textarea.input { height: auto; min-height: 52px; padding: var(--space-3) var(--space-4); resize: vertical; line-height: var(--lh-body); }
+.input:focus-visible { outline-offset: 0; }
+.input[readonly], .input:disabled { background: var(--surface-sunken); color: var(--text-secondary); }
+.kv { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: var(--space-3); min-height: 28px; }
+.list .relbtn { width: 100%; text-align: left; background: none; border: 0; padding: var(--space-2) var(--space-3); margin: 0 calc(var(--space-3) * -1); border-radius: var(--radius-sm); color: var(--text-primary); font-size: var(--fs-md); min-height: 28px; }
+.list .relbtn:hover { background: var(--surface-hover); }
+.subhead { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-secondary); margin: var(--space-3) 0 var(--space-1); }
+.subhead:first-child { margin-top: 0; }
+.portrow { justify-content: space-between; }
+.portrow .mono { color: var(--text-primary); }
+.portrow .pk { color: var(--text-muted); font-size: var(--fs-sm); }
+.pathrow { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.path { font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--surface-sunken); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 1px var(--space-3); user-select: all; }
+.replaying .edit-only { display: none; }
+
+/* Verdict rows */
+.vhead { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.vrow { padding: var(--space-5) var(--space-6) var(--space-5) calc(var(--space-6) + 2px); border-bottom: 1px solid var(--border-subtle); position: relative; }
+.vrow::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--vtone, transparent); }
+.vrow h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+.vscope { font-size: var(--fs-sm); color: var(--text-muted); margin-top: var(--space-1); }
+.vline { display: inline-flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm); font-weight: var(--fw-semibold); font-size: var(--fs-md); color: var(--vtone); background: var(--vtone-bg); border: 1px solid currentColor; }
+.vrow.proved { --vtone: var(--verdict-proved); --vtone-bg: var(--verdict-proved-bg); }
+.vrow.disproved { --vtone: var(--verdict-disproved); --vtone-bg: var(--verdict-disproved-bg); }
+.vrow.unknown { --vtone: var(--verdict-unknown); --vtone-bg: var(--verdict-unknown-bg); }
+.vrow.unknown .vline { border-style: dashed; }
+.vdetail { margin-top: var(--space-3); color: var(--text-secondary); max-width: 75ch; }
+.vdetail p { margin: 0 0 var(--space-2); }
+.vdetail p:last-child { margin-bottom: 0; }
+.vdetail .lead { color: var(--text-primary); font-weight: var(--fw-medium); }
+.waits { list-style: none; margin: var(--space-2) 0 var(--space-3); padding: 0 0 0 var(--space-5); border-left: 2px solid var(--border-default); display: flex; flex-direction: column; gap: var(--space-3); }
+.kvlabel { font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: var(--tracking-marking); text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: var(--space-1); }
+.caveat { font-size: var(--fs-sm); color: var(--text-muted); }
+.vactions { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
+
+/* Step list (replay) */
+.rhead { padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-subtle); }
+.rhead .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.rhead h3 { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.rhead h3 .vd { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--verdict-disproved); }
+.curstep { margin-top: var(--space-4); padding: var(--space-4); background: var(--surface-sunken); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.curstep .lbl { font-size: var(--fs-sm); color: var(--text-secondary); margin-bottom: var(--space-3); display: block; }
+.curstep .els { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.steps { list-style: none; margin: 0; padding: var(--space-3) 0; }
+.steps:focus-visible { outline-offset: -2px; }
+.step { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: var(--space-3); padding: var(--space-4) var(--space-6) var(--space-4) var(--space-5); cursor: pointer; min-height: 32px; }
+.step:hover { background: var(--surface-hover); }
+.step .idx { width: 22px; height: 22px; border-radius: 11px; border: 1.5px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700; color: var(--text-secondary); background: var(--surface-raised); }
+.step .txt { color: var(--text-primary); }
+.step .txt .no { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 700; }
+.step .sub { display: block; color: var(--text-secondary); margin-top: var(--space-1); }
+.step .vio { display: flex; align-items: flex-start; gap: var(--space-3); color: var(--verdict-disproved); font-weight: var(--fw-semibold); margin-top: var(--space-1); }
+.step .vio + .waits { margin-top: var(--space-3); }
+.step::before { content: ""; position: absolute; left: calc(var(--space-5) + 10px); top: 0; bottom: 0; width: 1.5px; background: var(--border-default); z-index: 0; }
+.step:first-child::before { top: 50%; }
+.step:last-child::before { bottom: 50%; }
+.step .idx { position: relative; z-index: 1; }
+.step[aria-selected="true"] { background: var(--replay-highlight-bg); box-shadow: inset 0 0 0 2px var(--replay-highlight); }
+.step[aria-selected="true"] .idx { background: var(--replay-highlight); border-color: var(--replay-highlight); color: var(--surface-raised); }
+.step .cur-tag { display: none; margin-left: var(--space-3); font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: var(--tracking-marking); text-transform: uppercase; font-weight: 700; color: var(--text-primary); border: 1px solid var(--replay-highlight); border-radius: var(--radius-xs); padding: 0 var(--space-2); vertical-align: 1px; }
+.step[aria-selected="true"] .cur-tag { display: inline-block; }
+.step.past .idx { border-color: var(--text-muted); }
+.edit-panel { display: block; }
+.replay-panel { display: none; }
+.replaying .edit-panel { display: none; }
+.replaying .replay-panel { display: block; }
+
+/* ---- Status bar ---- */
+.status {
+  grid-area: status; display: flex; align-items: center; gap: var(--space-5); padding: 0 var(--space-5);
+  border-top: 1px solid var(--border-default); background: var(--surface-sunken); font-size: var(--fs-sm); color: var(--text-secondary); min-width: 0;
+}
+.status .msg { display: flex; align-items: center; gap: var(--space-3); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
+.status .msg svg { color: var(--text-secondary); }
+.status .spacer { flex: 1; }
+.status .seg { display: inline-flex; align-items: center; gap: var(--space-3); white-space: nowrap; }
+.status .seg + .seg { padding-left: var(--space-5); border-left: 1px solid var(--border-default); }
+.status .rev { font-family: var(--font-mono); color: var(--text-primary); font-weight: var(--fw-semibold); }
+
+/* Spinner: static with reduced motion; not shown in this state. */
+@media (prefers-reduced-motion: no-preference) { .spin { animation: spin 1s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Narrow windows (min 1024 × 640): header collapse steps 1–2 (flows §2.5) */
+@media (max-width: 1279px) {
+  :root { --right-w: 320px; }
+  .collapse-1 .lbl, .collapse-1 kbd { display: none; }
+  .collapse-1 { width: 28px; padding: 0; justify-content: center; }
+  .unsaved .long { display: none; }
+  .unsaved .short { display: inline; }
+  .mock .note { display: none; }
+}
+@media (max-width: 1180px) {
+  .collapse-2 .lbl { display: none; }
+  .collapse-2 { width: 28px; padding: 0; justify-content: center; }
+  .crumb .marking { display: none; }
+}
+@media (max-height: 760px) { :root { --bottom-h: 240px; } }
+/* Under 700 tall the bottom pane starts collapsed to its tab strip; replay always opens it (flows §2.3) */
+@media (max-height: 699px) { .app:not(.replaying) .bottom { height: 32px; } .app:not(.replaying) .bottom .tab[aria-selected="true"]::after { display: none; } }
+@media (max-width: 1279px) { table.findings th:nth-child(2) { width: 180px !important; } table.findings th:nth-child(3) { width: 200px !important; } }
+@media (forced-colors: active) {
+  .vline, .step[aria-selected="true"], .replaying .el.hl { border: 2px solid CanvasText; }
+  :focus-visible { outline-color: Highlight; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ SVG ICON SPRITE (lucide-style, generic; ADR 0007) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-proved" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-disproved" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+  <symbol id="i-unknown" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+  <symbol id="i-system" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-cmd" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></symbol>
+  <symbol id="i-first" viewBox="0 0 24 24"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-last" viewBox="0 0 24 24"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-diamond" viewBox="0 0 24 24"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0Z"/><path d="M12 8v5"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M10.73 5.08A10.74 10.74 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="i-rev" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 12h6"/><path d="M15 12h6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+</svg>
+
+<!-- ============ MOCKUP CONTROLS: not part of the app ============ -->
+<div class="mock" role="toolbar" aria-label="Mockup controls (not part of the app)">
+  <span class="ttl">Mockup · Option 2 · Blueprint</span>
+  <span>Preset</span>
+  <span class="seg">
+    <button type="button" data-preset="verdicts">Edit · Verdicts</button>
+    <button type="button" data-preset="inspector">Edit · Inspector</button>
+    <button type="button" data-preset="replay">Replay · step 4 of 7</button>
+  </span>
+  <span>Theme</span>
+  <span class="seg">
+    <button type="button" data-theme-set="light">Light</button>
+    <button type="button" data-theme-set="dark">Dark</button>
+  </span>
+  <span class="note">The app follows the OS theme (flows §8); this toggle is for review only.</span>
+</div>
+
+<!-- ============ APP WINDOW ============ -->
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="header" role="region" aria-label="Header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="2.5" y="2.5" width="19" height="19" rx="2"/><circle cx="8" cy="8" r="2.4"/><rect x="13.6" y="13.6" width="4.8" height="4.8"/><path d="M10.4 8h5.6v5.6"/>
+      </svg>
+      <span class="project" title="order-platform">order-platform</span>
+      <span class="unsaved"><span class="dot" aria-hidden="true"></span><span class="long">Unsaved changes</span><span class="short">Unsaved</span><span class="sr-only">.</span></span>
+    </div>
+    <span class="vsep" aria-hidden="true"></span>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <ol>
+        <li><button type="button" class="crumb"><span class="marking" aria-hidden="true">Ctx</span>System landscape</button></li>
+        <li class="sep" aria-hidden="true">›</li>
+        <li><button type="button" class="crumb" aria-current="page"><span class="marking" aria-hidden="true">Con</span>Order platform</button></li>
+      </ol>
+    </nav>
+    <span class="level">Level: <b>Container</b></span>
+    <span class="spacer"></span>
+    <div class="actions">
+      <button type="button" class="btn ghost collapse-2" title="Save (Ctrl+S)" aria-label="Save"><svg class="i"><use href="#i-save"/></svg><span class="lbl">Save</span></button>
+      <button type="button" class="btn ghost collapse-2" title="Reload (Ctrl+R)" aria-label="Reload"><svg class="i"><use href="#i-reload"/></svg><span class="lbl">Reload</span></button>
+      <button type="button" class="btn primary" title="Check (Ctrl+Enter)"><svg class="i sm" style="fill:currentColor;stroke:none"><use href="#i-check"/></svg>Check</button>
+      <span class="vsep" aria-hidden="true"></span>
+      <button type="button" class="btn collapse-1" aria-label="Commands" title="Commands (Ctrl+K)"><svg class="i sm"><use href="#i-cmd"/></svg><span class="lbl">Commands</span><kbd>Ctrl+K</kbd></button>
+    </div>
+  </header>
+
+  <!-- Main: replay bar, canvas, bottom pane -->
+  <div class="main">
+    <div class="replaybar" role="toolbar" aria-label="Replay controls">
+      <span class="tag"><svg class="i sm" aria-hidden="true"><use href="#i-lock"/></svg>Replay · read-only</span>
+      <button type="button" class="btn icon ghost" data-step="first" aria-label="First step" title="First step (Home)"><svg class="i"><use href="#i-first"/></svg></button>
+      <button type="button" class="btn icon ghost" data-step="prev" aria-label="Previous step" title="Previous step (←)"><svg class="i"><use href="#i-prev"/></svg></button>
+      <span class="scrub">
+        <input id="scrubber" type="range" min="0" max="7" step="1" value="4" aria-label="Step">
+        <span class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </span>
+      <button type="button" class="btn icon ghost" data-step="next" aria-label="Next step" title="Next step (→)"><svg class="i"><use href="#i-next"/></svg></button>
+      <button type="button" class="btn icon ghost" data-step="last" aria-label="Last step" title="Last step (End)"><svg class="i"><use href="#i-last"/></svg></button>
+      <span class="stepcount" id="stepcount">Step 4 of 7</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn sm" data-exit-replay><svg class="i sm"><use href="#i-x"/></svg>Exit replay <kbd>Esc</kbd></button>
+    </div>
+
+    <section class="canvas" id="canvas" role="region" aria-label="Canvas">
+      <div class="viewport">
+        <svg class="edges" viewBox="0 0 1080 460" aria-hidden="true">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="edge-arrow" d="M0 0 10 5 0 10 3 5Z"/></marker>
+            <marker id="arr-hl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path class="edge-arrow hl" d="M0 0 10 5 0 10 3 5Z"/></marker>
+          </defs>
+          <!-- e1 Customer → Web app (uses): binds no ports, attaches to the border -->
+          <path id="e1" class="edge" d="M216 98 L298 98" marker-end="url(#arr)"/>
+          <!-- e2 Web app → Order API (calls): Web app: submit ↔ Order API: submit -->
+          <path id="e2" class="edge" d="M484 126 L566 126" marker-end="url(#arr)"/>
+          <!-- e3 Order API → Billing (publishes to): asynchronous, generated place -->
+          <path id="e3" class="edge async" d="M688 148 L688 294" marker-end="url(#arr)"/>
+          <!-- e4 Order API → Orders database (reads from) -->
+          <path id="e4" class="edge" d="M632 148 L422 294" marker-end="url(#arr)"/>
+          <!-- e5 Billing → Orders database (writes to) -->
+          <path id="e5" class="edge" d="M568 374 L486 374" marker-end="url(#arr)"/>
+          <!-- e6 Billing → Payment provider (calls): binds no ports -->
+          <path id="e6" class="edge" d="M752 346 L834 346" marker-end="url(#arr)"/>
+          <!-- Generated place of e3: three cells for capacity 3 -->
+          <g class="gplace" id="gp3" transform="translate(688 232)">
+            <rect class="frame" x="-11" y="-22" width="22" height="44" rx="3"/>
+            <rect class="cell" data-cell="1" x="-6" y="7" width="12" height="10" rx="1"/>
+            <rect class="cell" data-cell="2" x="-6" y="-5" width="12" height="10" rx="1"/>
+            <rect class="cell" data-cell="3" x="-6" y="-17" width="12" height="10" rx="1"/>
+          </g>
+        </svg>
+
+        <!-- Relationship labels -->
+        <span class="elabel" style="left:257px;top:84px">uses</span>
+        <span class="elabel" style="left:525px;top:112px">calls</span>
+        <span class="elabel left" style="left:706px;top:200px">publishes to</span>
+        <span class="chip" id="chip3" style="left:706px;top:226px">
+          <svg class="i sm" aria-hidden="true" style="width:12px;height:12px"><use href="#i-layers"/></svg>
+          <span class="cap">capacity 3 · block</span><span class="count" id="chip3count">2/3</span>
+        </span>
+        <span class="stepmark" id="mk-e3" style="left:668px;top:196px">4</span>
+        <span class="stepmark" id="mk-e2" style="left:525px;top:140px">6</span>
+        <span class="stepmark" id="mk-e5" style="left:527px;top:388px">3</span>
+        <span class="elabel" style="left:509px;top:214px">reads from</span>
+        <span class="elabel" style="left:527px;top:360px">writes to</span>
+        <span class="elabel" style="left:793px;top:332px">calls</span>
+
+        <!-- Elements -->
+        <div class="el person" data-id="customer" style="left:32px;top:48px" tabindex="0" role="button" aria-label="Customer, Person">
+          <div class="kind"><svg class="i"><use href="#i-person"/></svg><span class="marking">Person</span></div>
+          <div class="name">Customer</div>
+          <div class="tech">Places and tracks orders</div>
+          <span class="stepmark" style="left:184px;top:0"></span>
+        </div>
+
+        <div class="el" data-id="webapp" style="left:300px;top:48px" tabindex="0" role="button" aria-label="Web app, Container">
+          <div class="kind"><svg class="i"><use href="#i-box"/></svg><span class="marking">Container</span></div>
+          <div class="name">Web app</div>
+          <div class="tech">TypeScript · single-page app</div>
+          <span class="port" style="left:184px;top:78px" title="Web app: submit"></span>
+          <span class="pname" style="right:8px;top:72px">submit</span>
+          <span class="stepmark" style="left:184px;top:0"></span>
+        </div>
+
+        <div class="el" data-id="orderapi" style="left:568px;top:48px" tabindex="0" role="button" aria-label="Order API, Container">
+          <div class="kind"><svg class="i"><use href="#i-box"/></svg><span class="marking">Container</span></div>
+          <div class="name">Order API</div>
+          <div class="tech">Rust · HTTP API</div>
+          <span class="port" style="left:0;top:78px" title="Order API: submit"></span>
+          <span class="pname" style="left:9px;top:72px">submit</span>
+          <span class="port" style="left:64px;top:100px" title="Order API: query"></span>
+          <span class="pname" style="left:52px;top:80px">query</span>
+          <span class="port" style="left:120px;top:100px" title="Order API: send"></span>
+          <span class="pname" style="left:110px;top:80px">send</span>
+          <span class="stepmark" style="left:184px;top:0">4</span>
+        </div>
+
+        <div class="el db" data-id="ordersdb" style="left:300px;top:296px" tabindex="0" role="button" aria-label="Orders database, Database">
+          <div class="kind"><svg class="i"><use href="#i-db"/></svg><span class="marking">Database</span></div>
+          <div class="name">Orders database</div>
+          <div class="tech">PostgreSQL</div>
+          <span class="port" style="left:120px;top:0" title="Orders database: read"></span>
+          <span class="pname" style="left:130px;top:31px">read</span>
+          <span class="port" style="left:184px;top:78px" title="Orders database: store"></span>
+          <span class="pname" style="right:8px;top:72px">store</span>
+          <span class="stepmark" style="left:184px;top:0">3</span>
+        </div>
+
+        <div class="el selected" data-id="billing" style="left:568px;top:296px" tabindex="0" role="button" aria-pressed="true" aria-label="Billing, Container, selected">
+          <div class="kind"><svg class="i"><use href="#i-box"/></svg><span class="marking">Container</span></div>
+          <div class="name">Billing</div>
+          <div class="tech">Rust · background worker</div>
+          <span class="port" style="left:120px;top:0" title="Billing: receive"></span>
+          <span class="pname" style="left:130px;top:6px">receive</span>
+          <span class="port" style="left:0;top:78px" title="Billing: reserve"></span>
+          <span class="pname" style="left:9px;top:72px">reserve</span>
+          <span class="stepmark" style="left:184px;top:0">4</span>
+        </div>
+
+        <div class="el ext" data-id="payment" style="left:836px;top:296px" tabindex="0" role="button" aria-label="Payment provider, Software system">
+          <div class="kind"><svg class="i"><use href="#i-system"/></svg><span class="marking">Software system</span></div>
+          <div class="name">Payment provider</div>
+          <div class="tech">External · card payments</div>
+        </div>
+      </div>
+
+      <!-- Title block: view, level, zoom, fit -->
+      <div class="titleblock" role="group" aria-label="View and zoom">
+        <div><span class="marking">View</span><span class="val">Order platform</span></div>
+        <div><span class="marking">Level</span><span class="val">Container</span></div>
+        <div><span class="marking">Elements</span><span class="val mono">6</span></div>
+        <div>
+          <span class="marking">Zoom</span><span class="val mono" id="zoomval">100 %</span>
+          <button type="button" class="btn icon" aria-label="Zoom out" title="Zoom out (−)"><svg class="i sm"><use href="#i-minus"/></svg></button>
+          <button type="button" class="btn icon" aria-label="Zoom in" title="Zoom in (+)"><svg class="i sm"><use href="#i-plus"/></svg></button>
+          <button type="button" class="btn icon" aria-label="Fit view" title="Fit view (Shift+1)"><svg class="i sm"><use href="#i-fit"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom pane -->
+    <section class="bottom" role="region" id="bottom" aria-label="Bottom pane: Findings">
+      <div class="tabs" role="tablist" aria-label="Bottom pane">
+        <button type="button" class="tab" role="tab" id="bt-bm" aria-controls="bp-bm" aria-selected="false" tabindex="-1">Behavior model</button>
+        <button type="button" class="tab" role="tab" id="bt-pr" aria-controls="bp-pr" aria-selected="false" tabindex="-1">Problems</button>
+        <button type="button" class="tab" role="tab" id="bt-fi" aria-controls="bp-fi" aria-selected="true">Findings <span class="count">(1)</span></button>
+        <span class="spacer"></span>
+      </div>
+
+      <!-- Behavior model -->
+      <div class="tabpanel" role="tabpanel" id="bp-bm" aria-labelledby="bt-bm" hidden>
+        <div class="bm-head">
+          <h3>Behavior model: Order API</h3>
+          <span class="segmented replay-only-inline" role="group" aria-label="Element in this step">
+            <button type="button" aria-pressed="true">Order API</button><button type="button" aria-pressed="false">Billing</button>
+          </span>
+          <span style="flex:1"></span>
+          <button type="button" class="btn sm ghost toggle" aria-pressed="true"><span class="sw" aria-hidden="true"></span>Follow steps</button>
+          <button type="button" class="btn sm ghost"><svg class="i sm"><use href="#i-open"/></svg>Open file</button>
+          <button type="button" class="btn sm ghost"><svg class="i sm"><use href="#i-fit"/></svg>Fit</button>
+        </div>
+        <svg class="net" id="net" width="760" height="170" viewBox="0 0 760 170" role="img"
+             aria-label="Order API Petri net. pending holds 1 (−1), capacity 3, when full: block. awaiting_ack holds 2 (+1), capacity 3, when full: block. Current transition: send.">
+          <defs><marker id="narr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="arrow" d="M0 0 10 5 0 10 3 5Z"/></marker></defs>
+          <!-- submit (port, transition) -->
+          <rect class="trans" x="20" y="44" width="84" height="36" rx="2"/>
+          <rect class="portnotch" x="15" y="39" width="94" height="46" rx="3"/>
+          <text class="lbl" x="62" y="66" text-anchor="middle">submit</text>
+          <text class="porttag" x="62" y="100" text-anchor="middle">PORT</text>
+          <path class="arc" d="M104 62 L168 62" marker-end="url(#narr)"/>
+          <!-- pending (place) -->
+          <circle class="place" cx="200" cy="62" r="30"/>
+          <text class="count" id="c-pending" x="200" y="67" text-anchor="middle">1</text>
+          <text class="lbl" x="200" y="112" text-anchor="middle">pending</text>
+          <text x="200" y="128" text-anchor="middle">capacity 3 · block</text>
+          <g id="d-pending"><rect class="delta-bg" x="222" y="20" width="30" height="18" rx="3"/><text class="delta" x="237" y="33" text-anchor="middle">−1</text></g>
+          <path class="arc" d="M230 62 L300 62" marker-end="url(#narr)"/>
+          <!-- send (port, transition, current) -->
+          <rect class="trans" id="t-send" x="302" y="44" width="84" height="36" rx="2"/>
+          <rect class="portnotch" x="297" y="39" width="94" height="46" rx="3"/>
+          <text class="lbl" x="344" y="66" text-anchor="middle">send</text>
+          <text class="porttag" x="344" y="100" text-anchor="middle">PORT</text>
+          <text x="344" y="118" text-anchor="middle">to Order API → Billing</text>
+          <text x="344" y="132" text-anchor="middle">(publishes to)</text>
+          <g id="m-send"><circle class="mk" cx="392" cy="40" r="11"/><text class="mk-t" x="392" y="44" text-anchor="middle">4</text></g>
+          <path class="arc" d="M386 62 L452 62" marker-end="url(#narr)"/>
+          <!-- awaiting_ack (place) -->
+          <circle class="place" cx="484" cy="62" r="30"/>
+          <text class="count" id="c-await" x="484" y="67" text-anchor="middle">2</text>
+          <text class="lbl" x="484" y="112" text-anchor="middle">awaiting_ack</text>
+          <text x="484" y="128" text-anchor="middle">capacity 3 · block</text>
+          <g id="d-await"><rect class="delta-bg" x="506" y="20" width="30" height="18" rx="3"/><text class="delta" x="521" y="33" text-anchor="middle">+1</text></g>
+          <path class="arc" d="M514 62 L584 62" marker-end="url(#narr)"/>
+          <!-- ack (port, transition) -->
+          <rect class="trans" x="586" y="44" width="84" height="36" rx="2"/>
+          <rect class="portnotch" x="581" y="39" width="94" height="46" rx="3"/>
+          <text class="lbl" x="628" y="66" text-anchor="middle">ack</text>
+          <text class="porttag" x="628" y="100" text-anchor="middle">PORT</text>
+        </svg>
+      </div>
+
+      <!-- Problems -->
+      <div class="tabpanel" role="tabpanel" id="bp-pr" aria-labelledby="bt-pr" hidden>
+        <p class="empty-note">No problems. Every file loaded and every port is bound.</p>
+      </div>
+
+      <!-- Findings -->
+      <div class="tabpanel" role="tabpanel" id="bp-fi" aria-labelledby="bt-fi">
+        <div class="ptools">
+          <button type="button" class="btn sm"><svg class="i sm"><use href="#i-scan"/></svg>Scan</button>
+          <span>1 finding, 1 suppressed. 5 rules ran on 6 elements.</span>
+        </div>
+        <table class="findings">
+          <thead>
+            <tr><th scope="col" class="marking" style="width:100px">Severity</th><th scope="col" class="marking" style="width:210px">Rule</th><th scope="col" class="marking" style="width:250px">Affected elements</th><th scope="col" class="marking">Evidence</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="sev"><svg class="i sm" aria-hidden="true"><use href="#i-diamond"/></svg>Medium</span></td>
+              <td><div class="rule-id">DATA-SHARED-DB</div><div class="rule-name">Shared database</div></td>
+              <td>
+                <button type="button" class="echip"><svg class="i"><use href="#i-box"/></svg>Order API</button><button type="button" class="echip"><svg class="i"><use href="#i-box"/></svg>Billing</button><button type="button" class="echip"><svg class="i"><use href="#i-db"/></svg>Orders database</button>
+              </td>
+              <td class="evidence">Order API and Billing both use Orders database: Order API → Orders database (reads from), Billing → Orders database (writes to).</td>
+              <td style="text-align:right;white-space:nowrap"><button type="button" class="btn sm">Suppress…</button></td>
+            </tr>
+            <tr class="group"><td colspan="5"><span class="marking">Suppressed (1)</span></td></tr>
+            <tr class="is-suppressed">
+              <td><span class="sev muted"><svg class="i sm" aria-hidden="true"><use href="#i-eyeoff"/></svg>Medium</span></td>
+              <td><div class="rule-id">REL-NO-TIMEOUT</div><div class="rule-name">Synchronous call without a timeout</div></td>
+              <td>
+                <button type="button" class="echip"><svg class="i"><use href="#i-box"/></svg>Billing</button><button type="button" class="echip"><svg class="i"><use href="#i-system"/></svg>Payment provider</button>
+              </td>
+              <td class="suppressed-reason"><b>Suppressed:</b> The payment SDK enforces a 2 s timeout that this model does not show.</td>
+              <td style="text-align:right;white-space:nowrap"><button type="button" class="btn sm ghost">Remove suppression</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- Right column -->
+  <aside class="right" role="region" id="right" aria-label="Verdicts">
+    <div class="tabs" role="tablist" aria-label="Right column">
+      <button type="button" class="tab" role="tab" id="rt-in" aria-controls="rp-in" aria-selected="false" tabindex="-1">Inspector</button>
+      <button type="button" class="tab" role="tab" id="rt-ve" aria-controls="rp-ve" aria-selected="true">Verdicts</button>
+    </div>
+
+    <!-- Inspector: Billing selected -->
+    <div class="tabpanel" role="tabpanel" id="rp-in" aria-labelledby="rt-in" hidden>
+      <div class="sec">
+        <div class="insp-head">
+          <div class="kindrow"><svg class="i sm" aria-hidden="true"><use href="#i-box"/></svg><span class="marking">Container</span></div>
+          <h2>Billing</h2>
+        </div>
+        <div class="readonly-note"><svg class="i sm" aria-hidden="true"><use href="#i-lock"/></svg>Exit replay to edit</div>
+      </div>
+      <div class="sec">
+        <div class="field"><label for="f-name">Name</label><input id="f-name" class="input rw" value="Billing"></div>
+        <div class="field"><label for="f-kind">Kind</label>
+          <select id="f-kind" class="input rw"><option selected>Container</option><option>Database</option><option>Queue</option></select></div>
+        <div class="field"><label for="f-desc">Description <span class="opt">(optional)</span></label>
+          <textarea id="f-desc" class="input rw" rows="2">Creates invoices and charges payments for accepted orders.</textarea></div>
+      </div>
+      <div class="sec">
+        <h3 class="marking">Behavior model</h3>
+        <p style="margin:0 0 var(--space-4)">Petri net: 4 places, 3 transitions, 2 ports</p>
+        <button type="button" class="btn sm">Show behavior model</button>
+      </div>
+      <div class="sec">
+        <h3 class="marking">Ports</h3>
+        <ul class="list">
+          <li class="portrow"><span class="mono">receive</span><span class="pk">inbox · place</span></li>
+          <li class="portrow"><span class="mono">reserve</span><span class="pk">call · transition</span></li>
+        </ul>
+      </div>
+      <div class="sec">
+        <h3 class="marking">Relationships</h3>
+        <div class="subhead">Outgoing (2)</div>
+        <ul class="list">
+          <li><button type="button" class="relbtn">Billing → Orders database (writes to)</button></li>
+          <li><button type="button" class="relbtn">Billing → Payment provider (calls)</button></li>
+        </ul>
+        <div class="subhead">Incoming (1)</div>
+        <ul class="list">
+          <li><button type="button" class="relbtn">Order API → Billing (publishes to)</button></li>
+        </ul>
+        <button type="button" class="btn sm edit-only" style="margin-top:var(--space-4)"><svg class="i sm"><use href="#i-plus"/></svg>Add relationship…</button>
+      </div>
+      <div class="sec">
+        <h3 class="marking">File</h3>
+        <div class="pathrow"><span class="path">elements/billing.toml</span></div>
+        <div class="pathrow" style="margin-top:var(--space-4)">
+          <button type="button" class="btn sm ghost"><svg class="i sm"><use href="#i-copy"/></svg>Copy file path</button>
+          <button type="button" class="btn sm ghost"><svg class="i sm"><use href="#i-open"/></svg>Open file</button>
+        </div>
+      </div>
+      <div class="sec edit-only" style="border-bottom:0;padding-top:var(--space-8)">
+        <button type="button" class="btn sm danger">Delete element</button>
+      </div>
+    </div>
+
+    <!-- Verdicts -->
+    <div class="tabpanel" role="tabpanel" id="rp-ve" aria-labelledby="rt-ve">
+      <!-- Edit mode: verdict rows -->
+      <div class="edit-panel">
+        <div class="vhead"><span class="marking">Properties (3)</span><span class="marking">Order platform</span></div>
+
+        <article class="vrow disproved" aria-labelledby="p1-name">
+          <h3 id="p1-name">Deadlock-free</h3>
+          <div class="vscope">Order platform · Level: Container</div>
+          <div class="vline"><svg class="i" aria-hidden="true"><use href="#i-disproved"/></svg>Disproved</div>
+          <div class="vdetail">
+            <p class="lead">Deadlock: no step is possible.</p>
+            <ul class="waits" aria-label="Waiting steps">
+              <li>Order API waits at send for room in Order API → Billing (publishes to): 3 of 3 messages, when full: block.</li>
+              <li>Billing waits at take_lock for a token in lock_b.</li>
+            </ul>
+            <p class="caveat">There are no final markings yet, so a run that stops also counts as a deadlock. To model a run that finishes, loop back to the initial marking.</p>
+          </div>
+          <div class="vactions"><button type="button" class="btn primary sm" id="replay-btn"><svg class="i sm" style="fill:currentColor;stroke:none"><use href="#i-check"/></svg>Replay counterexample</button></div>
+        </article>
+
+        <article class="vrow proved" aria-labelledby="p2-name">
+          <h3 id="p2-name">No capacity exceeded</h3>
+          <div class="vscope">Order platform · Level: Container</div>
+          <div class="vline"><svg class="i" aria-hidden="true"><use href="#i-proved"/></svg>Proved</div>
+          <div class="vdetail">
+            <p><span class="kvlabel">Evidence</span>Checked all 1,970 reachable markings; re-checked by a second explorer.</p>
+            <p><span class="kvlabel">Assumptions</span>Assumes: Customer → Web app (uses) binds no ports, so it adds no behavior.<br>Assumes: Billing → Payment provider (calls) binds no ports, so it adds no behavior.</p>
+            <p class="caveat">Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled.</p>
+          </div>
+          <div class="vactions"><button type="button" class="btn sm">Check again</button></div>
+        </article>
+
+        <article class="vrow unknown" aria-labelledby="p3-name">
+          <h3 id="p3-name">Can always get back to Billing: idle</h3>
+          <div class="vscope">Order platform · Level: Container</div>
+          <div class="vline"><svg class="i" aria-hidden="true"><use href="#i-unknown"/></svg>Unknown</div>
+          <div class="vdetail">
+            <p><span class="kvlabel">Reason</span>Budget exhausted while re-checking: the second explorer stopped after 480,000 markings in 5.0 s. A Proved needs both explorers to agree, so this is Unknown.</p>
+            <p><span class="kvlabel">Next step</span>Lower capacities or initial tokens, or remove elements from this view.</p>
+          </div>
+          <div class="vactions"><button type="button" class="btn sm">Check again</button></div>
+        </article>
+      </div>
+
+      <!-- Replay mode: step list replaces the verdict rows -->
+      <div class="replay-panel">
+        <div class="rhead">
+          <div class="row">
+            <h3>Replay: Deadlock-free · <span class="vd"><svg class="i sm" aria-hidden="true"><use href="#i-disproved"/></svg>Disproved</span></h3>
+            <button type="button" class="btn sm ghost" data-exit-replay>Exit replay</button>
+          </div>
+          <div class="curstep">
+            <span class="lbl">Current step · Elements in this step:</span>
+            <div class="els" id="curels"></div>
+          </div>
+        </div>
+        <ol class="steps" id="steps" role="listbox" aria-label="Steps of the counterexample" tabindex="0"></ol>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Status bar -->
+  <footer class="status" role="region" aria-label="Messages">
+    <div class="msg" role="status" aria-live="polite" id="msg"><svg class="i sm" aria-hidden="true"><use href="#i-info"/></svg><span id="msgtext">Checks finished: Deadlock-free Disproved, No capacity exceeded Proved, Can always get back to Billing: idle Unknown.</span></div>
+    <span class="spacer"></span>
+    <span class="seg"><span class="dot" aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--text-secondary)"></span>Unsaved changes since <span class="mono">rev 139</span></span>
+    <span class="seg"><svg class="i sm" aria-hidden="true"><use href="#i-rev"/></svg>Revision <span class="rev">142</span></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  /* ---- Counterexample (copy from flows §5, R-STEP-*; names never IDs) ---- */
+  var WAITS = [
+    'Order API waits at send for room in Order API → Billing (publishes to): 3 of 3 messages, when full: block.',
+    'Billing waits at take_lock for a token in lock_b.'
+  ];
+  var STEPS = [
+    { no: null, t: 'Start: initial marking', els: [], rel: null, q: 0, p: [3, 0] },
+    { no: 'Step 1 of 7:', t: 'Order API sends to Billing (publishes to): 1 of 3 messages waiting', els: ['orderapi'], rel: 'e3', q: 1, p: [2, 1], tr: 'send' },
+    { no: 'Step 2 of 7:', t: 'Billing: take_lock', els: ['billing'], rel: null, q: 1, p: [2, 1] },
+    { no: 'Step 3 of 7:', t: 'Billing → Orders database (writes to): reserve', els: ['billing', 'ordersdb'], rel: 'e5', q: 1, p: [2, 1] },
+    { no: 'Step 4 of 7:', t: 'Order API: send, Billing: await_payment', sub: ['Order API → Billing (publishes to): 2 of 3 messages waiting'], els: ['orderapi', 'billing'], rel: 'e3', q: 2, p: [1, 2], tr: 'send' },
+    { no: 'Step 5 of 7:', t: 'Order API sends to Billing (publishes to): 3 of 3 messages waiting', els: ['orderapi'], rel: 'e3', q: 3, p: [0, 3], tr: 'send' },
+    { no: 'Step 6 of 7:', t: 'Web app → Order API (calls): submit', els: ['webapp', 'orderapi'], rel: 'e2', q: 3, p: [1, 3], tr: 'submit' },
+    { no: 'Step 7 of 7:', t: 'Deadlock: no step is possible.', last: true, els: ['orderapi', 'billing'], rel: 'e3', q: 3, p: [1, 3] }
+  ];
+  var NAMES = { customer: 'Customer', webapp: 'Web app', orderapi: 'Order API', billing: 'Billing', ordersdb: 'Orders database', payment: 'Payment provider' };
+  var cur = 4;
+
+  function fullText(s) {
+    var t = (s.no ? s.no + ' ' : '') + s.t;
+    if (s.sub) t += ' ' + s.sub.join(' ');
+    if (s.last) t += ' ' + WAITS.join(' ');
+    return t;
+  }
+
+  var list = document.getElementById('steps');
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement('li');
+    li.className = 'step'; li.setAttribute('role', 'option'); li.id = 'step-' + i;
+    li.setAttribute('aria-label', fullText(s));
+    var idx = '<span class="idx" aria-hidden="true">' + (i === 0 ? 'S' : i) + '</span>';
+    var body = '<span class="txt">' + (s.no ? '<span class="no">' + s.no + '</span> ' : '');
+    if (s.last) {
+      body += '<span class="cur-tag">Current</span><span class="vio"><svg class="i sm" aria-hidden="true"><use href="#i-disproved"/></svg>' + s.t + '</span>' +
+        '<ul class="waits">' + WAITS.map(function (w) { return '<li>' + w + '</li>'; }).join('') + '</ul>';
+    } else {
+      body += s.t + '<span class="cur-tag">Current</span>';
+      (s.sub || []).forEach(function (x) { body += '<span class="sub">' + x + '</span>'; });
+    }
+    li.innerHTML = idx + body + '</span>';
+    li.addEventListener('click', function () { go(i, 'list'); list.focus(); });
+    list.appendChild(li);
+  });
+
+  function setText(id, v) { var n = document.getElementById(id); if (n) n.textContent = v; }
+
+  function go(i, source) {
+    cur = Math.max(0, Math.min(STEPS.length - 1, i));
+    var s = STEPS[cur];
+    // canvas: one boolean per element / relationship
+    $$('.el').forEach(function (el) {
+      var on = s.els.indexOf(el.dataset.id) >= 0;
+      el.classList.toggle('hl', on);
+      var m = $('.stepmark', el); if (m) m.textContent = cur;
+    });
+    ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'].forEach(function (id) {
+      var on = s.rel === id, p = document.getElementById(id);
+      p.classList.toggle('hl', on);
+      p.setAttribute('marker-end', on ? 'url(#arr-hl)' : 'url(#arr)');
+      var mk = document.getElementById('mk-' + id);
+      if (mk) { mk.classList.toggle('on', on); mk.textContent = cur; }
+    });
+    // generated place: count as text + cells (never color alone)
+    var q3 = s.q;
+    $$('#gp3 .cell').forEach(function (c) { c.classList.toggle('on', +c.dataset.cell <= q3); });
+    $('#gp3').classList.toggle('hl', s.rel === 'e3');
+    $('#chip3').classList.toggle('hl', s.rel === 'e3');
+    setText('chip3count', q3 + '/3');
+    // replay bar + step list
+    setText('stepcount', cur === 0 ? 'Start' : 'Step ' + cur + ' of 7');
+    var sc = document.getElementById('scrubber');
+    sc.value = cur; sc.setAttribute('aria-valuetext', fullText(s));
+    $$('.step').forEach(function (li, k) {
+      li.setAttribute('aria-selected', k === cur ? 'true' : 'false');
+      li.classList.toggle('past', k < cur);
+    });
+    list.setAttribute('aria-activedescendant', 'step-' + cur);
+    var row = document.getElementById('step-' + cur);
+    if (row && source !== 'init') row.scrollIntoView({ block: 'nearest' });
+    // current-step element buttons
+    var box = document.getElementById('curels');
+    box.innerHTML = s.els.length ? s.els.map(function (id) {
+      return '<button type="button" class="echip">' + NAMES[id] + '</button>';
+    }).join('') : '<span style="color:var(--text-secondary)">None. This is the initial marking.</span>';
+    // behavior model pane (Order API)
+    var prev = STEPS[Math.max(0, cur - 1)];
+    setText('c-pending', s.p[0]); setText('c-await', s.p[1]);
+    var dP = s.p[0] - prev.p[0], dA = s.p[1] - prev.p[1];
+    var dp = document.getElementById('d-pending'), da = document.getElementById('d-await');
+    dp.style.display = cur && dP ? '' : 'none'; da.style.display = cur && dA ? '' : 'none';
+    $('text', dp).textContent = (dP > 0 ? '+' : '−') + Math.abs(dP);
+    $('text', da).textContent = (dA > 0 ? '+' : '−') + Math.abs(dA);
+    var ms = document.getElementById('m-send');
+    ms.style.display = s.tr === 'send' ? '' : 'none'; $('text', ms).textContent = cur;
+    document.getElementById('t-send').classList.toggle('cur', s.tr === 'send');
+    // exactly one announcement: list and scrubber speak for themselves; other controls use the live region
+    if (source === 'button' || source === 'key') announce(fullText(s));
+  }
+
+  var msgTimer;
+  function announce(t) {
+    var m = document.getElementById('msgtext');
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(function () { m.textContent = ''; setTimeout(function () { m.textContent = t; }, 30); }, 300);
+  }
+
+  /* ---- Tabs ---- */
+  function selectTab(tab) {
+    var tl = tab.closest('[role=tablist]');
+    $$('[role=tab]', tl).forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (tl.closest('#bottom')) document.getElementById('bottom').setAttribute('aria-label', 'Bottom pane: ' + tab.firstChild.textContent.trim());
+    if (tl.closest('#right')) document.getElementById('right').setAttribute('aria-label', tab.textContent.trim());
+  }
+  $$('[role=tab]').forEach(function (t) {
+    t.addEventListener('click', function () { selectTab(t); });
+    t.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      var tabs = $$('[role=tab]', t.closest('[role=tablist]')), i = tabs.indexOf(t);
+      var n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      n.focus(); selectTab(n); e.preventDefault(); e.stopPropagation();
+    });
+  });
+
+  /* ---- Modes ---- */
+  function setReadonly(on) {
+    $$('#rp-in .rw').forEach(function (f) { if (f.tagName === 'SELECT') f.disabled = on; else f.readOnly = on; });
+  }
+  function enterReplay(step, focusList) {
+    app.classList.add('replaying');
+    selectTab(document.getElementById('rt-ve'));
+    selectTab(document.getElementById('bt-bm'));
+    setReadonly(true);
+    go(step, 'init');
+    if (focusList) list.focus();
+  }
+  function exitReplay(focusBack) {
+    app.classList.remove('replaying');
+    $$('.el').forEach(function (el) { el.classList.remove('hl'); });
+    $$('.edge').forEach(function (p) { p.setAttribute('marker-end', 'url(#arr)'); });
+    setReadonly(false);
+    selectTab(document.getElementById('bt-fi'));
+    if (focusBack) document.getElementById('replay-btn').focus();
+  }
+  document.getElementById('replay-btn').addEventListener('click', function () { enterReplay(0, true); }); /* spec: opens on Start */
+  $$('[data-exit-replay]').forEach(function (b) { b.addEventListener('click', function () { exitReplay(true); }); });
+  $$('[data-step]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var a = b.dataset.step;
+      go(a === 'first' ? 0 : a === 'last' ? STEPS.length - 1 : cur + (a === 'next' ? 1 : -1), 'button');
+    });
+  });
+  document.getElementById('scrubber').addEventListener('input', function (e) { go(+e.target.value, 'scrubber'); });
+  list.addEventListener('keydown', function (e) {
+    var k = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (k) { go(cur + k, 'list'); e.preventDefault(); }
+    if (e.key === 'Home') { go(0, 'list'); e.preventDefault(); }
+    if (e.key === 'End') { go(STEPS.length - 1, 'list'); e.preventDefault(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!app.classList.contains('replaying')) return;
+    if (e.key === 'Escape') { exitReplay(true); return; }
+    var inCanvas = e.target.closest && (e.target.closest('#canvas') || e.target.closest('.replaybar'));
+    if (!inCanvas || e.target.id === 'scrubber') return;
+    var map = { ArrowLeft: cur - 1, ArrowRight: cur + 1, Home: 0, End: STEPS.length - 1 };
+    if (e.key in map) { go(map[e.key], 'key'); e.preventDefault(); }
+  });
+
+  /* ---- Mockup presets and theme ---- */
+  function preset(name) {
+    $$('[data-preset]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.preset === name); });
+    if (name === 'replay') { enterReplay(4, false); return; }
+    exitReplay(false);
+    selectTab(document.getElementById(name === 'inspector' ? 'rt-in' : 'rt-ve'));
+  }
+  function theme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    $$('[data-theme-set]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.themeSet === t); });
+  }
+  $$('[data-preset]').forEach(function (b) { b.addEventListener('click', function () { preset(b.dataset.preset); }); });
+  $$('[data-theme-set]').forEach(function (b) { b.addEventListener('click', function () { theme(b.dataset.themeSet); }); });
+
+  /* Fit view: scale the drawing to the canvas (port names hide below 100 %, flows §4.3) */
+  function fit() {
+    var c = document.getElementById('canvas'), vp = $('.viewport');
+    var z = Math.min(1, (c.clientWidth - 16) / 1030, (c.clientHeight - 56) / 404);
+    z = Math.max(0.5, Math.floor(z * 20) / 20);
+    vp.style.transform = 'translate(4px, 8px) scale(' + z + ')'; vp.style.transformOrigin = '0 0';
+    c.classList.toggle('zoomed-out', z < 1);
+    setText('zoomval', Math.round(z * 100) + ' %');
+  }
+  window.addEventListener('resize', fit);
+  var _enter = enterReplay, _exit = exitReplay;
+  enterReplay = function (a, b) { _enter(a, b); fit(); };
+  exitReplay = function (a) { _exit(a); fit(); };
+
+  var h = location.hash;
+  theme(document.documentElement.getAttribute('data-theme'));
+  preset(/replay/.test(h) ? 'replay' : /inspector/.test(h) ? 'inspector' : 'verdicts');
+  fit();
+})();
+</script>
+</body>
+</html>

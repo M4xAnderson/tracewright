@@ -258,76 +258,97 @@ Core crates are library code, so Google's API rules bind them (API-1). `app/src-
 
 ## VER – Verdict honesty
 
-- **VER-1 must** Code constructs Proved only through the evidence paths of ADR 0008 and 0010: a certificate (e.g. a P-invariant) accepted by the certificate checker in `recheck` on its own composition of the nets, or agreement of the second explorer in `recheck`. A Disproved whose violation has no finite trace (no dead transitions, always reachable) needs the same agreement.
-  - The type system enforces this. The Proved variant holds an evidence type with private fields, and its only constructors live in those two paths. A new constructor is a finding.
-  - The second explorer stays a plain breadth-first search with no reductions. It runs on the unflattened nets and shares no code with the main explorer beyond the `net` types.
-  - The second explorer shares the check's budget. If it runs out, the verdict is Unknown ("budget exhausted"). If it disagrees, the verdict is Unknown ("internal disagreement") and the case is logged.
+- **VER-1 must** Code constructs Proved only through the two evidence paths of ADR 0008 as amended by ADR 0017: a certificate (in v1 only `NoOverflowPlace { drop_places }`; P-invariant bounds later) accepted by `recheck::check_certificate` on recheck's own composition of the open nets, or agreement of `recheck::explore` with `verify` (net-semantics §9.4, §9.5). There is no third path; a new certificate kind needs an amendment of net-semantics §9.5 first.
+  - The type system enforces this. The verdict the worker returns is `engine::check::Verdict` (design §3, D-53): it holds `CheckedProof` or `CheckedViolation` with private fields, and their only constructors live in those two paths (and, for Disproved, after `recheck::replay`). The `NetVerdict` that `verify::check` and `recheck::explore` return is a candidate and is never cached, shown or converted to a DTO. A new constructor is a finding.
+  - A Disproved whose violation is not a finite run needs the same agreement: no dead transitions (`Evidence::Exhaustive`, equal dead sets and marking counts) and the exhaustive part of always reachable (`CounterexampleThenExhaustive`: no p-marking and no overflow marking reachable from the replayed last marking).
+  - The second explorer stays a plain breadth-first search with no reductions. It runs on its own composition of the open nets (`recheck::compose`) and shares no code with the main explorer beyond the `net` types.
+  - The second explorer gets the markings verify did not use and the remaining wall clock (ADR 0010, decisions D-17). If it runs out, the verdict is Unknown "budget exhausted while re-checking". If it disagrees, or a certificate is rejected, the verdict is Unknown "internal disagreement" and the case is logged.
 
   ```rust
   // ✅
   pub enum Verdict {
-      Proved(CheckedEvidence),
-      Disproved(ReplayedCounterexample),
+      Proved(CheckedProof),          // Technique::Exhaustive (agreement) or Technique::Certificate (accepted)
+      Disproved(CheckedViolation),   // Counterexample (replayed), Exhaustive or CounterexampleThenExhaustive (confirmed)
       Unknown(UnknownReason),
   }
-  /// Built only by `evidence::check_certificate` and `evidence::confirm_by_second_explorer`.
-  pub struct CheckedEvidence { kind: EvidenceKind } // private field: no other module can build one
+  /// Built only after `recheck::check_certificate` accepted or `recheck::explore` agreed.
+  pub struct CheckedProof { technique: Technique, markings: u64 } // private fields: no other module can build one
   // ❌ a shortcut around the evidence path
-  if frontier.is_empty() { return Verdict::Proved(CheckedEvidence::exhaustive()); }
+  if frontier.is_empty() { return Verdict::Proved(CheckedProof::exhaustive()); }
   ```
-  (ADR 0008, GLOSSARY Proved)
+  (ADR 0008, ADR 0017, GLOSSARY Proved, Certificate)
 
   Why: a wrong Proved is the one failure the tool must never have, and a single unchecked path is enough to produce one.
-- **VER-2 must** Disproved is built only from a counterexample that `engine` has replayed on the original, unflattened model through the flattening map, and that reaches the violation. The Disproved variant holds that replayed counterexample. A replay that fails ends as Unknown ("internal disagreement") and is logged. (ADR 0008, ADR 0002)
-- **VER-3 must** Unknown always carries a reason from a closed enum: budget exhausted, cancelled, internal error, internal disagreement, unsupported construct, no counterexample up to depth N, and so on. It is never a free string and never empty.
-  - Every early return, error, cancellation, bound and panicked join in a check ends in exactly one verdict.
-  - `Verdict` has exactly three variants. A running check is a job state, not a verdict.
+- **VER-2 must** Disproved with a counterexample is built only after `recheck::replay` has replayed it on recheck's own composition and it reaches the violation (net-semantics §9.3); for a scope with a state machine, `engine::sm_replay` then checks it in state machine terms (slice 2). The run of an Unknown "capacity exceeded first" is replayed the same way. A replay that fails ends as Unknown "internal error" and is logged; "internal disagreement" is reserved for the two compositions, the two explorers and a rejected certificate.
+  - An evidence kind or certificate kind that does not match the property kind is Unknown "internal error".
+  - `recheck::replay` and `engine::sm_replay` are evidence checks; the glossary's Replay is the canvas act.
 
-  (GLOSSARY Unknown, ADR 0006)
+  (ADR 0008, ADR 0010, ADR 0017)
+- **VER-3 must** Unknown always carries exactly one reason from the closed enum of ADR 0017, in this order: model incomplete, property cannot be checked, internal disagreement, internal error, cancelled, budget exhausted (main or re-check phase), capacity exceeded first. It is never a free string and never empty. "No counterexample up to depth N" and "unsupported construct" are not reasons; a new reason is an ADR amendment and an IPC change.
+  - Every early return, error, cancellation, budget end and panicked join in a check ends in exactly one verdict. The reason is the event that ended the pipeline (net-semantics §10.2).
+  - `Verdict` has exactly three variants. A running check is a job state, not a verdict. Nothing to check (`KeyState::NothingToCheck`) is a key state with no verdict, never an Unknown.
+  - An Unknown is never cached and never rendered as success.
+
+  (GLOSSARY Unknown, ADR 0006, ADR 0013, ADR 0017)
 - **VER-4 must** Verdicts are never written to the project.
-  - The check hash covers the IDs of the flattened net and of the property, and excludes layout and display names. A layout change therefore never makes a verdict stale and never cancels a check.
-  - A scan produces findings, never verdicts. A rule that lacks data reports Not checkable, never Unknown.
+  - The CheckKey covers the canonical encoding of the flattened net and of the property, and excludes layout, display names and assumptions. A layout change therefore never makes a verdict stale and never cancels a check.
+  - The predicate is hashed as parsed: no code rewrites equivalent spellings (`p > 50` and `p >= 51` have different keys).
+  - The final predicate is part of `NetProperty::DeadlockFree { final }`, never of the net, so editing done when changes only the deadlock-free keys and, from slice 4, the keys of "can always get back to: done" template properties, whose expansion is the final predicate (ADR 0022).
+  - A scan produces findings, never verdicts. A rule that lacks data reports Not checkable, never Unknown. Findings carry the scan input hash, and a different hash renders them stale.
 
-  (ADR 0005, GLOSSARY)
+  (ADR 0005, ADR 0013, ADR 0018, ADR 0019, ADR 0021, ADR 0022, GLOSSARY)
+- **VER-5 must** What the verdict panel shows is what was checked.
+  - A property template is stored by kind, version and parameters and expanded at lowering into exactly one `NetProperty`; the "Checks:" line is rendered from the `NetProperty` the worker hashed, never from stored text or parameters. Every template and preset has a lowering golden test. A failed precondition is Unknown "property cannot be checked" with a named line, never a different or smaller property.
+  - Strings a slice cannot check yet are never interpreted: slice 0 keeps every predicate and `[final]` string opaque and lowers `final none`; a `[final]` table present in slice 0 is the warning `finalNotChecked`; user properties and templates are Unknown "property cannot be checked" before slice 4. Slice 1 adds the one predicate parser (`model::property`), used only by the final predicate until slice 4.
+  - Every Proved carries its technique and marking count to the UI, and the drop places of a `NoOverflowPlace` certificate, so the vacuity guard (slice 4: no dead transitions next to user properties) and the reader can see how much was covered.
+
+  (ADR 0018, ADR 0019, net-semantics §9.6, decisions D-05, D-20, D-25)
+
+  Why: a Proved for a question the user did not ask is as wrong as a wrong Proved.
 
 ## FMT – Project files
 
-- **FMT-1 must** The project format carries a version.
+- **FMT-1 must** Every project file carries its own format version (`format`).
   - Every change to the format bumps the version and ships in the same PR with a pure migration `vN → vN+1`, plus a fixture project of the old version and a test that it still loads.
   - Fixtures of released versions are never edited.
-  - A project from a newer version, or with an element kind the app does not know, is refused or opened read-only with a message. Unknown fields are never dropped silently.
+  - A project from a newer format version is refused with a message. An element file with a kind the app does not know does not load: it is reported, kept byte for byte and never written, and the scopes it could change are blocked (`docs/specs/file-format.md` §10.5).
+  - Unknown fields are never dropped silently: they are kept verbatim and reported. Strings a slice does not interpret yet (predicates and `[final]` in slice 0) are written back verbatim.
 
-  (ADR 0001, raubritter API-5, raubritter API-8)
+  (ADR 0001, ADR 0020, raubritter API-5, raubritter API-8)
 
   Why: project files outlive every release, and a migration that is not tested on an old project is how a user's model disappears after an update.
 - **FMT-2 must** Never lose a user's file.
-  - Save writes each changed file atomically: temp file in the same directory, `sync_all`, rename. `std::fs::write` is disallowed [auto].
-  - Every gesture is appended to the recovery journal in the app data folder.
-  - The loader reports dangling references instead of failing.
+  - Save writes each changed file atomically: a temp file `.pn-<8 random lowercase hex>.tmp` in the same directory, `sync_all`, rename, then fsync the directory. `std::fs::write` is disallowed [auto].
+  - Every gesture is appended to the recovery journal in the app data folder. A window that cannot hold the journal lock opens the project read-only; journals moved aside are all kept.
+  - The loader reports dangling references and name clashes as problems instead of failing; one bad element file never stops the project from opening.
   - A file that changed on disk while open is never silently overwritten (UX CNV-5).
-  - Code deletes or moves user files only as the direct result of a user command.
+  - Code deletes or moves user files only as the direct result of a user command. The app's own leftover temp files, matching exactly `.pn-<8 hex>.tmp`, are not user files and are removed at open.
 
   ```rust
   // ✅ crates/format: the only writer for project files
   fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-      let temp = path.with_extension("toml.tmp"); // same directory: rename stays on one file system
+      let dir = path.parent().expect("project files live in a directory");
+      let temp = dir.join(format!(".pn-{:08x}.tmp", random_u32())); // same directory: rename stays on one file system
       let mut file = File::create(&temp)?;
       file.write_all(bytes)?;
       file.sync_all()?;
-      fs::rename(&temp, path)
+      fs::rename(&temp, path)?; // Windows: retried on a sharing violation (file-format §11.4)
+      File::open(dir)?.sync_all()
   }
   // ❌ a crash mid-write leaves a truncated element file
   fs::write(path, bytes)?;
   ```
-  (ADR 0001, ADR 0006)
+  (ADR 0001, ADR 0006, ADR 0020)
 
   Why: the project is the user's work, often their only copy outside git, and every write path is a chance to truncate it.
 - **FMT-3 must** IDs are slugs, created once with a collision suffix (`order-api`, `order-api-2`). They never change on rename, and references between files use them.
+  - Element, relationship, view and property IDs are lowercase, start with a letter, do not end in `-`, have at most 48 characters and are never a Windows device name. Names inside a behavior model keep their case, contain no `__` and do not end in `-`. None is `and`, `or` or `not`. Display names keep any case.
+  - The slug generator never reissues an ID that anything still references.
   - The writer is canonical: deterministic order (sorted keys, `BTreeMap`, no `HashMap` iteration in output) and explicit serde attributes.
   - Layout goes only into the per-view layout files.
   - Reading and writing an unchanged project produces byte-identical files (TEST-3).
 
-  (ADR 0001, TigerStyle)
+  (ADR 0001, ADR 0020, TigerStyle)
 
   Why: stable IDs and canonical output keep a git diff limited to the change the user made, and a rename that rewrites IDs touches every file that references the element.
 
@@ -575,7 +596,7 @@ Core crates are library code, so Google's API rules bind them (API-1). `app/src-
 
 ## Appendix – Tool configuration essentials
 
-The configuration is the rule (G-2). These are the essentials; package names are assumed to be `petrinet-<dir>`. Check the deny.toml sketch against cargo-deny 0.20 when the workspace is created.
+The configuration is the rule (G-2). These are the essentials; package names are assumed to be `tracewright-<dir>`. Check the deny.toml sketch against cargo-deny 0.20 when the workspace is created.
 
 **`Cargo.toml` (workspace root).** Every member sets `[lints] workspace = true`. `rust-toolchain.toml` pins 1.99.1, and toolchain upgrades come in their own PR.
 
@@ -662,14 +683,16 @@ confidence-threshold = 0.9
 multiple-versions = "warn"
 wildcards = "deny"
 allow-wildcard-paths = true
-# ADR 0004: each crate may only be a direct dependency of the listed crates.
+# ADR 0004 and 0009: each crate may only be a direct dependency of the listed crates.
 deny = [
-  { crate = "tauri", wrappers = ["petrinet-app", "tauri-plugin-dialog"] },
-  { crate = "petrinet-model", wrappers = ["petrinet-format", "petrinet-scan", "petrinet-engine", "petrinet-app"] },
-  { crate = "petrinet-format", wrappers = ["petrinet-engine"] },
-  { crate = "petrinet-verify", wrappers = ["petrinet-engine"] },
-  { crate = "petrinet-scan", wrappers = ["petrinet-engine"] },
-  { crate = "petrinet-engine", wrappers = ["petrinet-app"] },
+  { crate = "tauri", wrappers = ["tracewright-app", "tauri-plugin-dialog"] },
+  { crate = "tracewright-model", wrappers = ["tracewright-format", "tracewright-scan", "tracewright-engine", "tracewright-app"] },
+  { crate = "tracewright-net", wrappers = ["tracewright-verify", "tracewright-recheck", "tracewright-engine"] },
+  { crate = "tracewright-format", wrappers = ["tracewright-engine"] },
+  { crate = "tracewright-verify", wrappers = ["tracewright-engine"] },
+  { crate = "tracewright-recheck", wrappers = ["tracewright-engine"] },
+  { crate = "tracewright-scan", wrappers = ["tracewright-engine"] },
+  { crate = "tracewright-engine", wrappers = ["tracewright-app"] },
 ]
 
 [sources]
@@ -679,9 +702,9 @@ unknown-git = "deny"
 
 **Boundary step in `check`.** cargo-deny `wrappers` only see direct parents, so `check` also verifies that no core crate reaches tokio or Tauri through any path:
 ```sh
-for crate in model format verify scan engine; do
-  if cargo tree -p "petrinet-$crate" -e normal --prefix none | grep -Eq '^(tokio|tauri) '; then
-    echo "ADR 0004: petrinet-$crate depends on tokio or tauri"; exit 1
+for crate in model net format verify recheck scan engine; do
+  if cargo tree -p "tracewright-$crate" -e normal --prefix none | grep -Eq '^(tokio|tauri) '; then
+    echo "ADR 0004: tracewright-$crate depends on tokio or tauri"; exit 1
   fi
 done
 ```
