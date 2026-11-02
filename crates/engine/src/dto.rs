@@ -24,6 +24,8 @@ pub enum EngineEvent {
     CurrentKeys(CurrentKeys),
     /// A check for this key is queued or running: the row shows `V-RUN`.
     CheckQueued(CheckQueued),
+    /// A running check's markings so far, at most 4 per second per check.
+    CheckProgress(CheckProgress),
     /// The verdict of one check.
     Verdict(VerdictEvent),
 }
@@ -62,6 +64,23 @@ pub struct CheckQueued {
     pub property: String,
     /// The key of the net the check explores.
     pub key: CheckKey,
+}
+
+/// How far a running check is: the markings its current phase has stored (flows §4.7 `V-RUN`,
+/// contract R11). The count restarts when the recheck phase begins.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "check-progress.ts")]
+pub struct CheckProgress {
+    /// The property ID.
+    pub property: String,
+    /// The key of the net the check explores.
+    pub key: CheckKey,
+    /// Exploring (main) or re-checking.
+    pub phase: Phase,
+    /// Markings stored so far in this phase, the initial marking included.
+    #[ts(type = "number")]
+    pub markings: u64,
 }
 
 /// The verdict of one check, with the key of the net that was checked.
@@ -104,7 +123,7 @@ pub enum Outcome {
     Unknown(UnknownVerdict),
 }
 
-/// A Proved: how and over how many markings (VER-5, `V-PRO-1`).
+/// A Proved: how and over how many markings (VER-5, `V-PRO-1`). A certificate has 0 markings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "proved-dto.ts")]
@@ -116,13 +135,24 @@ pub struct ProvedDto {
     pub markings: u64,
 }
 
-/// How a Proved was reached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+/// How a Proved was reached: the two paths of ADR 0008.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "technique.ts")]
 pub enum Technique {
     /// Both explorers explored every reachable marking and agreed.
     Exhaustive,
+    /// No place overflows when full; the second explorer checked the certificate (NS §9.5).
+    NoOverflowPlace(NoOverflowPlaceDto),
+}
+
+/// The `NoOverflowPlace` certificate of a Proved no capacity exceeded (D-03).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "no-overflow-place-dto.ts")]
+pub struct NoOverflowPlaceDto {
+    /// The places that drop when full: messages can still be lost there.
+    pub drop_places: Vec<PlaceOrigin>,
 }
 
 /// A Disproved with its counterexample.
@@ -188,6 +218,21 @@ pub struct PlaceRef {
     pub place: String,
 }
 
+/// Where a place of the flattened net comes from (NS §6.7): a place of an element's Petri net, or
+/// the generated place of a relationship's asynchronous binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "place-origin.ts")]
+pub enum PlaceOrigin {
+    /// A place of one element.
+    Own(PlaceRef),
+    /// The queue of an asynchronous binding; its ID is the relationship's.
+    Generated {
+        /// The relationship.
+        relationship: String,
+    },
+}
+
 /// What the last marking of a counterexample violates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -195,6 +240,21 @@ pub struct PlaceRef {
 pub enum ViolationDto {
     /// No transition is enabled (NS §7).
     Deadlock(DeadlockDto),
+    /// A place holds more than its capacity (NS §8.2, `V-DIS-CAP-*`).
+    Overflow(OverflowDto),
+}
+
+/// An overflow marking: the smallest-ID place above its capacity.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "overflow-dto.ts")]
+pub struct OverflowDto {
+    /// The place.
+    pub place: PlaceOrigin,
+    /// Its capacity.
+    pub capacity: u32,
+    /// What it holds in the last marking.
+    pub count: u32,
 }
 
 /// A deadlock: who waits for what (flows R1, `V-DIS-DL-*`).
@@ -226,7 +286,7 @@ pub struct WaitingDto {
 #[ts(export, export_to = "wait-dto.ts")]
 pub struct WaitDto {
     /// The place.
-    pub place: PlaceRef,
+    pub place: PlaceOrigin,
     /// Why.
     pub reason: WaitReason,
 }
@@ -270,6 +330,10 @@ pub enum UnknownDto {
     ModelIncomplete {
         /// The causes.
         details: Vec<String>,
+        /// The problems behind the first `causes.len()` lines, so the UI can render each in the
+        /// user's terms (`U-INC-*`, flows R2). Lines after them are causes only lowering found
+        /// (for example L7), which have no problem kind.
+        causes: Vec<ProblemDto>,
     },
     /// The property cannot be checked (yet); one line per cause.
     PropertyNotCheckable {
@@ -290,10 +354,16 @@ pub enum UnknownDto {
         #[ts(type = "number")]
         markings: u64,
     },
-    /// An overflow place exceeded its capacity before the property was decided.
+    /// An overflow place exceeded its capacity before the property was decided (`U-CEF-*`).
     CapacityExceededFirst {
-        /// The place, as a qualified ID until its ticket maps it to an element.
-        place: String,
+        /// The smallest-ID exceeded place of the first overflow marking (contract R4).
+        place: PlaceOrigin,
+        /// Its capacity.
+        capacity: u32,
+        /// What it holds at the end of the run.
+        count: u32,
+        /// The run to that overflow marking, replayed by the second explorer.
+        frames: Vec<ReplayFrame>,
     },
 }
 
@@ -325,6 +395,8 @@ pub struct View {
     pub relationships: Vec<RelationshipView>,
     /// Properties of the system and of its children, by scope element, then file order.
     pub properties: Vec<PropertyView>,
+    /// Every problem of the project, sorted by file, then line (flows §4.5).
+    pub problems: Vec<ProblemDto>,
 }
 
 /// An element as the view shows it.
@@ -375,6 +447,13 @@ pub enum ElementKind {
 pub enum BehaviorView {
     /// A Petri net.
     PetriNet(PetriNetView),
+    /// The behavior section did not load (file-format §3.3); the Problems list has the cause too.
+    Unloaded {
+        /// What is wrong, as the reader found it.
+        message: String,
+        /// The 1-based line in the element's file, when the parser knows it.
+        line: Option<u32>,
+    },
 }
 
 /// A Petri net: places and transitions by name, as in the element's file.
@@ -533,6 +612,8 @@ pub struct PropertyView {
     pub label: Option<String>,
     /// What it states.
     pub kind: PropertyKind,
+    /// The template ID when `kind` is `template`, for example `pool-share`.
+    pub template: Option<String>,
     /// Its scope.
     pub scope: ScopeView,
 }
@@ -552,6 +633,8 @@ pub enum PropertyKind {
     Never,
     /// Always reachable p.
     AlwaysReachable,
+    /// A template property (D-11); `PropertyView.template` names it.
+    Template,
 }
 
 /// The scope of a property: its element and behavior.
@@ -574,4 +657,98 @@ pub enum Behavior {
     Own,
     /// The combined behavior of its children.
     Combined,
+}
+
+/// One problem (file-format §10.2, flows R2): it makes a file not load or a check not run. The
+/// UI renders the Problems list copy (`PR-*`) from the typed fields and falls back to `message`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "problem-dto.ts")]
+pub struct ProblemDto {
+    /// What is wrong.
+    pub kind: ProblemKind,
+    /// The NS L-rule, PL code or LIM-2.
+    pub code: Option<String>,
+    /// Error or warning.
+    pub severity: Severity,
+    /// The project file.
+    pub file: Option<String>,
+    /// 1-based line, for problems found while parsing.
+    pub line: Option<u32>,
+    /// 1-based column.
+    pub column: Option<u32>,
+    /// The element ID.
+    pub element: Option<String>,
+    /// The relationship ID.
+    pub relationship: Option<String>,
+    /// A port, as its qualified ID `element/name`.
+    pub port: Option<String>,
+    /// A place, as its qualified ID `element/name`.
+    pub place: Option<String>,
+    /// The property ID.
+    pub property: Option<String>,
+    /// The cause, with qualified IDs.
+    pub message: String,
+}
+
+/// The problem kinds of file-format §10.3 that slice 0 reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "problem-kind.ts")]
+pub enum ProblemKind {
+    /// The file is not valid TOML or not UTF-8.
+    Parse,
+    /// The file fails at the element level.
+    Schema,
+    /// The file is over a limit.
+    TooLarge,
+    /// The behavior model section did not load.
+    BehaviorNotLoaded,
+    /// L1.
+    NoBehavior,
+    /// L2.
+    NoWhenFull,
+    /// L3: a parent, relationship target or arc place that names nothing.
+    Dangling,
+    /// L3: a binding port that does not exist.
+    UnknownPort,
+    /// L4.
+    Unbound,
+    /// L5.
+    NotAPort,
+    /// L6.
+    BindingSelf,
+    /// L8.
+    BindingAsync,
+    /// L10.
+    NameClash,
+    /// L10, L13.
+    NoCapacity,
+    /// L10.
+    BadInitial,
+    /// L11.
+    BindingDirection,
+    /// L12.
+    BindingDuplicate,
+    /// L13.
+    BadBinding,
+    /// L3.
+    DuplicateId,
+    /// L3.
+    ParentCycle,
+    /// PL E4xx, E114.
+    Property,
+    /// D-25.
+    FinalNotChecked,
+}
+
+/// Error or warning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "severity.ts")]
+pub enum Severity {
+    /// A file does not load or a check does not run.
+    Error,
+    /// Reported; checks run.
+    Warning,
 }

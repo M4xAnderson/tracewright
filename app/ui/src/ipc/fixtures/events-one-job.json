@@ -15,6 +15,13 @@
   },
   {
     "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {
@@ -44,6 +51,7 @@
               {
                 "place": {
                   "element": "job",
+                  "kind": "own",
                   "place": "done"
                 },
                 "reason": {
@@ -55,6 +63,7 @@
               {
                 "place": {
                   "element": "job",
+                  "kind": "own",
                   "place": "todo"
                 },
                 "reason": {

@@ -2,11 +2,9 @@
 //! evidence re-checked by recheck before the Session emits a verdict (ADR 0008, 0010).
 
 use tracewright_engine::EngineEvent;
-use tracewright_engine::KeyState;
 use tracewright_engine::dto::Outcome;
 use tracewright_engine::dto::Technique;
 use tracewright_engine::dto::TransitionOrigin;
-use tracewright_engine::dto::UnknownDto;
 use tracewright_engine::dto::VerdictDto;
 use tracewright_engine::dto::ViolationDto;
 
@@ -40,7 +38,7 @@ fn proved(verdict: &VerdictDto) -> (Technique, u64) {
     let Outcome::Proved(proof) = &verdict.outcome else {
         panic!("not Proved: {verdict:?}")
     };
-    (proof.technique, proof.markings)
+    (proof.technique.clone(), proof.markings)
 }
 
 #[test]
@@ -51,7 +49,9 @@ fn opposite_locks_are_disproved_with_the_two_step_counterexample_of_v13() {
     let Outcome::Disproved(disproved) = &verdict.outcome else {
         unreachable!()
     };
-    let ViolationDto::Deadlock(deadlock) = &disproved.violation;
+    let ViolationDto::Deadlock(deadlock) = &disproved.violation else {
+        panic!("not a deadlock: {:?}", disproved.violation)
+    };
     let waiting_transitions: Vec<String> = deadlock
         .waiting
         .iter()
@@ -108,30 +108,18 @@ fn keys_come_first_and_each_verdict_carries_its_current_key() {
         matches!(run.events[0], EngineEvent::CurrentKeys(_)),
         "currentKeys is the first event"
     );
-    let EngineEvent::Verdict(verdict) = &run.events[2] else {
-        panic!("{:?}", run.events[2])
-    };
-    assert_eq!(&verdict.key, run.key("no-deadlock"));
-    assert_eq!(
-        run.events.len(),
-        3,
-        "one verdict: only no-deadlock is checked so far"
-    );
-}
-
-#[test]
-fn no_capacity_exceeded_is_not_checked_yet() {
-    // It arrives with the asynchronous-bindings and certificate tickets; until then the Session
-    // says so instead of checking a property it cannot decide.
-    let run = run_checks(&MemDisk::fixture("e1b-opposite-locks"));
-    assert!(
-        matches!(
-            run.key_state("no-overflow"),
-            KeyState::Unknown(UnknownDto::PropertyNotCheckable { .. })
-        ),
-        "{:?}",
-        run.key_state("no-overflow")
-    );
+    let verdicts: Vec<_> = run
+        .events
+        .iter()
+        .filter_map(|event| match event {
+            EngineEvent::Verdict(verdict) => Some(verdict),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(verdicts.len(), 2, "no-deadlock and no-overflow");
+    for verdict in verdicts {
+        assert_eq!(&verdict.key, run.key(&verdict.property));
+    }
 }
 
 #[test]

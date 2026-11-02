@@ -1,0 +1,142 @@
+[
+  {
+    "keys": {
+      "no-deadlock": {
+        "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69"
+      },
+      "no-overflow": {
+        "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f"
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f",
+    "kind": "checkQueued",
+    "property": "no-overflow"
+  },
+  {
+    "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69",
+    "kind": "checkQueued",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-overflow"
+  },
+  {
+    "key": "fb598c29a0cd18847bb0e28a2bb07cfbdc73fa6d7dc0a87e3470ef7352fd351f",
+    "kind": "verdict",
+    "property": "no-overflow",
+    "verdict": {
+      "assumptions": [],
+      "frames": [
+        {
+          "fired": {
+            "element": "api",
+            "kind": "own",
+            "transition": "publish"
+          },
+          "step": 1
+        },
+        {
+          "fired": {
+            "element": "api",
+            "kind": "own",
+            "transition": "publish"
+          },
+          "step": 2
+        },
+        {
+          "fired": {
+            "element": "api",
+            "kind": "own",
+            "transition": "publish"
+          },
+          "step": 3
+        },
+        {
+          "fired": {
+            "element": "api",
+            "kind": "own",
+            "transition": "publish"
+          },
+          "step": 4
+        }
+      ],
+      "kind": "disproved",
+      "violation": {
+        "capacity": 3,
+        "count": 4,
+        "kind": "overflow",
+        "place": {
+          "kind": "generated",
+          "relationship": "orders"
+        }
+      }
+    }
+  },
+  {
+    "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "0650d5cd846d71b725d36f0e309e332284efde08759505ecddc3c6abba4c5d69",
+    "kind": "verdict",
+    "property": "no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "kind": "unknown",
+      "reason": {
+        "capacity": 3,
+        "category": "capacityExceededFirst",
+        "count": 4,
+        "frames": [
+          {
+            "fired": {
+              "element": "api",
+              "kind": "own",
+              "transition": "publish"
+            },
+            "step": 1
+          },
+          {
+            "fired": {
+              "element": "api",
+              "kind": "own",
+              "transition": "publish"
+            },
+            "step": 2
+          },
+          {
+            "fired": {
+              "element": "api",
+              "kind": "own",
+              "transition": "publish"
+            },
+            "step": 3
+          },
+          {
+            "fired": {
+              "element": "api",
+              "kind": "own",
+              "transition": "publish"
+            },
+            "step": 4
+          }
+        ],
+        "place": {
+          "kind": "generated",
+          "relationship": "orders"
+        }
+      }
+    }
+  }
+]

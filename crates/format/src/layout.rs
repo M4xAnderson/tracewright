@@ -73,18 +73,46 @@ struct ItemLayout {
     points: Vec<[i32; 2]>,
 }
 
-/// Reads one layout file.
-pub(crate) fn read(path: &str, text: &str) -> Result<Layout, LoadError> {
-    let document: toml_edit::DocumentMut = text
-        .parse()
-        .map_err(|error: toml_edit::TomlError| crate::schema(path, &error.to_string()))?;
-    check_counts(path, &document)?;
-    let file: LayoutFile = toml_edit::de::from_document(document)
-        .map_err(|error| crate::schema(path, &error.to_string()))?;
-    crate::check_version(path, file.format)?;
+/// Why a layout file does not load, in plain words; the element stays unplaced.
+type NotLoaded = String;
+
+/// Reads one layout file. The outer error stops the project (a newer format, file-format §3.2);
+/// the inner one only leaves the element unplaced (§3.3).
+pub(crate) fn read(path: &str, bytes: &[u8]) -> Result<Result<Layout, NotLoaded>, LoadError> {
+    if bytes.len() > LAYOUT_FILE_BYTES_MAX {
+        return Ok(Err(format!(
+            "the file is {} bytes; the limit is {LAYOUT_FILE_BYTES_MAX}",
+            bytes.len()
+        )));
+    }
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return Ok(Err("the file is not UTF-8".to_owned()));
+    };
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let document: toml_edit::DocumentMut = match text.parse() {
+        Ok(document) => document,
+        Err(error) => return Ok(Err(error.to_string())),
+    };
+    if let Err(reason) = check_counts(&document) {
+        return Ok(Err(reason));
+    }
+    let file: LayoutFile = match toml_edit::de::from_document(document) {
+        Ok(file) => file,
+        Err(error) => return Ok(Err(error.to_string())),
+    };
+    let Some(found) = file.format else {
+        return Ok(Err("format is missing; add `format = 1`".to_owned()));
+    };
+    if let Err(reason) = crate::check_version(path, found)? {
+        return Ok(Err(reason));
+    }
+    Ok(decode(&file))
+}
+
+fn decode(file: &LayoutFile) -> Result<Layout, NotLoaded> {
     for (id, relationship) in &file.relationships {
         for point in &relationship.points {
-            coordinates(path, &format!("bend point of {id}"), *point)?;
+            coordinates(&format!("bend point of {id}"), *point)?;
         }
     }
     if let Some(behavior) = &file.behavior {
@@ -94,15 +122,16 @@ pub(crate) fn read(path: &str, text: &str) -> Result<Layout, LoadError> {
             .chain(&behavior.transitions)
             .chain(&behavior.states);
         for (name, item) in items {
-            item_ranges(path, name, item)?;
+            item_ranges(name, item)?;
         }
     }
     let position = file
         .position
-        .map(|table| {
-            coordinates(path, "position", [table.x, table.y])?;
-            extent(path, "position", table.w)?;
-            extent(path, "position", table.h)?;
+        .as_ref()
+        .map(|table| -> Result<Position, NotLoaded> {
+            coordinates("position", [table.x, table.y])?;
+            extent("position", table.w)?;
+            extent("position", table.h)?;
             Ok(Position {
                 x: table.x,
                 y: table.y,
@@ -115,7 +144,7 @@ pub(crate) fn read(path: &str, text: &str) -> Result<Layout, LoadError> {
 }
 
 // LIM-2: the counts are taken on the parsed document, before anything is decoded.
-fn check_counts(path: &str, document: &toml_edit::DocumentMut) -> Result<(), LoadError> {
+fn check_counts(document: &toml_edit::DocumentMut) -> Result<(), NotLoaded> {
     let table_len = |key: &str| {
         document
             .get(key)
@@ -132,7 +161,9 @@ fn check_counts(path: &str, document: &toml_edit::DocumentMut) -> Result<(), Loa
         }
     }
     if entries > LAYOUT_ENTRIES_MAX {
-        return Err(too_many(path, "the layout", entries, LAYOUT_ENTRIES_MAX));
+        return Err(format!(
+            "the layout has {entries} entries; the limit is {LAYOUT_ENTRIES_MAX}"
+        ));
     }
     if let Some(relationships) = document
         .get("relationships")
@@ -144,58 +175,48 @@ fn check_counts(path: &str, document: &toml_edit::DocumentMut) -> Result<(), Loa
                 .and_then(toml_edit::Item::as_array)
                 .map_or(0, toml_edit::Array::len);
             if points > BEND_POINTS_MAX {
-                let what = format!("relationships.{id}.points");
-                return Err(too_many(path, &what, points, BEND_POINTS_MAX));
+                return Err(format!(
+                    "relationships.{id} has {points} bend points; the limit is {BEND_POINTS_MAX}"
+                ));
             }
         }
     }
     Ok(())
 }
 
-fn too_many(path: &str, what: &str, count: usize, max: usize) -> LoadError {
-    LoadError::TooMany {
-        path: path.to_owned(),
-        what: what.to_owned(),
-        count,
-        max,
-    }
-}
-
-fn item_ranges(path: &str, name: &str, item: &ItemLayout) -> Result<(), LoadError> {
+fn item_ranges(name: &str, item: &ItemLayout) -> Result<(), NotLoaded> {
     if let Some(x) = item.x {
-        coordinates(path, name, [x, 0])?;
+        coordinates(name, [x, 0])?;
     }
     if let Some(y) = item.y {
-        coordinates(path, name, [0, y])?;
+        coordinates(name, [0, y])?;
     }
-    extent(path, name, item.w)?;
-    extent(path, name, item.h)?;
+    extent(name, item.w)?;
+    extent(name, item.h)?;
     for point in &item.points {
-        coordinates(path, name, *point)?;
+        coordinates(name, *point)?;
     }
     Ok(())
 }
 
-fn coordinates(path: &str, what: &str, [x, y]: [i32; 2]) -> Result<(), LoadError> {
+fn coordinates(what: &str, [x, y]: [i32; 2]) -> Result<(), NotLoaded> {
     for value in [x, y] {
         if value.unsigned_abs() > COORDINATE_MAX.unsigned_abs() {
-            return Err(crate::schema(
-                path,
-                &format!("{what}: {value} is outside -{COORDINATE_MAX} ..= {COORDINATE_MAX}"),
+            return Err(format!(
+                "{what}: {value} is outside -{COORDINATE_MAX} ..= {COORDINATE_MAX}"
             ));
         }
     }
     Ok(())
 }
 
-fn extent(path: &str, what: &str, value: Option<u32>) -> Result<(), LoadError> {
+fn extent(what: &str, value: Option<u32>) -> Result<(), NotLoaded> {
     let Some(value) = value else {
         return Ok(());
     };
     if value == 0 || value > EXTENT_MAX {
-        return Err(crate::schema(
-            path,
-            &format!("{what}: a size of {value} is outside 1 ..= {EXTENT_MAX}"),
+        return Err(format!(
+            "{what}: a size of {value} is outside 1 ..= {EXTENT_MAX}"
         ));
     }
     Ok(())

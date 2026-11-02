@@ -1,0 +1,140 @@
+# Budget vectors of docs/specs/net-semantics.md §14.2: B1 to B8 and B10 to B13. Read by the tests
+# of `verify` and of `recheck`, each with its own harness (ADR 0010). B9 needs "never p" and is
+# checked through the engine's split instead (fake Clock).
+#
+# `n` is the budget N of the whole check; the main phase gets ⌊N/2⌋ markings and the recheck phase
+# N − ⌊N/2⌋ (NS §10.1). `property` is "deadlock-free" unless stated. `expect` is the main phase's
+# outcome on ⌊N/2⌋ markings: "exhausted" with the stored `markings`, "disproved" with the
+# counterexample length `steps`, "proved" with |R| in `markings`, "cancelled" when `cancel` is set
+# before the phase starts, or "certificate" for a Proved by NoOverflowPlace that explores nothing,
+# whatever the budget. A place is `block` unless it states `when_full`.
+
+[nets.PC_block]
+places = [
+  { id = "c/got", capacity = 5 },
+  { id = "p/items", capacity = 5, initial = 5 },
+  { id = "r", capacity = 3 },
+]
+transitions = [
+  { id = "c/consume", pre = { "r" = 1 }, post = { "c/got" = 1 } },
+  { id = "p/produce", pre = { "p/items" = 1 }, post = { "r" = 1 } },
+]
+
+[nets.PC_overflow]
+places = [
+  { id = "c/got", capacity = 5 },
+  { id = "p/items", capacity = 5, initial = 5 },
+  { id = "r", capacity = 3, when_full = "overflow" },
+]
+transitions = [
+  { id = "c/consume", pre = { "r" = 1 }, post = { "c/got" = 1 } },
+  { id = "p/produce", pre = { "p/items" = 1 }, post = { "r" = 1 } },
+]
+
+[nets.POOL]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+]
+
+[nets.LOCKS_xy]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_x+acq_x", pre = { "b/idle" = 1, "l/x" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_y+acq_y", pre = { "b/has_1" = 1, "l/y" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+]
+
+[[vector]]
+id = "B1"
+net = "PC_overflow"
+property = "no-capacity-exceeded"
+n = 16
+expect = "exhausted"
+markings = 8
+
+[[vector]]
+id = "B2"
+net = "PC_overflow"
+property = "no-capacity-exceeded"
+n = 18
+expect = "disproved"
+steps = 4
+
+[[vector]]
+id = "B3"
+net = "PC_block"
+n = 34
+expect = "exhausted"
+markings = 17
+
+[[vector]]
+id = "B4"
+net = "PC_block"
+n = 36
+expect = "disproved"
+steps = 10
+
+[[vector]]
+id = "B5"
+net = "POOL"
+n = 5
+expect = "exhausted"
+markings = 2
+
+[[vector]]
+id = "B6"
+net = "POOL"
+n = 6
+expect = "proved"
+markings = 3
+
+[[vector]]
+id = "B7"
+net = "LOCKS_xy"
+n = 9
+expect = "exhausted"
+markings = 4
+
+[[vector]]
+id = "B8"
+net = "LOCKS_xy"
+n = 10
+expect = "proved"
+markings = 5
+
+[[vector]]
+id = "B10"
+net = "POOL"
+n = 100
+cancel = true
+expect = "cancelled"
+
+[[vector]]
+id = "B11"
+net = "PC_overflow"
+n = 38
+expect = "exhausted"
+markings = 19
+
+[[vector]]
+id = "B12"
+net = "PC_overflow"
+n = 40
+expect = "disproved"
+steps = 10
+
+[[vector]]
+id = "B13"
+net = "PC_block"
+property = "no-capacity-exceeded"
+n = 1
+expect = "certificate"

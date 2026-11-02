@@ -167,4 +167,24 @@ describe("the behavior model pane", () => {
       "No behavior model. Add it in elements/w.toml, then choose Reload.",
     );
   });
+
+  test("an element whose behavior model did not load says so, on the canvas and in the pane", async () => {
+    const opened = structuredClone(openedWorkerPool);
+    const pool = opened.view.elements.find((e) => e.id === "w");
+    if (pool === undefined) {
+      throw new Error("the fixture has the worker pool");
+    }
+    Object.assign(pool, {
+      behavior: { kind: "unloaded", message: "capacity must be at least 1", line: 7 },
+    });
+    const canvas = await openProject(opened);
+
+    const element = await within(canvas).findByRole("button", { name: "Worker pool, container" });
+    expect(element).toHaveTextContent("File has an error");
+    expect(element).toHaveAccessibleDescription("The behavior model did not load.");
+    await userEvent.click(element);
+    expect(bottomPane()).toHaveTextContent(
+      "The behavior model in elements/w.toml did not load (line 7): capacity must be at least 1. Fix it, then choose Reload.",
+    );
+  });
 });

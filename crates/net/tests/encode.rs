@@ -109,3 +109,64 @@ fn the_net_encoding_ends_in_lf_so_the_property_line_stands_alone() {
     // NS §14.4 (f)
     assert_eq!(encode::canonical(&c1()).last(), Some(&b'\n'));
 }
+
+// NS §14.3 C4: PC(overflow), the asynchronous binding lowered with its default when_full.
+fn pc(when_full: WhenFull) -> Net {
+    Net {
+        places: vec![
+            place("p/items", 5),
+            place("c/got", 5),
+            Place {
+                id: q("r"),
+                capacity: 3,
+                when_full,
+            },
+        ],
+        transitions: vec![
+            transition("p/produce", &[("p/items", 1)], &[("r", 1)]),
+            transition("c/consume", &[("r", 1)], &[("c/got", 1)]),
+        ],
+        initial: Marking(arcs(&[("p/items", 5)])),
+    }
+}
+
+#[test]
+fn c4_a_generated_overflow_place_encodes_to_the_vector_text() {
+    let expected = "petrinet-net 1\n\
+                    place c/got 5 block 0\n\
+                    place p/items 5 block 5\n\
+                    place r 3 overflow 0\n\
+                    transition c/consume\n\
+                    pre r 1\n\
+                    post c/got 1\n\
+                    transition p/produce\n\
+                    pre p/items 1\n\
+                    post r 1\n";
+    assert_eq!(
+        String::from_utf8(encode::canonical(&pc(WhenFull::Overflow))).unwrap(),
+        expected
+    );
+}
+
+#[test]
+fn when_full_is_part_of_the_encoding() {
+    // NS §14.4 (b) and C5: block, drop and overflow give three different encodings.
+    let line = |when_full| {
+        let text = String::from_utf8(encode::canonical(&pc(when_full))).unwrap();
+        text.lines()
+            .find(|line| line.starts_with("place r "))
+            .unwrap()
+            .to_owned()
+    };
+    assert_eq!(line(WhenFull::Block), "place r 3 block 0");
+    assert_eq!(line(WhenFull::Drop), "place r 3 drop 0");
+    assert_eq!(line(WhenFull::Overflow), "place r 3 overflow 0");
+}
+
+#[test]
+fn no_capacity_exceeded_is_encoded_as_capacity_never_exceeded() {
+    assert_eq!(
+        encode::canonical_property(&NetProperty::CapacityNeverExceeded),
+        b"property capacity-never-exceeded\n"
+    );
+}

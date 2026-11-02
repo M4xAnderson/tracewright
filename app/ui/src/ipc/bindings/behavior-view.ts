@@ -4,4 +4,12 @@ import type { PetriNetView } from "./petri-net-view";
 /**
  * A behavior model as the behavior model pane draws it.
  */
-export type BehaviorView = { "kind": "petriNet" } & PetriNetView;
+export type BehaviorView = { "kind": "petriNet" } & PetriNetView | { "kind": "unloaded", 
+/**
+ * What is wrong, as the reader found it.
+ */
+message: string, 
+/**
+ * The 1-based line in the element's file, when the parser knows it.
+ */
+line: number | null, };

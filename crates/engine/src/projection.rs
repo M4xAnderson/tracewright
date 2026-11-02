@@ -30,6 +30,10 @@ pub(crate) fn element_view(model: &Model, element: &Element) -> dto::ElementView
         position,
         behavior: element.behavior.as_ref().map(|behavior| match behavior {
             BehaviorModel::PetriNet(net) => dto::BehaviorView::PetriNet(petri_net_view(net)),
+            BehaviorModel::Unloaded { problem } => dto::BehaviorView::Unloaded {
+                message: problem.message.clone(),
+                line: problem.line,
+            },
         }),
     }
 }

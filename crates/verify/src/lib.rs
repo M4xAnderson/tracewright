@@ -1,24 +1,29 @@
 //! The main explorer. It has its own firing rule, capacity rule and property evaluation and
 //! depends only on `tracewright-net` (ADR 0009). Written from `docs/specs/net-semantics.md`
-//! §4, §7, §8.1, §10.1 and §12, never from `recheck`.
+//! §3.2, §4, §7, §8.1, §8.2, §9.5, §10.1 and §12, never from `recheck`.
 //!
 //! It explores without reductions in the normative order of NS §12: breadth-first from the
 //! initial marking, transitions in canonical ID order, the violation test at discovery. So the
-//! first deadlock it finds has a shortest counterexample, and its marking count must equal
-//! recheck's (NS §9.4).
+//! first violation it finds has a shortest counterexample, and its marking count must equal
+//! recheck's (NS §9.4). Overflow markings are stored (for de-duplication and the budget) but
+//! never expanded: they have no successors (NS §4.4).
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use tracewright_net::Budget;
+use tracewright_net::Certificate;
 use tracewright_net::Counterexample;
 use tracewright_net::Evidence;
 use tracewright_net::Marking;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
+use tracewright_net::POLL_EXPANSIONS;
 use tracewright_net::Phase;
+use tracewright_net::Progress;
 use tracewright_net::QualifiedId;
 use tracewright_net::Step;
 use tracewright_net::Technique;
@@ -30,17 +35,63 @@ use tracewright_net::WaitReason;
 use tracewright_net::WhenFull;
 use tracewright_net::validate;
 
-/// Decides `property` on `net`, storing at most `budget.max_markings` markings.
+/// Decides `property` on `net` within `budget`: at most `budget.max_markings` stored markings,
+/// and the deadline and the cancel flag polled every [`POLL_EXPANSIONS`] expansions (NS §10.1).
+/// No capacity exceeded on a net without an overflow place is Proved by the `NoOverflowPlace`
+/// certificate without exploring (NS §8.2), so it never polls.
 ///
 /// An invalid net is Unknown "internal error": engine validates before it hands a net over, so an
 /// invalid one here is a bug upstream (NS §2.3).
 #[must_use]
 pub fn check(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    check_reporting(net, property, budget, &mut |_progress| {})
+}
+
+/// [`check`], calling `progress` at every poll with the markings stored so far.
+#[must_use]
+pub fn check_reporting(
+    net: &Net,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
     if validate::net(net).is_err() {
         return NetVerdict::Unknown(UnknownReason::InternalError);
     }
+    let compiled = Compiled::new(net);
     match property {
-        NetProperty::DeadlockFree => deadlock_free(&Compiled::new(net), budget.max_markings),
+        NetProperty::DeadlockFree => explore(&compiled, property, budget, progress),
+        NetProperty::CapacityNeverExceeded => {
+            if compiled.when_full.contains(&WhenFull::Overflow) {
+                explore(&compiled, property, budget, progress)
+            } else {
+                no_overflow_place(&compiled)
+            }
+        }
+    }
+}
+
+// NS §8.2, §9.5: without an overflow place no marking exceeds a capacity (§3.2), so the property
+// holds without exploring; the certificate names the drop places (D-03).
+fn no_overflow_place(net: &Compiled) -> NetVerdict {
+    assert!(
+        !net.when_full.contains(&WhenFull::Overflow),
+        "no_overflow_place: the net has an overflow place"
+    );
+    let drop_places: Vec<QualifiedId> = net
+        .place_ids
+        .iter()
+        .zip(&net.when_full)
+        .filter(|(_, when_full)| **when_full == WhenFull::Drop)
+        .map(|(id, _)| id.clone())
+        .collect();
+    assert!(
+        drop_places.is_sorted(),
+        "no_overflow_place: places are in canonical order"
+    );
+    NetVerdict::Proved {
+        technique: Technique::Certificate(Certificate::NoOverflowPlace { drop_places }),
+        markings: 0,
     }
 }
 
@@ -48,6 +99,7 @@ pub fn check(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
 struct Compiled {
     place_ids: Vec<QualifiedId>,
     capacities: Vec<u32>,
+    when_full: Vec<WhenFull>,
     transitions: Vec<CompiledTransition>,
     initial: Vec<u32>,
 }
@@ -90,9 +142,7 @@ impl Compiled {
                             place: i,
                             pre: transition.pre.get(place).copied().unwrap_or(0),
                             post: transition.post.get(place).copied().unwrap_or(0),
-                            blocks: match places[i].when_full {
-                                WhenFull::Block => true,
-                            },
+                            blocks: places[i].when_full == WhenFull::Block,
                         });
                     }
                 }
@@ -110,15 +160,36 @@ impl Compiled {
         Compiled {
             place_ids: places.iter().map(|place| place.id.clone()).collect(),
             capacities: places.iter().map(|place| place.capacity).collect(),
+            when_full: places.iter().map(|place| place.when_full).collect(),
             transitions,
             initial,
         }
     }
 
-    // NS §4.1: E2 (enough tokens in every pre place) and E3 (no blocking post place above its
-    // capacity after firing). E1 never applies: without overflow places no marking exceeds a
-    // capacity.
+    // NS §3.2: some place holds more than its capacity.
+    fn is_overflow(&self, marking: &[u32]) -> bool {
+        marking
+            .iter()
+            .zip(&self.capacities)
+            .any(|(count, capacity)| count > capacity)
+    }
+
+    // The smallest-ID place above its capacity, with its capacity and count (NS §8.2).
+    fn exceeded(&self, marking: &[u32]) -> Option<(QualifiedId, u32, u32)> {
+        let place = (0..marking.len()).find(|p| marking[*p] > self.capacities[*p])?;
+        Some((
+            self.place_ids[place].clone(),
+            self.capacities[place],
+            marking[place],
+        ))
+    }
+
+    // NS §4.1: E1 (not an overflow marking), E2 (enough tokens in every pre place) and E3 (no
+    // blocking post place above its capacity after firing).
     fn enabled(&self, marking: &[u32], transition: &CompiledTransition) -> bool {
+        if self.is_overflow(marking) {
+            return false;
+        }
         transition.arcs.iter().all(|arc| {
             let count = marking[arc.place];
             if count < arc.pre {
@@ -133,17 +204,28 @@ impl Compiled {
         })
     }
 
-    // NS §4.2 for block places: remove the pre weights, add the post weights.
+    // NS §4.2: remove the pre weights, add the post weights; a drop place then keeps at most its
+    // capacity, an overflow place may end above it. None only if a count leaves u32, which rule 7
+    // of NS §2.3 rules out on a valid net.
     fn fire(&self, marking: &[u32], transition: &CompiledTransition) -> Option<Vec<u32>> {
         let mut next = marking.to_vec();
         for arc in &transition.arcs {
-            let count = next[arc.place].checked_sub(arc.pre)?;
-            next[arc.place] = count.checked_add(arc.post)?;
-            assert!(
-                next[arc.place] <= self.capacities[arc.place],
-                "fire: block place {} above its capacity",
-                self.place_ids[arc.place].0
-            );
+            let tentative = next[arc.place]
+                .checked_sub(arc.pre)?
+                .checked_add(arc.post)?;
+            let capacity = self.capacities[arc.place];
+            next[arc.place] = match self.when_full[arc.place] {
+                WhenFull::Block => {
+                    assert!(
+                        tentative <= capacity,
+                        "fire: block place {} above its capacity",
+                        self.place_ids[arc.place].0
+                    );
+                    tentative
+                }
+                WhenFull::Drop => tentative.min(capacity),
+                WhenFull::Overflow => tentative,
+            };
         }
         Some(next)
     }
@@ -203,11 +285,14 @@ impl Compiled {
     }
 }
 
-// The markings discovered so far, in discovery order, with the step that discovered each.
+// The markings discovered so far (R ∪ O), in discovery order, with the step that discovered each.
 struct Discovered {
     markings: Vec<Vec<u32>>,
     parents: Vec<Option<(usize, usize)>>,
     index: HashMap<Vec<u32>, usize>,
+    // The first overflow marking in discovery order, and how many there are (|O|).
+    first_overflow: Option<usize>,
+    overflow_count: u64,
 }
 
 impl Discovered {
@@ -238,20 +323,70 @@ fn exhausted(markings: u64) -> NetVerdict {
     })
 }
 
-// NS §8.1 with `final none`: the first marking without an enabled transition is a deadlock.
-fn deadlock_free(net: &Compiled, max_markings: u64) -> NetVerdict {
+// NS §10.1: the cancel flag first (it wins at the same poll), then the deadline. Returns the
+// verdict that ends the phase, if any.
+fn poll(budget: &Budget, stored: u64) -> Option<NetVerdict> {
+    assert!(
+        stored <= budget.max_markings,
+        "poll: stored past the budget"
+    );
+    if budget.cancel.load(Ordering::Relaxed) {
+        return Some(NetVerdict::Unknown(UnknownReason::Cancelled));
+    }
+    let deadline = budget.deadline.as_ref()?;
+    if deadline.clock.now() >= deadline.at {
+        return Some(exhausted(stored));
+    }
+    None
+}
+
+// The breadth-first exploration of NS §12 for deadlock-free (NS §8.1, `final none`) and no
+// capacity exceeded (NS §8.2). The first violation in discovery order ends it; a complete
+// exploration is Proved if no overflow marking was found, and for deadlock-free otherwise Unknown
+// "capacity exceeded first" with the first overflow marking.
+fn explore(
+    net: &Compiled,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
+    let max_markings = budget.max_markings;
     let mut found = Discovered {
         markings: Vec::new(),
         parents: Vec::new(),
         index: HashMap::new(),
+        first_overflow: None,
+        overflow_count: 0,
     };
-    if let Some(verdict) = discover(net, &mut found, net.initial.clone(), None, max_markings) {
+    if let Some(verdict) = discover(
+        net,
+        property,
+        &mut found,
+        net.initial.clone(),
+        None,
+        max_markings,
+    ) {
         return verdict;
     }
     let mut queue = VecDeque::from([0]);
-    // Every marking enters the queue once and the budget bounds the stored markings (LIM-1).
+    let mut expansions: u64 = 0;
+    // Every in-bounds marking enters the queue once and the budget bounds the stored markings
+    // (LIM-1).
     while let Some(at) = queue.pop_front() {
+        if expansions.is_multiple_of(POLL_EXPANSIONS) {
+            if let Some(verdict) = poll(budget, found.stored()) {
+                return verdict;
+            }
+            progress(Progress {
+                markings: found.stored(),
+            });
+        }
+        expansions += 1;
         let marking = found.markings[at].clone();
+        assert!(
+            !net.is_overflow(&marking),
+            "explore: an overflow marking is never expanded"
+        );
         for (t, transition) in net.transitions.iter().enumerate() {
             if !net.enabled(&marking, transition) {
                 continue;
@@ -262,16 +397,47 @@ fn deadlock_free(net: &Compiled, max_markings: u64) -> NetVerdict {
             if found.index.contains_key(&successor) {
                 continue;
             }
-            if let Some(verdict) = discover(net, &mut found, successor, Some((at, t)), max_markings)
-            {
+            let overflow = net.is_overflow(&successor);
+            if let Some(verdict) = discover(
+                net,
+                property,
+                &mut found,
+                successor,
+                Some((at, t)),
+                max_markings,
+            ) {
                 return verdict;
             }
-            queue.push_back(found.markings.len() - 1);
+            if !overflow {
+                queue.push_back(found.markings.len() - 1);
+            }
         }
     }
-    NetVerdict::Proved {
-        technique: Technique::Exhaustive,
-        markings: found.stored(),
+    complete(net, property, &found)
+}
+
+// The verdict of a complete exploration without a violation: Proved with |R| if no overflow
+// marking was found, else (deadlock-free only) capacity exceeded first at the first one (NS §8.1).
+fn complete(net: &Compiled, property: &NetProperty, found: &Discovered) -> NetVerdict {
+    let reachable = found.stored() - found.overflow_count;
+    match found.first_overflow {
+        None => NetVerdict::Proved {
+            technique: Technique::Exhaustive,
+            markings: reachable,
+        },
+        Some(first) => {
+            assert!(
+                matches!(property, NetProperty::DeadlockFree),
+                "complete: no capacity exceeded stops at the first overflow marking"
+            );
+            let (place, _, _) = net
+                .exceeded(&found.markings[first])
+                .expect("complete: an overflow marking exceeds a capacity");
+            NetVerdict::Unknown(UnknownReason::CapacityExceededFirst {
+                place,
+                steps: found.run_to(net, first),
+            })
+        }
     }
 }
 
@@ -279,6 +445,7 @@ fn deadlock_free(net: &Compiled, max_markings: u64) -> NetVerdict {
 // verdict that ends the exploration, if any.
 fn discover(
     net: &Compiled,
+    property: &NetProperty,
     found: &mut Discovered,
     marking: Vec<u32>,
     parent: Option<(usize, usize)>,
@@ -288,7 +455,8 @@ fn discover(
         !found.index.contains_key(&marking),
         "discover: {marking:?} is already stored"
     );
-    // NS §10.1 (b): the budget is checked before every insertion, M0 included.
+    // NS §10.1 (b): the budget is checked before every insertion, M0 and overflow markings
+    // included.
     if found.stored() >= max_markings {
         return Some(exhausted(found.stored()));
     }
@@ -297,6 +465,36 @@ fn discover(
     found.markings.push(marking);
     found.parents.push(parent);
     let current = &found.markings[at];
+    if let Some((place, capacity, count)) = net.exceeded(current) {
+        // NS §3.2: an overflow marking is neither a deadlock nor final; it violates only no
+        // capacity exceeded.
+        found.overflow_count += 1;
+        if found.first_overflow.is_none() {
+            found.first_overflow = Some(at);
+        }
+        return match property {
+            NetProperty::DeadlockFree => None,
+            NetProperty::CapacityNeverExceeded => {
+                let steps = found.run_to(net, at);
+                assert!(
+                    !steps.is_empty(),
+                    "discover: the initial marking is in bounds (NS §2.3 rule 4)"
+                );
+                let violation = Violation::Overflow {
+                    place,
+                    capacity,
+                    count,
+                };
+                Some(NetVerdict::Disproved(Evidence::Counterexample(
+                    Counterexample { steps, violation },
+                )))
+            }
+        };
+    }
+    match property {
+        NetProperty::CapacityNeverExceeded => return None,
+        NetProperty::DeadlockFree => {}
+    }
     if net.transitions.iter().any(|t| net.enabled(current, t)) {
         return None;
     }

@@ -3,6 +3,11 @@
 mod ipc;
 mod log;
 
+// What `run` installs first, public for the worker-panic test (ADR 0012), which needs the real
+// hook and log on a real thread.
+pub use log::log_panics;
+pub use log::open as open_log_in;
+
 use tauri::Manager;
 
 /// The app identifier; `tauri.conf.json` must say the same, which `setup` asserts.

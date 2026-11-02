@@ -1,0 +1,21 @@
+# queue has no when_full (L2), idle is a place and a transition (L10), reserve is bound by
+# nothing (L4).
+format = 1
+kind = "container"
+name = "Billing"
+parent = "sys"
+
+[petri_net.places.idle]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.places.queue]
+capacity = 3
+
+[petri_net.transitions.reserve]
+port = true
+pre = { idle = 1 }
+post = { idle = 1 }
+
+[petri_net.transitions.idle]

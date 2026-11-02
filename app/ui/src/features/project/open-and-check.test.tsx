@@ -6,10 +6,16 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 import { App } from "../../app";
 import type { EngineEvent } from "../../ipc/bindings/engine-event";
+import eventsBrokenFile from "../../ipc/fixtures/events-broken-file.json";
+import eventsHalfDone from "../../ipc/fixtures/events-half-done.json";
+import eventsNoBehavior from "../../ipc/fixtures/events-no-behavior.json";
 import eventsOneJob from "../../ipc/fixtures/events-one-job.json";
 import eventsOppositeLocks from "../../ipc/fixtures/events-opposite-locks.json";
 import eventsWorkerPool from "../../ipc/fixtures/events-worker-pool.json";
 import openFailed from "../../ipc/fixtures/open-failed.json";
+import openedBrokenFile from "../../ipc/fixtures/opened-broken-file.json";
+import openedHalfDone from "../../ipc/fixtures/opened-half-done.json";
+import openedNoBehavior from "../../ipc/fixtures/opened-no-behavior.json";
 import openedOneJob from "../../ipc/fixtures/opened-one-job.json";
 import openedOppositeLocks from "../../ipc/fixtures/opened-opposite-locks.json";
 import openedWorkerPool from "../../ipc/fixtures/opened-worker-pool.json";
@@ -17,6 +23,18 @@ import { useAppStore } from "../../store/app-store";
 
 // JSON imports widen string literals; the fixtures were serialized from typed Rust values.
 const events = (json: unknown) => json as EngineEvent[];
+
+// The first events of a check run of no-deadlock: the key set, its checkQueued and its verdict.
+function deadlockFreeRun(json: unknown) {
+  const all = events(json);
+  const currentKeys = all.find((e) => e.kind === "currentKeys");
+  const queued = all.find((e) => e.kind === "checkQueued" && e.property === "no-deadlock");
+  const verdict = all.find((e) => e.kind === "verdict" && e.property === "no-deadlock");
+  if (currentKeys?.kind !== "currentKeys" || queued === undefined || verdict?.kind !== "verdict") {
+    throw new Error("the fixture holds currentKeys, checkQueued and a verdict for no-deadlock");
+  }
+  return { currentKeys, queued, verdict };
+}
 
 interface Shell {
   emit: (...events: EngineEvent[]) => void;
@@ -156,7 +174,7 @@ describe("open a project and see the verdict", () => {
     ]);
     expect(disproved).not.toHaveTextContent("no final predicate");
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Checks finished: Deadlock-free Disproved.",
+      "Checks finished: Deadlock-free Disproved, No capacity exceeded Proved.",
     );
   });
 
@@ -205,13 +223,26 @@ describe("open a project and see the verdict", () => {
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1c-worker-pool", opened: openedWorkerPool }),
     );
+    const { currentKeys } = deadlockFreeRun(eventsWorkerPool);
 
-    shell.emit(...events(eventsWorkerPool));
+    // The key state the Session sends for a user property in slice 0 (NS V57).
+    shell.emit({
+      ...currentKeys,
+      keys: {
+        ...currentKeys.keys,
+        "no-overflow": {
+          unknown: {
+            category: "propertyNotCheckable",
+            details: ["user properties are checked from slice 4"],
+          },
+        },
+      },
+    });
 
     const unknown = row("No capacity exceeded");
     expect(within(unknown).getByText("Unknown")).toBeInTheDocument();
     expect(unknown).toHaveTextContent("Property cannot be checked:");
-    expect(unknown).toHaveTextContent("no capacity exceeded is not checked yet");
+    expect(unknown).toHaveTextContent("user properties are checked from slice 4");
     expect(unknown).not.toHaveTextContent("Proved");
   });
 
@@ -220,16 +251,38 @@ describe("open a project and see the verdict", () => {
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued] = events(eventsOppositeLocks);
-    if (currentKeys === undefined || queued === undefined) {
-      throw new Error("the fixture starts with currentKeys and checkQueued");
-    }
+    const { currentKeys, queued } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(currentKeys, queued);
 
     expect(within(row("Deadlock-free")).getByText("Checking…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Checking…" })).toBeInTheDocument();
     expect(screen.getByText("Checking 1 property…")).toBeInTheDocument();
+  });
+
+  test("a running check counts the markings of each phase as it explores", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
+    );
+    const { currentKeys, queued } = deadlockFreeRun(eventsOppositeLocks);
+    const progress = events(eventsOppositeLocks).find(
+      (e) => e.kind === "checkProgress" && e.property === "no-deadlock",
+    );
+    if (queued.kind !== "checkQueued" || progress === undefined) {
+      throw new Error("the fixture holds checkQueued and checkProgress for no-deadlock");
+    }
+
+    shell.emit(currentKeys, queued, progress);
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 1 marking");
+
+    const { property, key } = queued;
+    shell.emit({ kind: "checkProgress", property, key, phase: "main", markings: 120400 });
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 120,400 markings");
+
+    shell.emit({ kind: "checkProgress", property, key, phase: "recheck", markings: 48100 });
+    expect(row("Deadlock-free")).toHaveTextContent("Re-checking… 48,100 markings");
+    expect(row("Deadlock-free")).not.toHaveTextContent("Exploring");
   });
 });
 
@@ -239,10 +292,7 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued, verdict] = events(eventsOppositeLocks);
-    if (currentKeys === undefined || queued === undefined || verdict === undefined) {
-      throw new Error("the fixture holds currentKeys, checkQueued and verdict");
-    }
+    const { currentKeys, queued, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(queued, verdict);
 
@@ -260,10 +310,7 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued, verdict] = events(eventsOppositeLocks);
-    if (currentKeys?.kind !== "currentKeys" || queued === undefined || verdict === undefined) {
-      throw new Error("the fixture holds currentKeys, checkQueued and verdict");
-    }
+    const { currentKeys, queued, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit({ ...currentKeys, rev: currentKeys.rev + 1 }, queued, verdict);
 
@@ -279,14 +326,150 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, , verdict] = events(eventsOppositeLocks);
-    if (currentKeys === undefined || verdict?.kind !== "verdict") {
-      throw new Error("the fixture holds currentKeys and a verdict");
-    }
+    const { currentKeys, verdict } = deadlockFreeRun(eventsOppositeLocks);
 
     shell.emit(currentKeys, { ...verdict, key: "0".repeat(64) });
 
     expect(row("Deadlock-free")).not.toHaveTextContent("Disproved");
     expect(row("Deadlock-free")).toHaveTextContent("Behavior changed since the last check.");
+  });
+});
+
+// A row by its property name and the scope line under it, for views with two rows of one kind.
+function rowFor(property: string, scope: string) {
+  const rows = within(screen.getByRole("region", { name: "Verdicts" })).getAllByRole("article", {
+    name: property,
+  });
+  const found = rows.filter((candidate) => candidate.textContent?.includes(scope));
+  if (found.length !== 1) {
+    throw new Error(`${found.length} rows for ${property} in ${scope}`);
+  }
+  return found[0] as HTMLElement;
+}
+
+// The bottom pane opens on its Behavior model tab.
+async function showProblems() {
+  await userEvent.click(screen.getByRole("tab", { name: /^Problems/ }));
+}
+
+function problemLines() {
+  const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
+  return within(pane)
+    .getAllByRole("listitem")
+    .map((item) => item.textContent);
+}
+
+describe("a model that is incomplete still loads: problems and the loading Unknowns", () => {
+  test("the Problems list names each problem in the user's words, by file", async () => {
+    resetStore();
+    await openProject(fakeShell({ picked: "/home/designer/half-done", opened: openedHalfDone }));
+
+    await showProblems();
+    const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
+    expect(within(pane).getByRole("heading", { name: "Problems (7)" })).toBeInTheDocument();
+    expect(problemLines()).toEqual([
+      "Error: Billing: place queue has no when full choice. Add when_full (block, drop or overflow) in elements/billing.toml, then choose Reload.elements/billing.toml · Billing",
+      "Error: Billing: reserve is not bound by any relationship. Bind it in the relationship inspector.elements/billing.toml · Billing",
+      "Error: Billing has both a place and a transition named idle.elements/billing.toml · Billing",
+      "Error: Order API → (missing element) (logs to) has no target. Connect it to an element or delete it.elements/order-api.toml · Order API",
+      "Error: Order API → Billing (calls) uses the port Billing: reserv, which does not exist. Choose an existing port in the relationship inspector.elements/order-api.toml · Order API",
+      "Error: Shipping has no behavior model. Add one in elements/shipping.toml, then choose Reload.elements/shipping.toml · Shipping",
+      "Warning: elements/sys.toml has a [final] table. Done when is checked from slice 1; until then, checks run without it.elements/sys.toml · Order platform",
+    ]);
+  });
+
+  test("a scope a problem blocks is Unknown, model incomplete, with one line per cause", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/half-done", opened: openedHalfDone }),
+    );
+
+    shell.emit(...events(eventsHalfDone));
+
+    const unknown = rowFor("Deadlock-free", "Order platform · Level");
+    expect(within(unknown).getByText("Unknown")).toBeInTheDocument();
+    const lines = [
+      "Order platform · Level: Container",
+      "Model incomplete: this view cannot be checked until these are fixed:",
+      "Shipping has no behavior model. Add one in elements/shipping.toml, then choose Reload.",
+      "Billing: place queue has no when full choice. Add when_full (block, drop or overflow) in elements/billing.toml, then choose Reload.",
+      "Order API → Billing (calls) uses the port Billing: reserv, which does not exist. Choose an existing port in the relationship inspector.",
+      "Order API → (missing element) (logs to) has no target. Connect it to an element or delete it.",
+      "Billing: reserve is not bound by any relationship. Bind it in the relationship inspector.",
+      "Billing has both a place and a transition named idle.",
+    ];
+    expect(
+      within(unknown)
+        .getAllByRole("paragraph")
+        .map((p) => p.textContent),
+    ).toEqual(lines);
+  });
+
+  test("properties of later slices are Unknown with their slice, next to a checked one", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/half-done", opened: openedHalfDone }),
+    );
+
+    shell.emit(...events(eventsHalfDone));
+
+    expect(
+      within(rowFor("Deadlock-free", "Gate (own behavior)")).getByText("Proved"),
+    ).toBeInTheDocument();
+    const never = rowFor("Never", "Gate (own behavior)");
+    expect(never).toHaveTextContent("Property cannot be checked:");
+    expect(never).toHaveTextContent("user properties are checked from slice 4");
+    const pool = rowFor("Never holds the whole pool", "Gate (own behavior)");
+    expect(pool).toHaveTextContent("never holds the whole pool is checked from slice 1");
+    expect(rowFor("Never fills up", "Gate (own behavior)")).toHaveTextContent(
+      "user properties are checked from slice 4",
+    );
+  });
+
+  test("a file that does not parse shows the banner and the verdicts of what loaded", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/broken-file", opened: openedBrokenFile }),
+    );
+
+    shell.emit(...events(eventsBrokenFile));
+
+    const verdicts = screen.getByRole("region", { name: "Verdicts" });
+    expect(within(verdicts).getByRole("note")).toHaveTextContent(
+      "Verdicts are for the last version that loaded. elements/billing.toml has an error (line 7: extra `=`, expected nothing). Fix it and choose Reload.",
+    );
+    expect(
+      within(rowFor("Deadlock-free", "Job (own behavior)")).getByText("Proved"),
+    ).toBeInTheDocument();
+    expect(rowFor("Deadlock-free", "One job · Level")).toHaveTextContent(
+      "elements/billing.toml did not load.",
+    );
+    await showProblems();
+    expect(problemLines()).toEqual([
+      // Billing's file did not load, so the list knows only its ID.
+      "Error: elements/billing.toml, line 7: extra `=`, expected nothingelements/billing.toml · billing",
+    ]);
+  });
+
+  test("with no behavior model in the view there is nothing to check and no problem", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/no-behavior", opened: openedNoBehavior }),
+    );
+
+    shell.emit(...events(eventsNoBehavior));
+
+    const nothing = row("Deadlock-free");
+    expect(nothing).toHaveTextContent(
+      "Nothing to check yet: no element in this view has a behavior model.",
+    );
+    for (const word of ["Proved", "Disproved", "Unknown"]) {
+      expect(nothing).not.toHaveTextContent(word);
+    }
+    expect(within(screen.getByRole("region", { name: "Verdicts" })).queryByRole("note")).toBeNull();
+    await showProblems();
+    const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
+    expect(within(pane).getByRole("heading", { name: "Problems (0)" })).toBeInTheDocument();
+    expect(pane).toHaveTextContent("No problems. Every file loaded and every port is bound.");
   });
 });

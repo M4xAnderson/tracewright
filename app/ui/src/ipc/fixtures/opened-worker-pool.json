@@ -114,6 +114,7 @@
         "technology": null
       }
     ],
+    "problems": [],
     "properties": [
       {
         "id": "no-deadlock",
@@ -122,7 +123,8 @@
         "scope": {
           "behavior": "combined",
           "element": "sys"
-        }
+        },
+        "template": null
       },
       {
         "id": "no-overflow",
@@ -131,7 +133,8 @@
         "scope": {
           "behavior": "combined",
           "element": "sys"
-        }
+        },
+        "template": null
       }
     ],
     "relationships": [

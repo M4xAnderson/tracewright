@@ -32,7 +32,7 @@ export function BehaviorPane({ view }: { view: View }) {
   return (
     <section
       aria-label="Bottom pane: Behavior model"
-      className="flex h-70 min-h-40 shrink-0 flex-col border-t border-border-hairline bg-surface-panel"
+      className="flex h-[280px] max-h-[40vh] min-h-40 flex-col bg-surface-panel"
     >
       {content}
     </section>
@@ -57,6 +57,18 @@ function ElementBehavior({ element }: { element: ElementView }) {
         <PaneHeader title={title} />
         <p className="max-w-[75ch] p-3">
           No behavior model. Add it in elements/{element.id}.toml, then choose Reload.
+        </p>
+      </>
+    );
+  }
+  if (element.behavior.kind === "unloaded") {
+    const { line, message } = element.behavior;
+    return (
+      <>
+        <PaneHeader title={title} />
+        <p className="max-w-[75ch] p-3">
+          The behavior model in elements/{element.id}.toml did not load
+          {line === null ? "" : ` (line ${line})`}: {message}. Fix it, then choose Reload.
         </p>
       </>
     );

@@ -8,7 +8,13 @@ import type { ElementKind } from "../../ipc/bindings/element-kind";
 import { cn } from "../../lib/cn";
 import { assertNever, useAppStore } from "../../store/app-store";
 import { select } from "../../store/view-actions";
-import { BORDER_HANDLE, type ElementNode as ElementNodeType, portHandleId } from "./canvas-model";
+import {
+  BORDER_HANDLE,
+  type BehaviorState,
+  type ElementData,
+  type ElementNode as ElementNodeType,
+  portHandleId,
+} from "./canvas-model";
 
 export function kindLabel(kind: ElementKind): string {
   switch (kind) {
@@ -49,15 +55,40 @@ function KindIcon({ kind }: { kind: ElementKind }) {
   }
 }
 
+function behaviorDescription(data: ElementData): string {
+  switch (data.behavior) {
+    case "petriNet":
+      return data.ports.length === 0
+        ? "No ports."
+        : `Ports: ${data.ports.map((p) => p.name).join(", ")}.`;
+    case "notLoaded":
+      return "The behavior model did not load.";
+    case "none":
+      return "No behavior model.";
+    default:
+      return assertNever(data.behavior);
+  }
+}
+
+// Icon or badge text, never color alone (flows §4.3).
+function BehaviorMark({ behavior }: { behavior: BehaviorState }) {
+  switch (behavior) {
+    case "petriNet":
+      return <Network aria-hidden="true" className="element-mark" />;
+    case "notLoaded":
+      return <span className="element-badge">File has an error</span>;
+    case "none":
+      return <span className="element-badge">No behavior model</span>;
+    default:
+      return assertNever(behavior);
+  }
+}
+
 export const ElementNode = memo(function ElementNode({ id, data }: NodeProps<ElementNodeType>) {
   const selected = useAppStore((s) => s.selection?.kind === "element" && s.selection.id === id);
   const descriptionId = useId();
   const kind = kindLabel(data.kind);
-  let description = "No behavior model.";
-  if (data.hasBehavior) {
-    description =
-      data.ports.length === 0 ? "No ports." : `Ports: ${data.ports.map((p) => p.name).join(", ")}.`;
-  }
+  const description = behaviorDescription(data);
   return (
     <div className={cn("element-node", `kind-${data.kind}`, selected && "is-selected")}>
       <button
@@ -75,11 +106,7 @@ export const ElementNode = memo(function ElementNode({ id, data }: NodeProps<Ele
           <KindIcon kind={data.kind} />
         </span>
         <span className="element-name">{data.name}</span>
-        {data.hasBehavior ? (
-          <Network aria-hidden="true" className="element-mark" />
-        ) : (
-          <span className="element-badge">No behavior model</span>
-        )}
+        <BehaviorMark behavior={data.behavior} />
         <span className="element-tech">
           {kind}
           {data.technology !== null && ` · ${data.technology}`}

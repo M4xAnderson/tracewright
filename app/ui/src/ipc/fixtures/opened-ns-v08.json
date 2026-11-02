@@ -43,6 +43,7 @@
         "technology": null
       }
     ],
+    "problems": [],
     "properties": [
       {
         "id": "x-no-deadlock",
@@ -51,7 +52,8 @@
         "scope": {
           "behavior": "own",
           "element": "x"
-        }
+        },
+        "template": null
       },
       {
         "id": "x-no-overflow",
@@ -60,7 +62,8 @@
         "scope": {
           "behavior": "own",
           "element": "x"
-        }
+        },
+        "template": null
       }
     ],
     "relationships": [],

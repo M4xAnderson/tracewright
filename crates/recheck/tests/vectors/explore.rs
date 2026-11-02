@@ -1,5 +1,5 @@
-//! `recheck::explore` on its own against the NS §14.1 slice 0 vectors with block places and
-//! synchronous fusion (seam B), and on the composed C vectors.
+//! `recheck::explore` on its own against the NS §14.1 slice 0 vectors (seam B): block, drop and
+//! overflow places, deadlock-free and no capacity exceeded; and on the composed C vectors.
 
 use tracewright_net::Budget;
 use tracewright_net::Evidence;
@@ -8,18 +8,25 @@ use tracewright_net::NetVerdict;
 use tracewright_net::Phase;
 use tracewright_net::Technique;
 use tracewright_net::UnknownReason;
-use tracewright_net::Violation;
 
-fn explore(net: &tracewright_net::Net, max_markings: u64) -> NetVerdict {
-    tracewright_recheck::explore(net, &NetProperty::DeadlockFree, &Budget { max_markings })
+fn explore(net: &tracewright_net::Net, property: &NetProperty, max_markings: u64) -> NetVerdict {
+    let budget = Budget {
+        max_markings,
+        ..Budget::default()
+    };
+    tracewright_recheck::explore(net, property, &budget)
+}
+
+fn fired(steps: &[tracewright_net::Step]) -> Vec<String> {
+    steps.iter().map(|s| s.fired.0.clone()).collect()
 }
 
 #[test]
 fn property_vectors() {
     let file = super::support::property_vectors();
-    for vector in &file.vector {
+    for vector in file.vector.iter().filter(|v| v.expect != "certificate") {
         let net = file.nets[&vector.net].to_net();
-        let verdict = explore(&net, 1 << 20);
+        let verdict = explore(&net, &vector.property(), 1 << 20);
         match vector.expect.as_str() {
             "proved" => assert_eq!(
                 verdict,
@@ -34,12 +41,24 @@ fn property_vectors() {
                 let NetVerdict::Disproved(Evidence::Counterexample(cx)) = verdict else {
                     panic!("{}: {verdict:?}", vector.id);
                 };
-                let fired: Vec<String> = cx.steps.iter().map(|s| s.fired.0.clone()).collect();
-                assert_eq!(&fired, vector.fired.as_ref().unwrap(), "{}", vector.id);
-                let Violation::Deadlock { waiting } = cx.violation;
                 assert_eq!(
-                    waiting,
-                    super::support::waiting(vector.waiting.as_ref().unwrap()),
+                    &fired(&cx.steps),
+                    vector.fired.as_ref().unwrap(),
+                    "{}",
+                    vector.id
+                );
+                assert_eq!(cx.violation, vector.violation(), "{}", vector.id);
+            }
+            "capacity-exceeded-first" => {
+                let NetVerdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps }) =
+                    verdict
+                else {
+                    panic!("{}: {verdict:?}", vector.id);
+                };
+                assert_eq!(&place.0, vector.place.as_ref().unwrap(), "{}", vector.id);
+                assert_eq!(
+                    &fired(&steps),
+                    vector.fired.as_ref().unwrap(),
                     "{}",
                     vector.id
                 );
@@ -56,17 +75,47 @@ fn property_vectors() {
 }
 
 #[test]
+fn a_net_without_an_overflow_place_explores_to_the_same_answer_the_certificate_gives() {
+    // recheck never emits a certificate; on a certificate vector its exploration finds no
+    // overflow marking, so no capacity exceeded is Proved by exhaustion.
+    let file = super::support::property_vectors();
+    for vector in file.vector.iter().filter(|v| v.expect == "certificate") {
+        let net = file.nets[&vector.net].to_net();
+        let verdict = explore(&net, &NetProperty::CapacityNeverExceeded, 1 << 20);
+        assert!(
+            matches!(
+                verdict,
+                NetVerdict::Proved {
+                    technique: Technique::Exhaustive,
+                    ..
+                }
+            ),
+            "{}: {verdict:?}",
+            vector.id
+        );
+    }
+}
+
+#[test]
 fn stored_counts_pin_the_budget() {
     let file = super::support::property_vectors();
-    for vector in file.vector.iter().filter(|v| v.expect != "rejected") {
+    for vector in file
+        .vector
+        .iter()
+        .filter(|v| v.expect != "rejected" && v.expect != "certificate")
+    {
         let net = file.nets[&vector.net].to_net();
+        let property = vector.property();
         let exact = vector.stored.unwrap_or_else(|| vector.markings.unwrap());
         assert!(
-            !matches!(explore(&net, exact), NetVerdict::Unknown(_)),
+            !matches!(
+                explore(&net, &property, exact),
+                NetVerdict::Unknown(UnknownReason::BudgetExhausted { .. })
+            ),
             "{}",
             vector.id
         );
-        let short = explore(&net, exact - 1);
+        let short = explore(&net, &property, exact - 1);
         let expected = UnknownReason::BudgetExhausted {
             phase: Phase::Recheck,
             markings: exact - 1,
@@ -83,7 +132,7 @@ fn composed_vectors_have_their_marking_counts() {
         };
         let net = tracewright_recheck::compose(&vector.open_nets()).unwrap();
         assert_eq!(
-            explore(&net, 1 << 20),
+            explore(&net, &NetProperty::DeadlockFree, 1 << 20),
             NetVerdict::Proved {
                 technique: Technique::Exhaustive,
                 markings

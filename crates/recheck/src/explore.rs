@@ -1,8 +1,11 @@
-//! The plain breadth-first exploration of NS §12 and the deadlock-free decision of NS §8.1 with
-//! `final none`. No reductions, ever (ADR 0010).
+//! The plain breadth-first exploration of NS §12, the deadlock-free decision of NS §8.1 with
+//! `final none` and no capacity exceeded (NS §8.2). No reductions, ever (ADR 0010). recheck never
+//! emits a certificate: on a net without an overflow place it explores, and its Proved is the
+//! exhaustive one.
 
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use tracewright_net::Budget;
 use tracewright_net::Counterexample;
@@ -10,7 +13,9 @@ use tracewright_net::Evidence;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
+use tracewright_net::POLL_EXPANSIONS;
 use tracewright_net::Phase;
+use tracewright_net::Progress;
 use tracewright_net::Step;
 use tracewright_net::Technique;
 use tracewright_net::UnknownReason;
@@ -19,28 +24,39 @@ use tracewright_net::validate;
 
 use crate::semantics::Dense;
 
-/// Decides `property` on `net` (normally recheck's own composition), storing at most
-/// `budget.max_markings` markings. Its outcome must agree with `verify::check` (NS §9.4).
+/// Decides `property` on `net` (normally recheck's own composition) within `budget` (NS §10.1).
+/// Its outcome must agree with `verify::check` (NS §9.4).
 #[must_use]
 pub fn explore(net: &Net, property: &NetProperty, budget: &Budget) -> NetVerdict {
+    explore_reporting(net, property, budget, &mut |_progress| {})
+}
+
+/// [`explore`], calling `progress` with the stored markings each time it polls the budget.
+#[must_use]
+pub fn explore_reporting(
+    net: &Net,
+    property: &NetProperty,
+    budget: &Budget,
+    progress: &mut dyn FnMut(Progress),
+) -> NetVerdict {
     if validate::net(net).is_err() {
         return NetVerdict::Unknown(UnknownReason::InternalError);
     }
-    match property {
-        NetProperty::DeadlockFree => {
-            let dense = Dense::of(net);
-            Search::new(&dense, budget.max_markings).deadlock_free()
-        }
-    }
+    let dense = Dense::of(net);
+    Search::new(&dense, property, budget).run(progress)
 }
 
 struct Search<'a> {
     net: &'a Dense,
+    property: &'a NetProperty,
+    budget: &'a Budget,
     max_markings: u64,
-    /// Discovery number of every stored marking; the reachable set R.
+    /// Discovery number of every stored marking: R and O together.
     seen: BTreeMap<Vec<u64>, usize>,
     /// The stored markings by discovery number.
     order: Vec<Found>,
+    /// Discovery numbers of the overflow markings O, in discovery order.
+    overflows: Vec<usize>,
 }
 
 struct Found {
@@ -55,23 +71,62 @@ enum Outcome {
 }
 
 impl<'a> Search<'a> {
-    fn new(net: &'a Dense, max_markings: u64) -> Search<'a> {
+    fn new(net: &'a Dense, property: &'a NetProperty, budget: &'a Budget) -> Search<'a> {
         Search {
             net,
-            max_markings,
+            property,
+            budget,
+            max_markings: budget.max_markings,
             seen: BTreeMap::new(),
             order: Vec::new(),
+            overflows: Vec::new(),
         }
     }
 
-    fn deadlock_free(mut self) -> NetVerdict {
+    fn stored(&self) -> u64 {
+        u64::try_from(self.order.len()).expect("a marking count fits in u64")
+    }
+
+    // NS §10.1, time and cancel: the flag wins when both hold at one poll.
+    fn poll(&self) -> Option<NetVerdict> {
+        assert!(
+            self.stored() <= self.max_markings,
+            "poll: more markings stored than the budget allows"
+        );
+        if self.budget.cancel.load(Ordering::Relaxed) {
+            return Some(NetVerdict::Unknown(UnknownReason::Cancelled));
+        }
+        if let Some(deadline) = &self.budget.deadline {
+            if deadline.clock.now() >= deadline.at {
+                let reason = UnknownReason::BudgetExhausted {
+                    phase: Phase::Recheck,
+                    markings: self.stored(),
+                };
+                return Some(NetVerdict::Unknown(reason));
+            }
+        }
+        None
+    }
+
+    fn run(mut self, progress: &mut dyn FnMut(Progress)) -> NetVerdict {
         let mut queue = VecDeque::new();
         match self.discover(self.net.initial.clone(), None) {
             Outcome::Stored(i) => queue.push_back(i),
             Outcome::Ends(verdict) => return verdict,
         }
+        let mut expansions: u64 = 0;
         // Bounded: each stored marking is queued once and `discover` caps the stored ones (LIM-1).
         while let Some(i) = queue.pop_front() {
+            // The first expansion polls, then every POLL_EXPANSIONS-th one.
+            if expansions.is_multiple_of(POLL_EXPANSIONS) {
+                if let Some(verdict) = self.poll() {
+                    return verdict;
+                }
+                progress(Progress {
+                    markings: self.stored(),
+                });
+            }
+            expansions += 1;
             let m = self.order[i].marking.clone();
             for t in 0..self.net.transitions.len() {
                 if !self.net.enabled(&m, t) {
@@ -80,23 +135,42 @@ impl<'a> Search<'a> {
                 let Some(successor) = self.net.fire(&m, t) else {
                     return NetVerdict::Unknown(UnknownReason::InternalError);
                 };
-                assert!(
-                    !self.net.is_overflow(&successor),
-                    "explore: a block-only net overflowed"
-                );
                 if self.seen.contains_key(&successor) {
                     continue;
                 }
+                // An overflow marking is stored and tested, never enqueued (NS §12 step 2).
+                let expand = !self.net.is_overflow(&successor);
                 match self.discover(successor, Some((i, t))) {
-                    Outcome::Stored(j) => queue.push_back(j),
+                    Outcome::Stored(j) if expand => queue.push_back(j),
+                    Outcome::Stored(_) => {}
                     Outcome::Ends(verdict) => return verdict,
                 }
             }
         }
-        let markings = u64::try_from(self.order.len()).expect("a marking count fits in u64");
-        NetVerdict::Proved {
-            technique: Technique::Exhaustive,
-            markings,
+        let stored = self.order.len();
+        let reachable = stored - self.overflows.len();
+        let Some(&first) = self.overflows.first() else {
+            let markings = u64::try_from(reachable).expect("a marking count fits in u64");
+            return NetVerdict::Proved {
+                technique: Technique::Exhaustive,
+                markings,
+            };
+        };
+        // NS §8.1: complete, no deadlock, O ≠ ∅. No capacity exceeded never gets here: it ends
+        // at its first overflow marking.
+        assert!(
+            matches!(self.property, NetProperty::DeadlockFree),
+            "explore: only deadlock-free completes with an overflow marking"
+        );
+        let place = self
+            .net
+            .smallest_exceeded(&self.order[first].marking)
+            .map(|(p, _, _)| self.net.places[p].clone());
+        match (place, self.run_to(first)) {
+            (Some(place), Some(steps)) => {
+                NetVerdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps })
+            }
+            _ => NetVerdict::Unknown(UnknownReason::InternalError),
         }
     }
 
@@ -118,17 +192,46 @@ impl<'a> Search<'a> {
         self.seen.insert(m.clone(), i);
         self.order.push(Found { marking: m, parent });
         let m = &self.order[i].marking;
-        let is_deadlock = (0..self.net.transitions.len()).all(|t| !self.net.enabled(m, t));
-        if !is_deadlock {
-            return Outcome::Stored(i);
-        }
-        match self.counterexample(i) {
-            Some(cx) => Outcome::Ends(NetVerdict::Disproved(Evidence::Counterexample(cx))),
+        let violation = if self.net.is_overflow(m) {
+            self.overflows.push(i);
+            match self.property {
+                // NS §3.2: an overflow marking is never a deadlock.
+                NetProperty::DeadlockFree => return Outcome::Stored(i),
+                NetProperty::CapacityNeverExceeded => {
+                    let Some((p, capacity, count)) = self.net.smallest_exceeded(m) else {
+                        return Outcome::Ends(NetVerdict::Unknown(UnknownReason::InternalError));
+                    };
+                    Violation::Overflow {
+                        place: self.net.places[p].clone(),
+                        capacity,
+                        count,
+                    }
+                }
+            }
+        } else {
+            match self.property {
+                NetProperty::CapacityNeverExceeded => return Outcome::Stored(i),
+                NetProperty::DeadlockFree => {
+                    if (0..self.net.transitions.len()).any(|t| self.net.enabled(m, t)) {
+                        return Outcome::Stored(i);
+                    }
+                    let Some(waiting) = self.net.waiting(m) else {
+                        return Outcome::Ends(NetVerdict::Unknown(UnknownReason::InternalError));
+                    };
+                    Violation::Deadlock { waiting }
+                }
+            }
+        };
+        match self.run_to(i) {
+            Some(steps) => Outcome::Ends(NetVerdict::Disproved(Evidence::Counterexample(
+                Counterexample { steps, violation },
+            ))),
             None => Outcome::Ends(NetVerdict::Unknown(UnknownReason::InternalError)),
         }
     }
 
-    fn counterexample(&self, last: usize) -> Option<Counterexample> {
+    /// The run from M0 to the marking discovered as number `last`.
+    fn run_to(&self, last: usize) -> Option<Vec<Step>> {
         let mut steps = Vec::new();
         let mut at = last;
         // Parent pointers lead strictly to earlier discoveries, so this ends at M0 (LIM-3).
@@ -144,10 +247,6 @@ impl<'a> Search<'a> {
             at = parent;
         }
         steps.reverse();
-        let waiting = self.net.waiting(&self.order[last].marking)?;
-        Some(Counterexample {
-            steps,
-            violation: Violation::Deadlock { waiting },
-        })
+        Some(steps)
     }
 }

@@ -213,3 +213,33 @@ fn a_layout_file_with_bend_points_and_behavior_layout_loads_and_orphans_are_igno
     );
     assert!(view.elements.iter().all(|e| e.id != "gone"));
 }
+
+#[test]
+fn a_behavior_model_that_did_not_load_says_why() {
+    let disk = one_job().edit(
+        "elements/job.toml",
+        "capacity = 1\nwhen_full = \"block\"\ninitial = 1",
+        "capacity = 0\nwhen_full = \"block\"\ninitial = 1",
+    );
+    let view = open(&disk).view();
+    let Some(BehaviorView::Unloaded { message, .. }) = &element(&view, "job").behavior else {
+        panic!("{:?}", element(&view, "job").behavior)
+    };
+    assert!(message.contains("capacity"), "{message}");
+}
+
+#[test]
+fn a_layout_file_of_a_newer_format_stops_the_project_like_any_project_file() {
+    let disk = one_job().put(
+        "layouts/job.toml",
+        "format = 2\n\n[position]\nx = 0\ny = 0\n",
+    );
+    let ports = super::support::ports(
+        &super::support::RecordingSink::default(),
+        &super::support::FakeClock::new(),
+    );
+    assert!(matches!(
+        tracewright_engine::Session::open(&disk, ports),
+        Err(tracewright_engine::OpenError::Load(_))
+    ));
+}

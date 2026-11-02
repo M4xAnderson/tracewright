@@ -2,10 +2,12 @@
 // edges. The projection keeps every node and edge object whose element or relationship did not
 // change, so a rename re-renders one node out of 300 (E4 setting 4).
 import type { Edge, Node } from "@xyflow/react";
+import type { BehaviorView } from "../../ipc/bindings/behavior-view";
 import type { ElementKind } from "../../ipc/bindings/element-kind";
 import type { ElementView } from "../../ipc/bindings/element-view";
 import type { RelationshipView } from "../../ipc/bindings/relationship-view";
 import type { View } from "../../ipc/bindings/view";
+import { assertNever } from "../../store/app-store";
 import type { LayoutRequest, LayoutResult, Point } from "./layout-client";
 
 export const ELEMENT_WIDTH = 200;
@@ -30,11 +32,14 @@ export interface PortHandle {
   offset: number;
 }
 
+// Whether the element has a behavior model, and whether it loaded (flows §4.3 badges).
+export type BehaviorState = "petriNet" | "notLoaded" | "none";
+
 export interface ElementData extends Record<string, unknown> {
   name: string;
   kind: ElementKind;
   technology: string | null;
-  hasBehavior: boolean;
+  behavior: BehaviorState;
   ports: readonly PortHandle[];
 }
 
@@ -192,7 +197,7 @@ function elementNode(
       name: element.name,
       kind: element.kind,
       technology: element.technology,
-      hasBehavior: element.behavior !== null,
+      behavior: element.behavior === null ? "none" : behaviorState(element.behavior.kind),
       ports,
     },
   };
@@ -204,7 +209,7 @@ function elementPorts(
   element: ElementView,
   relationships: readonly RelationshipView[],
 ): PortHandle[] {
-  if (element.behavior === null) {
+  if (element.behavior === null || element.behavior.kind !== "petriNet") {
     return [];
   }
   const net = element.behavior;
@@ -234,6 +239,17 @@ function elementPorts(
     count[side] += 1;
     return { ...port, side, offset };
   });
+}
+
+function behaviorState(kind: BehaviorView["kind"]): BehaviorState {
+  switch (kind) {
+    case "petriNet":
+      return "petriNet";
+    case "unloaded":
+      return "notLoaded";
+    default:
+      return assertNever(kind);
+  }
 }
 
 function elementSize(
@@ -331,7 +347,7 @@ function sameNode(a: ElementNode, b: ElementNode): boolean {
     a.data.name === b.data.name &&
     a.data.kind === b.data.kind &&
     a.data.technology === b.data.technology &&
-    a.data.hasBehavior === b.data.hasBehavior &&
+    a.data.behavior === b.data.behavior &&
     a.data.ports.length === b.data.ports.length &&
     a.data.ports.every((port, i) => {
       const other = b.data.ports[i];

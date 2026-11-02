@@ -6,30 +6,39 @@
 //! (`docs/specs/net-semantics.md` §2.2), never by a position, so markings, keys and
 //! counterexamples mean the same thing on the engine's net and on recheck's own composition.
 //!
-//! Slice 0 so far covers block places and synchronous bindings. `WhenFull`, `OpenNets`,
-//! `NetProperty`, `Technique`, `Evidence` and `Violation` gain their other variants and fields
-//! (drop and overflow, asynchronous bindings, no capacity exceeded, the `NoOverflowPlace`
-//! certificate, the final predicate) as the later slice 0 tickets and slice 1 land; every match on
+//! Slice 0 covers block, drop and overflow places, synchronous and asynchronous bindings, the
+//! properties deadlock-free (`final none`) and no capacity exceeded, and the `NoOverflowPlace`
+//! certificate. `NetProperty`, `Evidence` and `Violation` gain their later variants (the final
+//! predicate, never p, always reachable, no dead transitions) with slices 1 and 4; every match on
 //! them is exhaustive, so the compiler lists each place that has to learn the new case.
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::time::Instant;
 
 pub mod encode;
 pub mod validate;
 
 /// The string that names one place or transition of a net: `element/name` for an element's own
-/// place or transition, `relationship/caller+callee` (bare names) for a fused transition (NS §2.2).
+/// place or transition, `relationship/caller+callee` (bare names) for a fused transition, and
+/// `relationship` for the generated place of an asynchronous binding (NS §2.2).
 /// Ordered bytewise, which is the canonical order of NS §1.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct QualifiedId(pub String);
 
-/// What a place does at its capacity (ADR 0014). Only `block` is in the net class so far; `drop`
-/// and `overflow` arrive with their firing rule (NS §4.2) in a later slice 0 ticket.
+/// What a place does at its capacity (ADR 0014, NS §4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WhenFull {
     /// A transition whose firing would put the place above its capacity is not enabled.
     Block,
+    /// The transition fires and the surplus above the capacity is discarded.
+    Drop,
+    /// The transition fires and the place may exceed its capacity: an overflow marking, which is
+    /// a violation and has no successors (NS §3.2).
+    Overflow,
 }
 
 /// One place: its capacity and what happens when it is full. Its initial count is in
@@ -84,15 +93,34 @@ pub struct Fusion {
     pub callee: QualifiedId,
 }
 
+/// One asynchronous binding: a generated place named `relationship` with this capacity and when
+/// full, initially empty. Every sender puts one message into it, every receiver takes one
+/// (NS §6.4). The sets hold transitions; a Petri net port is a one-element set, a state machine
+/// event every transition on that event (D-06).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsyncLink {
+    /// The ID of the relationship that holds the binding; also the generated place's ID.
+    pub relationship: String,
+    /// The senders: non-empty, sorted by ID, without duplicates.
+    pub from: Vec<QualifiedId>,
+    /// The receivers: non-empty, sorted by ID, without duplicates.
+    pub to: Vec<QualifiedId>,
+    /// The generated place's capacity, at least 1 (L13).
+    pub capacity: u32,
+    /// Always explicit: lowering fills in the default `overflow` (ADR 0014).
+    pub when_full: WhenFull,
+}
+
 /// The behavior models of a scope's children and the bindings between them, before composition
-/// (NS §6.1). `engine::flatten` and `recheck::compose` each turn it into a [`Net`]. Asynchronous
-/// bindings (`links`) arrive with their generated places in a later slice 0 ticket.
+/// (NS §6.1). `engine::flatten` and `recheck::compose` each turn it into a [`Net`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct OpenNets {
     /// One net per child, with own-shaped IDs and its own initial marking.
     pub parts: Vec<Net>,
     /// The synchronous binding pairs.
     pub fusions: Vec<Fusion>,
+    /// The asynchronous bindings, at most one per relationship (L8).
+    pub links: Vec<AsyncLink>,
 }
 
 /// The property a check decides on a net (NS §8, ADR 0018).
@@ -101,6 +129,8 @@ pub enum NetProperty {
     /// No reachable marking is a deadlock (NS §8.1). Slice 0 checks it with `final none`: no
     /// marking is final. The final predicate joins this variant in slice 1 (ADR 0018).
     DeadlockFree,
+    /// No reachable marking is an overflow marking (NS §8.2): "no capacity exceeded".
+    CapacityNeverExceeded,
 }
 
 /// One fired transition and the marking after it (NS §9.1).
@@ -159,6 +189,15 @@ pub enum Violation {
         /// What each transition waits for.
         waiting: Vec<TransitionWaits>,
     },
+    /// The marking is an overflow marking (NS §8.2).
+    Overflow {
+        /// The smallest-ID place above its capacity.
+        place: QualifiedId,
+        /// Its capacity.
+        capacity: u32,
+        /// Its count in the marking.
+        count: u32,
+    },
 }
 
 /// A run from the initial marking to a violation (NS §9.1). It may have zero steps.
@@ -177,11 +216,26 @@ pub enum Evidence {
     Counterexample(Counterexample),
 }
 
-/// How a Proved was reached (ADR 0008). The certificate path arrives with `NoOverflowPlace`.
+/// A small object an independent checker verifies without exploring (NS §9.5). Only the kinds
+/// listed here are valid evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Certificate {
+    /// No place overflows when full, so no overflow marking exists (NS §3.2). Valid for no
+    /// capacity exceeded only.
+    NoOverflowPlace {
+        /// Every place that drops when full, sorted by ID: messages can still be lost there
+        /// (D-03).
+        drop_places: Vec<QualifiedId>,
+    },
+}
+
+/// How a Proved was reached: the two paths of ADR 0008 as amended by ADR 0017.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Technique {
     /// Every reachable marking was explored; confirmed by agreement of the second explorer.
     Exhaustive,
+    /// A certificate, accepted by `recheck::check_certificate`; `markings` is 0.
+    Certificate(Certificate),
 }
 
 /// The phase of a check that ran out of budget (NS §10.1).
@@ -223,12 +277,43 @@ pub enum UnknownReason {
     },
 }
 
-/// What an explorer may spend on one phase (NS §10.1). The deadline and the cancel flag join it
-/// with the supervised workers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Expansions (pops of one marking from the queue) between two polls of the deadline and the
+/// cancel flag; an explorer polls at its first expansion and then at least this often (NS §10.1).
+pub const POLL_EXPANSIONS: u64 = 1024;
+
+/// The time a deadline is measured against: the engine's Clock port, a fake one in tests
+/// (design §3). Explorers read it only when they poll.
+pub trait Clock: fmt::Debug + Send + Sync {
+    /// The current instant.
+    fn now(&self) -> Instant;
+}
+
+/// The moment a phase must end, with the clock that tells it (NS §10.1).
+#[derive(Debug, Clone)]
+pub struct Deadline {
+    /// The phase has run out of time once the clock reads this instant or later.
+    pub at: Instant,
+    /// Shared with the engine and the other phase of the same check, which read the same clock.
+    pub clock: Arc<dyn Clock>,
+}
+
+/// What an explorer may spend on one phase (NS §10.1): markings, time and a cancel flag, polled
+/// together every [`POLL_EXPANSIONS`] expansions.
+#[derive(Debug, Clone, Default)]
 pub struct Budget {
     /// The most markings the phase may store, the initial marking included.
     pub max_markings: u64,
+    /// `None` for a budget of markings only.
+    pub deadline: Option<Deadline>,
+    /// Set by the engine to stop the check; shared with it, so the flag is behind an `Arc`.
+    pub cancel: Arc<AtomicBool>,
+}
+
+/// What an explorer reports at a poll while it runs (design §3, `checkProgress`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Progress {
+    /// Markings stored so far, the initial marking included.
+    pub markings: u64,
 }
 
 /// A candidate verdict, as `verify::check` and `recheck::explore` return it. It is never cached,
@@ -240,7 +325,7 @@ pub enum NetVerdict {
     Proved {
         /// How it was proved.
         technique: Technique,
-        /// The number of reachable markings |R| for an exhaustive Proved.
+        /// The number of reachable markings |R| for an exhaustive Proved; 0 for a certificate.
         markings: u64,
     },
     /// The property does not hold.

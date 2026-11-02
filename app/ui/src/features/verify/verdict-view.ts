@@ -1,4 +1,5 @@
 // The one verdict selector (flows §3.1). Every surface that shows a verdict uses it.
+import type { Phase } from "../../ipc/bindings/phase";
 import type { UnknownDto } from "../../ipc/bindings/unknown-dto";
 import type { VerdictDto } from "../../ipc/bindings/verdict-dto";
 import type { AppState } from "../../store/app-store";
@@ -7,11 +8,11 @@ export type RowState =
   | { kind: "pending" }
   | { kind: "noBehavior" }
   | { kind: "unknownKey"; reason: UnknownDto }
-  | { kind: "running" }
+  | { kind: "running"; progress?: { phase: Phase; markings: number } }
   | { kind: "current"; verdict: VerdictDto }
   | { kind: "noVerdict"; behaviorChanged: boolean };
 
-type Inputs = Pick<AppState, "view" | "currentKeys" | "verdicts" | "running">;
+type Inputs = Pick<AppState, "view" | "currentKeys" | "verdicts" | "running" | "progress">;
 
 // keysFresh comes first, so no branch renders from keys of another revision (design §4).
 export function verdictView(state: Inputs, property: string): RowState {
@@ -30,7 +31,8 @@ export function verdictView(state: Inputs, property: string): RowState {
     return { kind: "unknownKey", reason: keyState.unknown };
   }
   if (state.running.includes(keyState.key)) {
-    return { kind: "running" };
+    const progress = state.progress[keyState.key];
+    return progress === undefined ? { kind: "running" } : { kind: "running", progress };
   }
   const last = state.verdicts[property];
   if (last === undefined) {
