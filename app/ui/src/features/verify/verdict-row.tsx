@@ -7,7 +7,9 @@ import type { DisprovedDto } from "../../ipc/bindings/disproved-dto";
 import type { PropertyView } from "../../ipc/bindings/property-view";
 import type { ProvedDto } from "../../ipc/bindings/proved-dto";
 import type { View } from "../../ipc/bindings/view";
+import type { UnknownDto } from "../../ipc/bindings/unknown-dto";
 import { assertNever, useAppStore } from "../../store/app-store";
+import { incompleteLines } from "../problems/copy";
 import {
   assumptionLine,
   deadlockHeadline,
@@ -39,7 +41,7 @@ export function VerdictRow({ view, property }: { view: View; property: PropertyV
     >
       <div className="col-span-2">
         <h3 id={headingId} className="font-semibold">
-          {propertyName(property.kind)}
+          {propertyName(property)}
         </h3>
         <p className="text-text-secondary">{scopeLine(view, property)}</p>
       </div>
@@ -110,6 +112,14 @@ function Word({ kind }: { kind: "proved" | "disproved" | "unknown" }) {
   }
 }
 
+// A model-incomplete reason names its causes in the user's terms (U-INC-*, flows R2).
+function reasonLines(view: View, reason: UnknownDto): string[] {
+  if (reason.category === "modelIncomplete" && reason.causes.length > 0) {
+    return incompleteLines(view, reason.causes);
+  }
+  return unknownLines(reason);
+}
+
 function Lines({ lines }: { lines: string[] }) {
   return (
     <>
@@ -147,7 +157,7 @@ function Detail({
         </p>
       );
     case "unknownKey":
-      return <Lines lines={unknownLines(state.reason)} />;
+      return <Lines lines={reasonLines(view, state.reason)} />;
     case "current": {
       const { verdict } = state;
       const assumptions = verdict.assumptions.map((r) => assumptionLine(view, r));
@@ -171,7 +181,7 @@ function Detail({
             />
           );
         case "unknown":
-          return <Lines lines={[...unknownLines(verdict.reason), ...assumptions]} />;
+          return <Lines lines={[...reasonLines(view, verdict.reason), ...assumptions]} />;
         default:
           return assertNever(verdict);
       }

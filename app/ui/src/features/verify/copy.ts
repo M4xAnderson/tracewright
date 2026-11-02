@@ -12,7 +12,26 @@ import { assertNever } from "../../store/app-store";
 
 const count = new Intl.NumberFormat("en-US");
 
-export function propertyName(kind: PropertyKind): string {
+// The catalog names of the templates (PL §8.2); an unknown template shows its ID.
+function templateName(template: string | null): string {
+  switch (template) {
+    case "never-overflows":
+      return "Never overflows";
+    case "never-more-than":
+      return "Never more than";
+    case "never-fills-up":
+      return "Never fills up";
+    case "pool-share":
+      return "Never holds the whole pool";
+    case "get-back-to":
+      return "Can always get back to";
+    default:
+      return template ?? "Template";
+  }
+}
+
+export function propertyName(property: Pick<PropertyView, "kind" | "template">): string {
+  const kind: PropertyKind = property.kind;
   switch (kind) {
     case "deadlockFree":
       return "Deadlock-free";
@@ -24,6 +43,8 @@ export function propertyName(kind: PropertyKind): string {
       return "Never";
     case "alwaysReachable":
       return "Always reachable";
+    case "template":
+      return templateName(property.template);
     default:
       return assertNever(kind);
   }
@@ -164,14 +185,15 @@ export function waitingLine(view: View, waiting: WaitingDto): string {
   }
 }
 
+// U-INC
+export const MODEL_INCOMPLETE =
+  "Model incomplete: this view cannot be checked until these are fixed:";
+
 // Flows §4.9: the reason in the user's terms. Lines the engine sends (details) follow the first.
 export function unknownLines(reason: UnknownDto): string[] {
   switch (reason.category) {
     case "modelIncomplete":
-      return [
-        "Model incomplete: this view cannot be checked until these are fixed:",
-        ...reason.details,
-      ];
+      return [MODEL_INCOMPLETE, ...reason.details];
     case "propertyNotCheckable":
       return ["Property cannot be checked:", ...reason.details];
     case "internalError":
