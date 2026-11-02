@@ -6,7 +6,6 @@
 //! The monitor runs the checks of one `run_checks` one after another, so at most one worker per
 //! run explores at a time and its memory is bounded by one budget.
 
-use std::fmt;
 use std::io;
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -90,14 +89,6 @@ pub(crate) struct Supervisor {
     pub clock: Arc<dyn Clock>,
     pub spawner: Arc<dyn Spawner>,
     pub budget: CheckBudget,
-}
-
-impl fmt::Debug for Supervisor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Supervisor")
-            .field("budget", &self.budget)
-            .finish_non_exhaustive()
-    }
 }
 
 /// Runs `jobs` in order on a monitor thread and returns at once (or, with an inline Spawner, when
