@@ -1,0 +1,207 @@
+# Conformance vectors of docs/specs/net-semantics.md §14.1, slice 0, that need only block places
+# and synchronous fusion, written as flattened nets (qualified IDs, NS §2.4). Read by the tests of
+# `verify` and of `recheck`, each with its own harness, so neither explorer's tests lean on the
+# other's code (ADR 0010). Nets follow the E1 corpus (`prototype/e1-state-space`,
+# fixtures/ns-vectors.toml).
+#
+# Every place is `block`. `stored` is the number of stored markings when the violation is
+# discovered (NS §14), `markings` is |R| of a Proved. Both are pinned through the budget too: the
+# vector holds with exactly that many markings and runs out with one fewer (NS §10.1 c, d).
+# A wait is { place, needs = [needed, holds] } or { place, full = [capacity, would_hold] }.
+
+[nets.ONE]
+places = [{ id = "x/p", capacity = 1, initial = 1 }]
+transitions = []
+
+[nets.SRC]
+places = [{ id = "x/p", capacity = 2 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.V08]
+places = [{ id = "x/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "x/t", pre = { "x/p" = 1 }, post = { "x/p" = 1 } }]
+
+[nets.V09]
+places = [{ id = "x/p", capacity = 3, initial = 3 }, { id = "x/q", capacity = 1 }]
+transitions = [{ id = "x/t", pre = { "x/p" = 2 }, post = { "x/q" = 1 } }]
+
+[nets.V10]
+places = [{ id = "x/p", capacity = 2 }]
+transitions = [{ id = "x/t", post = { "x/p" = 3 } }]
+
+[nets.V52]
+places = [{ id = "x/p", capacity = 4294967294, initial = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.LOCKS_yx]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_y+acq_y", pre = { "b/idle" = 1, "l/y" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_x+acq_x", pre = { "b/has_1" = 1, "l/x" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+]
+
+[nets.LOCKS_xy]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_x+acq_x", pre = { "b/idle" = 1, "l/x" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_y+acq_y", pre = { "b/has_1" = 1, "l/y" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+]
+
+[nets.MASK]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+  { id = "h/s", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_y+acq_y", pre = { "b/idle" = 1, "l/y" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_x+acq_x", pre = { "b/has_1" = 1, "l/x" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "h/tick", pre = { "h/s" = 1 }, post = { "h/s" = 1 } },
+]
+
+[nets.POOL]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+]
+
+[nets.POOL_LEAK]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+  { id = "c/fail", pre = { "c/running" = 1 }, post = { "c/idle" = 1 } },
+]
+
+# Structurally invalid nets (NS §2.3): both explorers reject them on entry (Unknown InternalError),
+# because engine fails lowering on them (L10) and never hands them to a worker.
+[nets.V29]
+places = [{ id = "x/p", capacity = 3, initial = 5 }]
+transitions = []
+
+[nets.V54]
+places = [{ id = "x/p", capacity = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 2 } }]
+
+[[vector]]
+id = "V01"
+net = "ONE"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = []
+
+[[vector]]
+id = "V03"
+net = "SRC"
+expect = "disproved"
+fired = ["x/t", "x/t"]
+stored = 3
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [2, 3] }] }]
+
+[[vector]]
+id = "V08"
+net = "V08"
+expect = "proved"
+markings = 1
+
+[[vector]]
+id = "V09"
+net = "V09"
+expect = "disproved"
+fired = ["x/t"]
+stored = 2
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", needs = [2, 1] }, { place = "x/q", full = [1, 2] }] }]
+
+[[vector]]
+id = "V10"
+net = "V10"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [2, 3] }] }]
+
+[[vector]]
+id = "V13"
+net = "LOCKS_yx"
+expect = "disproved"
+fired = ["ra1/take_x+acq_x", "rb1/take_y+acq_y"]
+stored = 5
+waiting = [
+  { transition = "ra1/take_x+acq_x", waits = [{ place = "a/has_1", full = [1, 2] }, { place = "a/idle", needs = [1, 0] }, { place = "l/x", needs = [1, 0] }] },
+  { transition = "ra2/take_y+acq_y", waits = [{ place = "l/y", needs = [1, 0] }] },
+  { transition = "ra3/release+rel_xy", waits = [{ place = "a/has_2", needs = [1, 0] }] },
+  { transition = "rb1/take_y+acq_y", waits = [{ place = "b/has_1", full = [1, 2] }, { place = "b/idle", needs = [1, 0] }, { place = "l/y", needs = [1, 0] }] },
+  { transition = "rb2/take_x+acq_x", waits = [{ place = "l/x", needs = [1, 0] }] },
+  { transition = "rb3/release+rel_xy", waits = [{ place = "b/has_2", needs = [1, 0] }] },
+]
+
+[[vector]]
+id = "V14"
+net = "LOCKS_xy"
+expect = "proved"
+markings = 5
+
+[[vector]]
+id = "V22"
+net = "POOL"
+expect = "proved"
+markings = 3
+
+[[vector]]
+id = "V24"
+net = "POOL_LEAK"
+expect = "disproved"
+fired = ["r1/start+acquire", "c/fail", "r1/start+acquire", "c/fail"]
+stored = 6
+waiting = [
+  { transition = "c/fail", waits = [{ place = "c/idle", full = [3, 4] }, { place = "c/running", needs = [1, 0] }] },
+  { transition = "r1/start+acquire", waits = [{ place = "w/free", needs = [1, 0] }] },
+  { transition = "r2/finish+release", waits = [{ place = "c/idle", full = [3, 4] }, { place = "c/running", needs = [1, 0] }] },
+]
+
+[[vector]]
+id = "V43"
+net = "MASK"
+expect = "proved"
+markings = 6
+
+[[vector]]
+id = "V52"
+net = "V52"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [4294967294, 4294967295] }] }]
+
+[[vector]]
+id = "V29"
+net = "V29"
+expect = "rejected"
+
+[[vector]]
+id = "V54"
+net = "V54"
+expect = "rejected"
