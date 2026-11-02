@@ -32,8 +32,15 @@ const ALLOWED_WORKSPACE_DEPS: Record<string, readonly string[]> = {
     "tracewright-format",
     "tracewright-scan",
   ],
+  // interop is development-only: no crate lists it, so nothing in the app's graph reaches it.
   "tracewright-interop": ["tracewright-net"],
   [SHELL]: ["tracewright-engine", "tracewright-model"],
+};
+
+// Workspace crates a crate may use only in its tests. The TAPAAL corpus in interop's tests
+// compares both explorers with verifypn (NS §18 item 10); interop's own code stays on `net`.
+const ALLOWED_DEV_DEPS: Record<string, readonly string[]> = {
+  "tracewright-interop": ["tracewright-verify", "tracewright-recheck"],
 };
 
 const RUNTIMES = ["tokio", "tauri"];
@@ -53,8 +60,12 @@ export function checkCrateEdges(meta: CargoMetadata): string[] {
       problems.push(`${crate} is not a crate of ADR 0004 or 0009; add it to the rules with an ADR`);
       continue;
     }
+    const allowedInTests = ALLOWED_DEV_DEPS[crate] ?? [];
     for (const dep of nodeOf.get(id)?.deps ?? []) {
-      if (members.has(dep.pkg) && !allowed.includes(name(dep.pkg))) {
+      const onlyInTests = dep.dep_kinds.every((k) => k.kind === "dev");
+      const ok =
+        allowed.includes(name(dep.pkg)) || (onlyInTests && allowedInTests.includes(name(dep.pkg)));
+      if (members.has(dep.pkg) && !ok) {
         problems.push(`${crate} must not depend on ${name(dep.pkg)} (ADR 0004, 0009)`);
       }
     }
