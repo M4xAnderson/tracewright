@@ -224,3 +224,19 @@ fn a_call_and_its_asynchronous_reply_sit_on_one_relationship() {
         (&orders(), 1, 2)
     );
 }
+
+#[test]
+fn one_overflow_place_among_drop_places_loses_the_certificate_and_explores() {
+    // Billing's idle place overflows when full, so a NoOverflowPlace certificate would be invalid:
+    // the scope is Proved only by exploring, both explorers counting `orders` = 0–3.
+    let disk = with_when_full("drop").edit(
+        "elements/billing.toml",
+        "when_full = \"block\"",
+        "when_full = \"overflow\"",
+    );
+    let run = run_checks(&disk);
+    assert_eq!(
+        proved(run.verdict("no-overflow")),
+        (Technique::Exhaustive, 4)
+    );
+}
