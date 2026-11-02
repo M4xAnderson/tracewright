@@ -48,8 +48,8 @@
                 },
                 "reason": {
                   "capacity": 1,
-                  "kind": "outputFull",
-                  "wouldHold": 2
+                  "holds": 1,
+                  "kind": "outputFull"
                 }
               },
               {

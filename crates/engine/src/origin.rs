@@ -155,13 +155,12 @@ fn disproved(cx: &Counterexample, lowered: &Lowered) -> DisprovedDto {
                         tracewright_net::WaitReason::NeedsTokens { needed, holds } => {
                             dto::WaitReason::NeedsTokens { needed, holds }
                         }
-                        tracewright_net::WaitReason::OutputFull {
-                            capacity,
-                            would_hold,
-                        } => dto::WaitReason::OutputFull {
-                            capacity,
-                            would_hold,
-                        },
+                        tracewright_net::WaitReason::OutputFull { capacity, .. } => {
+                            dto::WaitReason::OutputFull {
+                                capacity,
+                                holds: last.0.get(&wait.place).copied().unwrap_or(0),
+                            }
+                        }
                     },
                 })
                 .collect(),

@@ -87,7 +87,7 @@ fn opposite_locks() {
         violation["waiting"][0]["waits"][0],
         json!({
             "place": { "element": "a", "place": "has_1" },
-            "reason": { "kind": "outputFull", "capacity": 1, "wouldHold": 2 }
+            "reason": { "kind": "outputFull", "capacity": 1, "holds": 1 }
         })
     );
 }

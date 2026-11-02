@@ -243,13 +243,12 @@ pub enum WaitReason {
         /// Tokens in the place.
         holds: u32,
     },
-    /// A `block` post place has no room.
+    /// A `block` post place has no room for what the transition would add.
     OutputFull {
         /// The place's capacity.
         capacity: u32,
-        /// Tokens it would hold after firing.
-        #[serde(rename = "wouldHold")]
-        would_hold: u32,
+        /// Tokens in the place.
+        holds: u32,
     },
 }
 

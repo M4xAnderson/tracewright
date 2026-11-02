@@ -206,7 +206,7 @@ fn the_opposite_locks_deadlock_lists_one_waiting_line_per_waiting_step() {
                     },
                     reason: WaitReason::OutputFull {
                         capacity: 1,
-                        would_hold: 2,
+                        holds: 1,
                     },
                 },
                 needs("a", "idle", 1, 0),
