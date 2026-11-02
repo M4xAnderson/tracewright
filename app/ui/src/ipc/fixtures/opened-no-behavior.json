@@ -1,0 +1,35 @@
+{
+  "name": "no-behavior",
+  "path": "/home/designer/no-behavior",
+  "view": {
+    "elements": [
+      {
+        "id": "order-api",
+        "name": "Order API"
+      },
+      {
+        "id": "orders",
+        "name": "Orders"
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "Order platform"
+    }
+  }
+}

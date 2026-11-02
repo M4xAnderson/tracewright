@@ -1,0 +1,195 @@
+{
+  "name": "half-done",
+  "path": "/home/designer/half-done",
+  "view": {
+    "elements": [
+      {
+        "id": "billing",
+        "name": "Billing"
+      },
+      {
+        "id": "gate",
+        "name": "Gate"
+      },
+      {
+        "id": "order-api",
+        "name": "Order API"
+      },
+      {
+        "id": "shipping",
+        "name": "Shipping"
+      }
+    ],
+    "problems": [
+      {
+        "code": "L2",
+        "column": null,
+        "element": "billing",
+        "file": "elements/billing.toml",
+        "kind": "noWhenFull",
+        "line": null,
+        "message": "billing/queue has no when_full",
+        "place": "billing/queue",
+        "port": null,
+        "property": null,
+        "relationship": null,
+        "severity": "error"
+      },
+      {
+        "code": "L4",
+        "column": null,
+        "element": "billing",
+        "file": "elements/billing.toml",
+        "kind": "unbound",
+        "line": null,
+        "message": "billing/reserve is a port but no relationship inside this scope binds it",
+        "place": null,
+        "port": "billing/reserve",
+        "property": null,
+        "relationship": null,
+        "severity": "error"
+      },
+      {
+        "code": "L10",
+        "column": null,
+        "element": "billing",
+        "file": "elements/billing.toml",
+        "kind": "nameClash",
+        "line": null,
+        "message": "billing has both a place and a transition named idle",
+        "place": "billing/idle",
+        "port": null,
+        "property": null,
+        "relationship": null,
+        "severity": "error"
+      },
+      {
+        "code": "L3",
+        "column": null,
+        "element": "order-api",
+        "file": "elements/order-api.toml",
+        "kind": "dangling",
+        "line": null,
+        "message": "logs-to: target audit not found",
+        "place": null,
+        "port": null,
+        "property": null,
+        "relationship": "logs-to",
+        "severity": "error"
+      },
+      {
+        "code": "L3",
+        "column": null,
+        "element": "order-api",
+        "file": "elements/order-api.toml",
+        "kind": "unknownPort",
+        "line": null,
+        "message": "billing/reserv not found",
+        "place": null,
+        "port": "billing/reserv",
+        "property": null,
+        "relationship": "calls",
+        "severity": "error"
+      },
+      {
+        "code": "L1",
+        "column": null,
+        "element": "shipping",
+        "file": "elements/shipping.toml",
+        "kind": "noBehavior",
+        "line": null,
+        "message": "shipping has no behavior model",
+        "place": null,
+        "port": null,
+        "property": null,
+        "relationship": null,
+        "severity": "error"
+      },
+      {
+        "code": "D-25",
+        "column": null,
+        "element": "sys",
+        "file": "elements/sys.toml",
+        "kind": "finalNotChecked",
+        "line": null,
+        "message": "elements/sys.toml has a [final] table; done when is checked from slice 1",
+        "place": null,
+        "port": null,
+        "property": null,
+        "relationship": null,
+        "severity": "warning"
+      }
+    ],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      },
+      {
+        "id": "gate-no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "gate"
+        },
+        "template": null
+      },
+      {
+        "id": "gate-never-two",
+        "kind": "never",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "gate"
+        },
+        "template": null
+      },
+      {
+        "id": "gate-pool",
+        "kind": "template",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "gate"
+        },
+        "template": "pool-share"
+      },
+      {
+        "id": "gate-fills",
+        "kind": "template",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "gate"
+        },
+        "template": "never-fills-up"
+      }
+    ],
+    "relationships": [
+      {
+        "id": "calls",
+        "meaning": "calls",
+        "source": "order-api",
+        "target": "billing"
+      },
+      {
+        "id": "logs-to",
+        "meaning": "logs to",
+        "source": "order-api",
+        "target": "audit"
+      }
+    ],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "Order platform"
+    }
+  }
+}

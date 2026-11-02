@@ -1,0 +1,2 @@
+# One job plus an element file with a TOML syntax error (ticket #7, V-BANNER-FNL).
+format = 1

@@ -1,0 +1,150 @@
+[
+  {
+    "keys": {
+      "gate-fills": {
+        "unknown": {
+          "category": "propertyNotCheckable",
+          "details": [
+            "user properties are checked from slice 4"
+          ]
+        }
+      },
+      "gate-never-two": {
+        "unknown": {
+          "category": "propertyNotCheckable",
+          "details": [
+            "user properties are checked from slice 4"
+          ]
+        }
+      },
+      "gate-no-deadlock": {
+        "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de"
+      },
+      "gate-pool": {
+        "unknown": {
+          "category": "propertyNotCheckable",
+          "details": [
+            "never holds the whole pool is checked from slice 1"
+          ]
+        }
+      },
+      "no-deadlock": {
+        "unknown": {
+          "category": "modelIncomplete",
+          "causes": [
+            {
+              "code": "L1",
+              "column": null,
+              "element": "shipping",
+              "file": "elements/shipping.toml",
+              "kind": "noBehavior",
+              "line": null,
+              "message": "shipping has no behavior model",
+              "place": null,
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            },
+            {
+              "code": "L2",
+              "column": null,
+              "element": "billing",
+              "file": "elements/billing.toml",
+              "kind": "noWhenFull",
+              "line": null,
+              "message": "billing/queue has no when_full",
+              "place": "billing/queue",
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            },
+            {
+              "code": "L3",
+              "column": null,
+              "element": "order-api",
+              "file": "elements/order-api.toml",
+              "kind": "unknownPort",
+              "line": null,
+              "message": "billing/reserv not found",
+              "place": null,
+              "port": "billing/reserv",
+              "property": null,
+              "relationship": "calls",
+              "severity": "error"
+            },
+            {
+              "code": "L3",
+              "column": null,
+              "element": "order-api",
+              "file": "elements/order-api.toml",
+              "kind": "dangling",
+              "line": null,
+              "message": "logs-to: target audit not found",
+              "place": null,
+              "port": null,
+              "property": null,
+              "relationship": "logs-to",
+              "severity": "error"
+            },
+            {
+              "code": "L4",
+              "column": null,
+              "element": "billing",
+              "file": "elements/billing.toml",
+              "kind": "unbound",
+              "line": null,
+              "message": "billing/reserve is a port but no relationship inside this scope binds it",
+              "place": null,
+              "port": "billing/reserve",
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            },
+            {
+              "code": "L10",
+              "column": null,
+              "element": "billing",
+              "file": "elements/billing.toml",
+              "kind": "nameClash",
+              "line": null,
+              "message": "billing has both a place and a transition named idle",
+              "place": "billing/idle",
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            }
+          ],
+          "details": [
+            "shipping has no behavior model",
+            "billing/queue has no when_full",
+            "billing/reserv not found",
+            "logs-to: target audit not found",
+            "billing/reserve is a port but no relationship inside this scope binds it",
+            "billing has both a place and a transition named idle"
+          ]
+        }
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "kind": "checkQueued",
+    "property": "gate-no-deadlock"
+  },
+  {
+    "key": "aa1206ddcec85a95968f77efcc278d2b9132ed1a5f7370ae7ed89177657096de",
+    "kind": "verdict",
+    "property": "gate-no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 2,
+      "technique": "exhaustive"
+    }
+  }
+]

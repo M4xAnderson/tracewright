@@ -1,0 +1,51 @@
+[
+  {
+    "keys": {
+      "job-no-deadlock": {
+        "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94"
+      },
+      "no-deadlock": {
+        "unknown": {
+          "category": "modelIncomplete",
+          "causes": [
+            {
+              "code": null,
+              "column": 12,
+              "element": "billing",
+              "file": "elements/billing.toml",
+              "kind": "parse",
+              "line": 7,
+              "message": "extra `=`, expected nothing",
+              "place": null,
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            }
+          ],
+          "details": [
+            "elements/billing.toml did not load"
+          ]
+        }
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "kind": "checkQueued",
+    "property": "job-no-deadlock"
+  },
+  {
+    "key": "b1536ff7217f9fb087d99c625b7171e8b9d625b57bb55eb5da1ad8cf2fde3a94",
+    "kind": "verdict",
+    "property": "job-no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 2,
+      "technique": "exhaustive"
+    }
+  }
+]
