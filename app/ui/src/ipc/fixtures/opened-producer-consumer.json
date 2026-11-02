@@ -12,6 +12,7 @@
         "name": "Billing"
       }
     ],
+    "problems": [],
     "properties": [
       {
         "id": "no-overflow",
@@ -20,7 +21,8 @@
         "scope": {
           "behavior": "combined",
           "element": "sys"
-        }
+        },
+        "template": null
       },
       {
         "id": "no-deadlock",
@@ -29,7 +31,8 @@
         "scope": {
           "behavior": "combined",
           "element": "sys"
-        }
+        },
+        "template": null
       }
     ],
     "relationships": [

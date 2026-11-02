@@ -1,22 +1,30 @@
 //! Reads and writes a project as a directory of TOML files (ADR 0001, 0020, 0024).
 //!
 //! `load` turns the bytes of the project files into a `Model`; it does no IO itself, so the engine
-//! reads the directory through its `Disk` port and tests use files in memory. So far the reader is
-//! strict: anything it does not read yet (state machines, scan attributes, templates, layout) or
-//! any schema defect makes the project not load, so a check never runs on a smaller net
-//! (file-format §10.5). The per-section problems of file-format §3.3 and §10 replace that with the
-//! Problems list in a later slice 0 ticket.
+//! reads the directory through its `Disk` port and tests use files in memory.
+//!
+//! Strictness is per section (file-format §3.3): only `arch.toml`, the project-wide limits and a
+//! newer format stop the project from opening. Any other defect becomes a problem in the Model: a
+//! file that does not load, a behavior that does not load, a property entry that is not checked.
+//! What this slice does not read yet (state machines, scan attributes) makes its file or section
+//! not load, so a check never runs on a smaller net (§10.5).
 #![forbid(unsafe_code)]
 
 mod element;
+mod property;
 mod read;
 
 use std::collections::BTreeMap;
 
 use tracewright_model::ElementId;
+use tracewright_model::FileNotLoaded;
 use tracewright_model::Model;
-use tracewright_model::id::IdError;
+use tracewright_model::ParentOfNotLoaded;
+use tracewright_model::Problem;
+use tracewright_model::ProblemKind;
+use tracewright_model::PropertyId;
 
+pub use property::PREDICATE_BYTES_MAX;
 pub use read::read_dir;
 
 /// The format version this build reads and writes (file-format §3.2).
@@ -52,7 +60,8 @@ pub struct ProjectFile {
     pub bytes: Vec<u8>,
 }
 
-/// Why a project does not load.
+/// Why a project does not open (file-format §10.1): `arch.toml`, the project-wide limits and newer
+/// formats. Everything else is a problem in the Model.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum LoadError {
     /// The folder has no `arch.toml`.
@@ -66,7 +75,7 @@ pub enum LoadError {
         /// The limit.
         max: usize,
     },
-    /// LIM-2: a file is larger than its limit; checked before parsing.
+    /// LIM-2: `arch.toml` is larger than its limit; checked before parsing.
     #[error("{path} is {size_bytes} bytes; the limit is {max_bytes}")]
     TooLarge {
         /// The file.
@@ -76,19 +85,7 @@ pub enum LoadError {
         /// The limit.
         max_bytes: usize,
     },
-    /// LIM-2: a table in a file has more entries than its limit.
-    #[error("{path}: {what} has {count} entries; the limit is {max}")]
-    TooMany {
-        /// The file.
-        path: String,
-        /// What is counted.
-        what: String,
-        /// Entries found.
-        count: usize,
-        /// The limit.
-        max: usize,
-    },
-    /// The file is not UTF-8.
+    /// `arch.toml` is not UTF-8.
     #[error("{path} is not UTF-8")]
     NotUtf8 {
         /// The file.
@@ -97,7 +94,7 @@ pub enum LoadError {
         #[source]
         source: std::str::Utf8Error,
     },
-    /// TOML syntax, a wrong type, an unknown key or a missing required key.
+    /// `arch.toml` has a TOML syntax error, a wrong type, an unknown key or a missing key.
     #[error("{path}: {message}")]
     Schema {
         /// The file.
@@ -105,13 +102,13 @@ pub enum LoadError {
         /// What is wrong, with the line where the parser knows it.
         message: String,
     },
-    /// file-format §3.2.
+    /// file-format §3.2, for `arch.toml`.
     #[error("{path}: format is missing; add `format = 1`")]
     FormatMissing {
         /// The file.
         path: String,
     },
-    /// file-format §12.2.
+    /// file-format §12.2: any project file.
     #[error("{path}: format version {found} is newer than this app supports ({supported})")]
     VersionTooNew {
         /// The file.
@@ -121,29 +118,6 @@ pub enum LoadError {
         /// This app's version.
         supported: u32,
     },
-    /// An ID or name breaks its alphabet (file-format §4.1).
-    #[error("{path}: {source}")]
-    InvalidId {
-        /// The file.
-        path: String,
-        /// The ID error.
-        #[source]
-        source: IdError,
-    },
-    /// A binding port is not `element/name`.
-    #[error("{path}: `{text}` is not a qualified port (element/name)")]
-    InvalidPort {
-        /// The file.
-        path: String,
-        /// The text.
-        text: String,
-    },
-    /// Elements and relationships share one namespace; property IDs have their own.
-    #[error("the ID {id} is used twice")]
-    IdTaken {
-        /// The ID.
-        id: String,
-    },
 }
 
 /// Reads a project from its files. Files outside the project set (file-format §2.1) are
@@ -151,7 +125,11 @@ pub enum LoadError {
 ///
 /// # Errors
 ///
-/// The first file that does not load, or a project-level limit.
+/// `arch.toml` does not load, a project-wide limit is exceeded, or a file has a newer format.
+///
+/// # Panics
+///
+/// Only on a bug: an element read under another ID than its file name.
 pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
     let mut arch = None;
     let mut elements = BTreeMap::new();
@@ -171,27 +149,133 @@ pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
     }
     read_arch(arch)?;
     let mut model = Model::default();
+    let mut relationships = Vec::new();
     for (stem, file) in elements {
-        let id = ElementId::parse(stem).map_err(|source| LoadError::InvalidId {
-            path: file.path.clone(),
-            source,
-        })?;
-        let text = text(file, ELEMENT_FILE_BYTES_MAX)?;
-        let (element, relationships) = element::read(&file.path, id, text)?;
-        model.elements.insert(element.id.clone(), element);
-        for relationship in relationships {
-            let previous = model
-                .relationships
-                .insert(relationship.id.clone(), relationship);
-            if let Some(previous) = previous {
-                return Err(LoadError::IdTaken {
-                    id: previous.id.to_string(),
-                });
+        match read_element(file, stem)? {
+            element::Read::Loaded {
+                element,
+                relationships: outgoing,
+                problems,
+            } => {
+                assert_eq!(
+                    element.id.as_str(),
+                    stem,
+                    "load: an element's ID is its file name"
+                );
+                model.elements.insert(element.id.clone(), *element);
+                relationships.extend(outgoing);
+                model.load_problems.extend(problems);
+            }
+            element::Read::NotLoaded(not_loaded) => {
+                model.files_not_loaded.insert(file.path.clone(), not_loaded);
             }
         }
     }
-    check_namespaces(&model)?;
+    add_relationships(&mut model, relationships);
+    unique_property_ids(&mut model);
     Ok(model)
+}
+
+fn read_element(file: &ProjectFile, stem: &str) -> Result<element::Read, LoadError> {
+    // The size check comes before the TOML parser sees anything (LIM-2).
+    let unreadable = |kind, code, message: String| {
+        let mut problem = Problem::error(kind, code, message).in_file(&file.path);
+        problem.element = ElementId::parse(stem).ok();
+        element::Read::NotLoaded(FileNotLoaded {
+            problem,
+            parent: ParentOfNotLoaded::Unknown,
+        })
+    };
+    if file.bytes.len() > ELEMENT_FILE_BYTES_MAX {
+        return Ok(unreadable(
+            ProblemKind::TooLarge,
+            Some("LIM-2"),
+            format!(
+                "the file is {} bytes; the limit is {ELEMENT_FILE_BYTES_MAX}",
+                file.bytes.len()
+            ),
+        ));
+    }
+    let Ok(text) = std::str::from_utf8(&file.bytes) else {
+        return Ok(unreadable(
+            ProblemKind::Parse,
+            None,
+            "the file is not UTF-8".to_owned(),
+        ));
+    };
+    element::read(
+        &file.path,
+        stem,
+        text.strip_prefix('\u{feff}').unwrap_or(text),
+    )
+}
+
+// Elements and relationships share one namespace (file-format §4.2). A relationship ID used twice,
+// or equal to an element ID, is `duplicateId`: none of the clashing relationships enters the
+// model, and the scopes they could change are blocked (§10.3).
+fn add_relationships(model: &mut Model, relationships: Vec<tracewright_model::Relationship>) {
+    let mut by_id: BTreeMap<_, Vec<_>> = BTreeMap::new();
+    for relationship in relationships {
+        by_id
+            .entry(relationship.id.clone())
+            .or_default()
+            .push(relationship);
+    }
+    for (id, mut clashing) in by_id {
+        let element_id = ElementId::parse(id.as_str()).ok();
+        let names_element = element_id.is_some_and(|e| model.elements.contains_key(&e));
+        if clashing.len() == 1 && !names_element {
+            let relationship = clashing.pop().expect("one relationship has this ID");
+            model.relationships.insert(id, relationship);
+            continue;
+        }
+        for relationship in clashing {
+            let what = if names_element {
+                "is also an element ID"
+            } else {
+                "is used by more than one relationship"
+            };
+            let mut problem = Problem::error(
+                ProblemKind::DuplicateId,
+                Some("L3"),
+                format!("the relationship ID {id} {what}"),
+            )
+            .on_element(&relationship.source);
+            problem.relationship = Some(id.clone());
+            model.load_problems.push(problem);
+        }
+    }
+}
+
+// PL E408: property IDs are unique in the project. The first entry in path order stays and is not
+// checked; the others cannot be told apart by ID, so they stay in their files only.
+fn unique_property_ids(model: &mut Model) {
+    let mut seen: BTreeMap<PropertyId, usize> = BTreeMap::new();
+    for element in model.elements.values() {
+        for property in &element.properties {
+            *seen.entry(property.id.clone()).or_default() += 1;
+        }
+    }
+    let mut kept = std::collections::BTreeSet::new();
+    for element in model.elements.values_mut() {
+        let mut properties = Vec::with_capacity(element.properties.len());
+        for mut property in std::mem::take(&mut element.properties) {
+            let count = seen.get(&property.id).copied().unwrap_or(0);
+            let message = format!("Two properties have the ID {}.", property.id);
+            let mut problem = Problem::error(ProblemKind::Property, Some("E408"), message)
+                .on_element(&element.id);
+            problem.property = Some(property.id.clone());
+            if count < 2 {
+                properties.push(property);
+            } else if kept.insert(property.id.clone()) {
+                property.problems.push(problem);
+                properties.push(property);
+            } else {
+                model.load_problems.push(problem);
+            }
+        }
+        element.properties = properties;
+    }
 }
 
 // `elements/<stem>.toml`, not a dotfile.
@@ -230,83 +314,58 @@ fn read_arch(file: &ProjectFile) -> Result<(), LoadError> {
         )]
         max_markings: Option<u32>,
     }
-    let text = text(file, ARCH_FILE_BYTES_MAX)?;
-    let arch: Arch = parse(&file.path, text)?;
-    check_version(&file.path, arch.format)
-}
-
-pub(crate) fn check_version(path: &str, format: Option<i64>) -> Result<(), LoadError> {
-    match format {
-        None => Err(LoadError::FormatMissing {
-            path: path.to_owned(),
-        }),
-        Some(found) if found > i64::from(FORMAT_VERSION) => Err(LoadError::VersionTooNew {
-            path: path.to_owned(),
-            found,
-            supported: FORMAT_VERSION,
-        }),
-        Some(found) if found == i64::from(FORMAT_VERSION) => Ok(()),
-        Some(found) => Err(LoadError::Schema {
-            path: path.to_owned(),
-            message: format!("format {found} does not exist"),
-        }),
-    }
-}
-
-// The size check comes before the TOML parser sees anything (LIM-2).
-fn text(file: &ProjectFile, max_bytes: usize) -> Result<&str, LoadError> {
-    if file.bytes.len() > max_bytes {
+    let path = &file.path;
+    if file.bytes.len() > ARCH_FILE_BYTES_MAX {
         return Err(LoadError::TooLarge {
-            path: file.path.clone(),
+            path: path.clone(),
             size_bytes: file.bytes.len(),
-            max_bytes,
+            max_bytes: ARCH_FILE_BYTES_MAX,
         });
     }
     let text = std::str::from_utf8(&file.bytes).map_err(|source| LoadError::NotUtf8 {
-        path: file.path.clone(),
+        path: path.clone(),
         source,
     })?;
-    Ok(text.strip_prefix('\u{feff}').unwrap_or(text))
-}
-
-pub(crate) fn parse<T: serde::de::DeserializeOwned>(
-    path: &str,
-    text: &str,
-) -> Result<T, LoadError> {
-    let document: toml_edit::DocumentMut = text
-        .parse()
-        .map_err(|error: toml_edit::TomlError| schema(path, &error.to_string()))?;
-    toml_edit::de::from_document(document).map_err(|error| schema(path, &error.to_string()))
-}
-
-pub(crate) fn schema(path: &str, message: &str) -> LoadError {
-    LoadError::Schema {
-        path: path.to_owned(),
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let schema = |message: &str| LoadError::Schema {
+        path: path.clone(),
         message: message.trim_end().to_owned(),
+    };
+    let arch: Arch = toml_edit::de::from_str(text).map_err(|error| schema(&error.to_string()))?;
+    let Some(found) = arch.format else {
+        return Err(LoadError::FormatMissing { path: path.clone() });
+    };
+    check_version(path, found)?.map_err(|message| schema(&message))
+}
+
+// file-format §12.2: Err for a newer format (the project does not open), Ok(Err) for a version
+// that never existed (the file does not load).
+pub(crate) fn check_version(path: &str, found: i64) -> Result<Result<(), String>, LoadError> {
+    if found > i64::from(FORMAT_VERSION) {
+        return Err(LoadError::VersionTooNew {
+            path: path.to_owned(),
+            found,
+            supported: FORMAT_VERSION,
+        });
+    }
+    if found == i64::from(FORMAT_VERSION) {
+        Ok(Ok(()))
+    } else {
+        Ok(Err(format!("format {found} does not exist")))
     }
 }
 
-// Elements and relationships share one namespace (file-format §4.2); property IDs are unique in
-// the project (PL §9.2).
-fn check_namespaces(model: &Model) -> Result<(), LoadError> {
-    for id in model.relationships.keys() {
-        if ElementId::parse(id.as_str())
-            .is_ok_and(|as_element| model.elements.contains_key(&as_element))
-        {
-            return Err(LoadError::IdTaken { id: id.to_string() });
-        }
-    }
-    let mut properties = std::collections::BTreeSet::new();
-    for property in model
-        .elements
-        .values()
-        .flat_map(|element| &element.properties)
-    {
-        if !properties.insert(&property.id) {
-            return Err(LoadError::IdTaken {
-                id: property.id.to_string(),
-            });
-        }
-    }
-    Ok(())
+// 1-based line and column of byte `offset` in `text` (file-format §10.1 step 3).
+pub(crate) fn line_column(text: &str, offset: usize) -> (u32, u32) {
+    let before = text.get(..offset).unwrap_or(text);
+    let line = before.matches('\n').count() + 1;
+    let column = before
+        .rsplit('\n')
+        .next()
+        .map_or(0, |last| last.chars().count())
+        + 1;
+    (
+        u32::try_from(line).expect("ELEMENT_FILE_BYTES_MAX keeps line numbers in u32"),
+        u32::try_from(column).expect("ELEMENT_FILE_BYTES_MAX keeps columns in u32"),
+    )
 }

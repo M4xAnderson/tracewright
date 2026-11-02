@@ -10,4 +10,5 @@ mod events;
 mod fixtures;
 mod lowering;
 mod pipeline;
+mod problems;
 mod support;

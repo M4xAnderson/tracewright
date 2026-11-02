@@ -1,0 +1,56 @@
+{
+  "name": "broken-file",
+  "path": "/home/designer/broken-file",
+  "view": {
+    "elements": [
+      {
+        "id": "job",
+        "name": "Job"
+      }
+    ],
+    "problems": [
+      {
+        "code": null,
+        "column": 12,
+        "element": "billing",
+        "file": "elements/billing.toml",
+        "kind": "parse",
+        "line": 7,
+        "message": "extra `=`, expected nothing",
+        "place": null,
+        "port": null,
+        "property": null,
+        "relationship": null,
+        "severity": "error"
+      }
+    ],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      },
+      {
+        "id": "job-no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "job"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "id": "sys",
+      "name": "One job"
+    }
+  }
+}

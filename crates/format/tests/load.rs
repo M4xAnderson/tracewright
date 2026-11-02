@@ -7,7 +7,11 @@ use tracewright_model::BehaviorModel;
 use tracewright_model::Binding;
 use tracewright_model::ElementId;
 use tracewright_model::ElementKind;
+use tracewright_model::Model;
 use tracewright_model::Name;
+use tracewright_model::ParentOfNotLoaded;
+use tracewright_model::Problem;
+use tracewright_model::ProblemKind;
 use tracewright_model::PropertyKind;
 use tracewright_model::RelationshipId;
 use tracewright_model::WhenFull;
@@ -160,84 +164,139 @@ fn a_newer_format_does_not_open() {
     );
 }
 
+// The one file of `model` that did not load.
+fn not_loaded(model: &Model, path: &str) -> Problem {
+    model
+        .files_not_loaded
+        .get(path)
+        .unwrap_or_else(|| panic!("{path} loaded: {model:#?}"))
+        .problem
+        .clone()
+}
+
+fn load(files: &[ProjectFile]) -> Model {
+    tracewright_format::load(files).expect("the project opens")
+}
+
 #[test]
-fn a_missing_format_key_is_named() {
-    let error = tracewright_format::load(&[
+fn a_missing_format_key_makes_only_its_file_not_load() {
+    let model = load(&[
         file("arch.toml", ARCH),
         file("elements/sys.toml", "kind = \"container\"\n"),
-    ])
-    .unwrap_err();
+    ]);
+    let problem = not_loaded(&model, "elements/sys.toml");
+    assert_eq!(problem.kind, ProblemKind::Schema);
+    assert_eq!(problem.message, "format is missing; add `format = 1`");
+}
+
+#[test]
+fn a_toml_syntax_error_names_its_line_and_column() {
+    let text = CLIENTS.replace("capacity = 3\nwhen_full", "capacity = = 3\nwhen_full");
+    let model = load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)]);
+    let problem = not_loaded(&model, "elements/c.toml");
+    assert_eq!(problem.kind, ProblemKind::Parse);
+    assert_eq!((problem.line, problem.column), (Some(7), Some(12)));
     assert_eq!(
-        error,
-        LoadError::FormatMissing {
-            path: "elements/sys.toml".to_owned()
-        }
+        model.files_not_loaded["elements/c.toml"].parent,
+        ParentOfNotLoaded::Unknown,
+        "an invalid file's parent cannot be known"
     );
 }
 
 #[test]
-fn an_unknown_key_names_its_file() {
-    let text = CLIENTS.replace("when_full = \"block\"", "when_ful = \"block\"");
-    let error =
-        tracewright_format::load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)])
-            .unwrap_err();
-    let LoadError::Schema { path, message } = error else {
-        panic!("{error:?}")
-    };
-    assert_eq!(path, "elements/c.toml");
-    assert!(message.contains("when_ful"), "{message}");
+fn an_unknown_element_level_key_keeps_the_parent_for_blocking() {
+    let text = CLIENTS.replace("name = \"Clients\"", "nam = \"Clients\"");
+    let model = load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)]);
+    let problem = not_loaded(&model, "elements/c.toml");
+    assert_eq!(problem.kind, ProblemKind::Schema);
+    assert!(problem.message.contains("nam"), "{}", problem.message);
+    assert_eq!(problem.line, Some(3));
+    assert_eq!(
+        model.files_not_loaded["elements/c.toml"].parent,
+        ParentOfNotLoaded::Element(id("sys"))
+    );
 }
 
 #[test]
-fn an_unknown_when_full_value_does_not_load() {
+fn an_unknown_key_inside_the_petri_net_unloads_only_the_behavior() {
+    let text = CLIENTS.replace("when_full = \"block\"", "when_ful = \"block\"");
+    let model = load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)]);
+    let clients = &model.elements[&id("c")];
+    let Some(BehaviorModel::Unloaded { problem }) = &clients.behavior else {
+        panic!("{:?}", clients.behavior);
+    };
+    assert_eq!(problem.kind, ProblemKind::BehaviorNotLoaded);
+    assert!(problem.message.contains("when_ful"), "{}", problem.message);
+    assert_eq!(problem.line, Some(8));
+    assert_eq!(model.relationships.len(), 1, "the relationships still load");
+}
+
+#[test]
+fn an_unknown_when_full_value_unloads_the_behavior() {
     let text = CLIENTS.replace("when_full = \"block\"", "when_full = \"wait\"");
-    let error =
-        tracewright_format::load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)])
-            .unwrap_err();
-    assert!(matches!(error, LoadError::Schema { .. }), "{error:?}");
+    let model = load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)]);
+    assert!(matches!(
+        model.elements[&id("c")].behavior,
+        Some(BehaviorModel::Unloaded { .. })
+    ));
 }
 
 #[test]
 fn a_file_stem_that_is_not_an_id_does_not_load() {
-    let error =
-        tracewright_format::load(&[file("arch.toml", ARCH), file("elements/Sys.toml", SYS)])
-            .unwrap_err();
-    assert!(matches!(error, LoadError::InvalidId { .. }), "{error:?}");
+    let model = load(&[file("arch.toml", ARCH), file("elements/Sys.toml", SYS)]);
+    assert_eq!(
+        not_loaded(&model, "elements/Sys.toml").kind,
+        ProblemKind::Schema
+    );
 }
 
 #[test]
 fn a_file_above_the_byte_limit_is_refused_before_parsing() {
     let huge = "#".repeat(tracewright_format::ELEMENT_FILE_BYTES_MAX + 1);
-    let error =
-        tracewright_format::load(&[file("arch.toml", ARCH), file("elements/sys.toml", &huge)])
-            .unwrap_err();
-    assert!(matches!(error, LoadError::TooLarge { .. }), "{error:?}");
+    let model = load(&[file("arch.toml", ARCH), file("elements/sys.toml", &huge)]);
+    assert_eq!(
+        not_loaded(&model, "elements/sys.toml").kind,
+        ProblemKind::TooLarge
+    );
 }
 
 #[test]
-fn a_relationship_id_shares_the_namespace_of_elements() {
-    let text = CLIENTS.replace("relationships.r1", "relationships.sys");
+fn a_newer_element_file_stops_the_project_from_opening() {
     let error = tracewright_format::load(&[
+        file("arch.toml", ARCH),
+        file(
+            "elements/sys.toml",
+            "format = 2\nkind = \"software_system\"\n",
+        ),
+    ])
+    .unwrap_err();
+    assert!(
+        matches!(error, LoadError::VersionTooNew { found: 2, .. }),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn a_relationship_id_that_is_an_element_id_does_not_enter_the_model() {
+    let text = CLIENTS.replace("relationships.r1", "relationships.sys");
+    let model = load(&[
         file("arch.toml", ARCH),
         file("elements/sys.toml", SYS),
         file("elements/c.toml", &text),
-    ])
-    .unwrap_err();
-    assert_eq!(
-        error,
-        LoadError::IdTaken {
-            id: "sys".to_owned()
-        }
-    );
+    ]);
+    assert!(model.relationships.is_empty());
+    assert_eq!(model.load_problems.len(), 1);
+    assert_eq!(model.load_problems[0].kind, ProblemKind::DuplicateId);
 }
 
 #[test]
 fn a_binding_port_must_be_qualified() {
     let text = CLIENTS.replace("from = \"c/start\"", "from = \"start\"");
-    let error =
-        tracewright_format::load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)])
-            .unwrap_err();
-    assert!(matches!(error, LoadError::InvalidPort { .. }), "{error:?}");
+    let model = load(&[file("arch.toml", ARCH), file("elements/c.toml", &text)]);
+    assert_eq!(
+        not_loaded(&model, "elements/c.toml").kind,
+        ProblemKind::Schema
+    );
 }
 
 #[test]
