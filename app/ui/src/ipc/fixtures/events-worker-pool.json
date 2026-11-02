@@ -5,12 +5,7 @@
         "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573"
       },
       "no-overflow": {
-        "unknown": {
-          "category": "propertyNotCheckable",
-          "details": [
-            "no capacity exceeded is not checked yet"
-          ]
-        }
+        "key": "bf818dd1cde527197565d9bd4a7d559679a4e44a516c9c992d240b5a1c19dda6"
       }
     },
     "kind": "currentKeys",
@@ -22,6 +17,11 @@
     "property": "no-deadlock"
   },
   {
+    "key": "bf818dd1cde527197565d9bd4a7d559679a4e44a516c9c992d240b5a1c19dda6",
+    "kind": "checkQueued",
+    "property": "no-overflow"
+  },
+  {
     "key": "cfeb30da3fb7df3eafc089e652439d21cac6ec3f0aa4060ac6b3e4c791689573",
     "kind": "verdict",
     "property": "no-deadlock",
@@ -30,6 +30,21 @@
       "kind": "proved",
       "markings": 3,
       "technique": "exhaustive"
+    }
+  },
+  {
+    "key": "bf818dd1cde527197565d9bd4a7d559679a4e44a516c9c992d240b5a1c19dda6",
+    "kind": "verdict",
+    "property": "no-overflow",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 0,
+      "technique": {
+        "noOverflowPlace": {
+          "dropPlaces": []
+        }
+      }
     }
   }
 ]

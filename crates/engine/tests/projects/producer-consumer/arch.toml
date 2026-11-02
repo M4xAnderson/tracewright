@@ -1,0 +1,4 @@
+# A producer bound to a consumer asynchronously with capacity 3 and no back-pressure: the binding
+# states no when_full, so its generated place `orders` overflows (ADR 0014). The producer can
+# always publish, so nothing deadlocks, but the fourth unconsumed message exceeds the capacity.
+format = 1

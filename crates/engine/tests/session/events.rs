@@ -164,7 +164,16 @@ fn each_keyed_property_is_queued_before_its_verdict_arrives() {
             EngineEvent::Verdict(_) => "verdict",
         })
         .collect();
-    assert_eq!(kinds, ["currentKeys", "checkQueued", "verdict"]);
+    assert_eq!(
+        kinds,
+        [
+            "currentKeys",
+            "checkQueued",
+            "checkQueued",
+            "verdict",
+            "verdict"
+        ]
+    );
     let EngineEvent::CheckQueued(queued) = &run.events[1] else {
         unreachable!()
     };

@@ -15,6 +15,7 @@ use tracewright_model::PortRef;
 use tracewright_model::RelationshipId;
 use tracewright_model::Scope;
 use tracewright_model::WhenFull;
+use tracewright_net::AsyncLink;
 use tracewright_net::Fusion;
 use tracewright_net::Net;
 use tracewright_net::OpenNets;
@@ -43,9 +44,6 @@ pub enum LowerError {
     NothingToCheck,
     /// A precondition of NS §6.6 fails; one line per cause, ordered by rule, then by ID.
     ModelIncomplete(Vec<String>),
-    /// The scope uses net features this build does not check yet (drop and overflow places,
-    /// asynchronous bindings); their tickets replace this with the real lowering.
-    NotCheckedYet(Vec<String>),
 }
 
 /// Why `flatten` refuses an `OpenNets` value.
@@ -73,7 +71,6 @@ pub enum FlattenError {
 #[derive(Default)]
 struct Lines {
     incomplete: BTreeSet<(u8, String, String)>,
-    not_checked: BTreeSet<String>,
 }
 
 impl Lines {
@@ -90,7 +87,7 @@ fn qualified(element: &Element, name: &str) -> String {
 ///
 /// # Errors
 ///
-/// `NothingToCheck`, `ModelIncomplete` with every failing precondition, or `NotCheckedYet`.
+/// `NothingToCheck`, or `ModelIncomplete` with every failing precondition.
 ///
 /// # Panics
 ///
@@ -124,11 +121,6 @@ pub fn lower(model: &Model, scope: &Scope) -> Result<Lowered, LowerError> {
     if lines.incomplete.is_empty() {
         match flatten(&open) {
             Ok(flat) => {
-                if !lines.not_checked.is_empty() {
-                    return Err(LowerError::NotCheckedYet(
-                        lines.not_checked.into_iter().collect(),
-                    ));
-                }
                 assert_eq!(
                     validate::net(&flat),
                     Ok(()),
@@ -220,6 +212,14 @@ fn part(element: &Element, net: &PetriNet, lines: &mut Lines) -> Net {
     part
 }
 
+fn net_when_full(when_full: WhenFull) -> tracewright_net::WhenFull {
+    match when_full {
+        WhenFull::Block => tracewright_net::WhenFull::Block,
+        WhenFull::Drop => tracewright_net::WhenFull::Drop,
+        WhenFull::Overflow => tracewright_net::WhenFull::Overflow,
+    }
+}
+
 // The places of one part, with L2 and the L10 capacity line.
 fn place_nodes(element: &Element, net: &PetriNet, lines: &mut Lines, part: &mut Net) {
     for (name, place) in &net.places {
@@ -228,26 +228,19 @@ fn place_nodes(element: &Element, net: &PetriNet, lines: &mut Lines, part: &mut 
             lines.add(10, &id, format!("{id} has no capacity"));
             1
         });
-        match place.when_full {
-            None => lines.add(2, &id, format!("{id} has no when_full")),
-            Some(WhenFull::Block) => {}
-            Some(other) => {
-                let what = if other == WhenFull::Drop {
-                    "drop"
-                } else {
-                    "overflow"
-                };
-                lines.not_checked.insert(format!(
-                    "{id} is a {what} place; drop and overflow places are not checked yet"
-                ));
-            }
-        }
-        // A place that is not `block` is lowered as `block` only so that L10 can still be judged;
-        // a scope with one never reaches a worker (`NotCheckedYet`).
+        // A place without when_full is lowered as `block` only so that L10 can still be judged;
+        // the L2 line keeps the scope from reaching a worker.
+        let when_full = place.when_full.map_or_else(
+            || {
+                lines.add(2, &id, format!("{id} has no when_full"));
+                tracewright_net::WhenFull::Block
+            },
+            net_when_full,
+        );
         part.places.push(Place {
             id: QualifiedId(id.clone()),
             capacity,
-            when_full: tracewright_net::WhenFull::Block,
+            when_full,
         });
         if place.initial > 0 {
             part.initial.0.insert(QualifiedId(id), place.initial);
@@ -293,7 +286,7 @@ fn combined(
             }
             continue;
         }
-        bindings.relationship(model, relationship, lines, &mut open.fusions);
+        bindings.relationship(model, relationship, lines, &mut open);
     }
     // L4: every transition port of a child is named in a pair of a contributing relationship.
     for child in &children {
@@ -310,10 +303,7 @@ fn combined(
             }
         }
     }
-    // L7, for synchronous pairs: never caller and callee.
-    for id in bindings.callers.intersection(&bindings.callees) {
-        lines.add(7, id, format!("{id} is both caller and callee"));
-    }
+    bindings.one_role(lines);
     Ok((open, assumptions))
 }
 
@@ -322,47 +312,98 @@ struct Bindings {
     bound: BTreeSet<String>,
     callers: BTreeSet<String>,
     callees: BTreeSet<String>,
+    // Every asynchronously bound transition and the relationships that bind it.
+    linked: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl Bindings {
-    // The pairs of one contributing relationship: L3, L5, L6, L11, L12, and a Fusion per valid
-    // synchronous pair.
+    // L7 (D-16): a transition port is caller, callee or a member of exactly one asynchronous
+    // binding.
+    fn one_role(&self, lines: &mut Lines) {
+        for id in self.callers.intersection(&self.callees) {
+            lines.add(7, id, format!("{id} is both caller and callee"));
+        }
+        for (id, relationships) in &self.linked {
+            if relationships.len() > 1 {
+                let list: Vec<&str> = relationships.iter().map(String::as_str).collect();
+                lines.add(
+                    7,
+                    id,
+                    format!(
+                        "{id} is in {} asynchronous bindings: {}",
+                        relationships.len(),
+                        list.join(", ")
+                    ),
+                );
+            }
+            if self.callers.contains(id) || self.callees.contains(id) {
+                lines.add(
+                    7,
+                    id,
+                    format!("{id} is both synchronously and asynchronously bound"),
+                );
+            }
+        }
+    }
+
+    // The pairs of one contributing relationship: L3, L5, L6, L8, L11, L12, L13, a Fusion per
+    // valid synchronous pair and an AsyncLink for a valid asynchronous one.
     fn relationship(
         &mut self,
         model: &Model,
         relationship: &tracewright_model::Relationship,
         lines: &mut Lines,
-        fusions: &mut Vec<Fusion>,
+        open: &mut OpenNets,
     ) {
         let rel = relationship.id.as_str();
         let mut fused_names = BTreeSet::new();
+        let asynchronous = relationship
+            .bindings
+            .iter()
+            .filter(|pair| matches!(pair.binding, Binding::Async { .. }))
+            .count();
+        if asynchronous > 1 {
+            lines.add(
+                8,
+                rel,
+                format!("{rel} binds {asynchronous} asynchronous port pairs"),
+            );
+        }
         for pair in &relationship.bindings {
             let from = format!("{}/{}", pair.from.element, pair.from.name);
             let to = format!("{}/{}", pair.to.element, pair.to.name);
             self.bound.insert(from.clone());
             self.bound.insert(to.clone());
-            match pair.binding {
-                Binding::Sync => {}
-                Binding::Async { .. } => {
-                    lines.not_checked.insert(format!(
-                        "{rel} binds asynchronously; asynchronous bindings are not checked yet"
-                    ));
-                    continue;
+            let mut valid = pair_connects(model, relationship, pair, lines);
+            if let Binding::Async {
+                capacity,
+                when_full,
+            } = pair.binding
+            {
+                for id in [&from, &to] {
+                    self.linked
+                        .entry(id.clone())
+                        .or_default()
+                        .insert(rel.to_owned());
                 }
-            }
-            let from_resolves = resolve(model, &pair.from, lines);
-            let to_resolves = resolve(model, &pair.to, lines);
-            let mut valid = from_resolves && to_resolves;
-            if pair.from.element == pair.to.element {
-                lines.add(6, &from, format!("{from} is bound to {to} (same element)"));
-                valid = false;
-            }
-            let (s, t) = (&relationship.source, &relationship.target);
-            let forward = pair.from.element == *s && pair.to.element == *t;
-            let backward = pair.from.element == *t && pair.to.element == *s;
-            if !forward && !backward {
-                lines.add(11, rel, format!("{rel} ({s} ↔ {t}) binds {from} + {to}"));
-                valid = false;
+                let Some(capacity) = capacity else {
+                    lines.add(
+                        13,
+                        rel,
+                        format!("{rel} is asynchronous but has no capacity"),
+                    );
+                    continue;
+                };
+                if valid && asynchronous == 1 {
+                    open.links.push(AsyncLink {
+                        relationship: rel.to_owned(),
+                        from: vec![QualifiedId(from)],
+                        to: vec![QualifiedId(to)],
+                        capacity,
+                        when_full: net_when_full(when_full),
+                    });
+                }
+                continue;
             }
             if !fused_names.insert((pair.from.name.clone(), pair.to.name.clone())) {
                 lines.add(
@@ -375,7 +416,7 @@ impl Bindings {
             self.callers.insert(from.clone());
             self.callees.insert(to.clone());
             if valid {
-                fusions.push(Fusion {
+                open.fusions.push(Fusion {
                     relationship: rel.to_owned(),
                     caller: QualifiedId(from),
                     callee: QualifiedId(to),
@@ -383,6 +424,34 @@ impl Bindings {
             }
         }
     }
+}
+
+// L3, L5, L6 and L11 for one pair of either mode: both ends are transition ports, of the
+// relationship's two elements, either way around (D-07).
+fn pair_connects(
+    model: &Model,
+    relationship: &tracewright_model::Relationship,
+    pair: &tracewright_model::BindingPair,
+    lines: &mut Lines,
+) -> bool {
+    let rel = relationship.id.as_str();
+    let from = format!("{}/{}", pair.from.element, pair.from.name);
+    let to = format!("{}/{}", pair.to.element, pair.to.name);
+    let from_resolves = resolve(model, &pair.from, lines);
+    let to_resolves = resolve(model, &pair.to, lines);
+    let mut valid = from_resolves && to_resolves;
+    if pair.from.element == pair.to.element {
+        lines.add(6, &from, format!("{from} is bound to {to} (same element)"));
+        valid = false;
+    }
+    let (s, t) = (&relationship.source, &relationship.target);
+    let forward = pair.from.element == *s && pair.to.element == *t;
+    let backward = pair.from.element == *t && pair.to.element == *s;
+    if !forward && !backward {
+        lines.add(11, rel, format!("{rel} ({s} ↔ {t}) binds {from} + {to}"));
+        valid = false;
+    }
+    valid
 }
 
 // L3 and L5 for one end of a pair: it names a transition port of its element.

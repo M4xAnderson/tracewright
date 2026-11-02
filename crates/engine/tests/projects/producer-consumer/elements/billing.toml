@@ -1,0 +1,14 @@
+format = 1
+kind = "container"
+name = "Billing"
+parent = "sys"
+
+[petri_net.places.idle]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.transitions.receive]
+port = true
+pre = { idle = 1 }
+post = { idle = 1 }

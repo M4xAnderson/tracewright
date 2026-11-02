@@ -55,15 +55,12 @@ fn opposite_locks() {
     let key = events[0]["keys"]["no-deadlock"]["key"]
         .as_str()
         .expect("a keyed property is { key }");
-    assert_eq!(
-        events[0]["keys"]["no-overflow"]["unknown"]["category"],
-        "propertyNotCheckable"
-    );
+    assert!(events[0]["keys"]["no-overflow"]["key"].is_string());
     assert_eq!(
         events[1],
         json!({ "kind": "checkQueued", "property": "no-deadlock", "key": key })
     );
-    let verdict = &events[2];
+    let verdict = verdict_event(&events, "no-deadlock");
     assert_eq!(verdict["kind"], "verdict");
     assert_eq!(verdict["key"], key);
     assert_eq!(verdict["verdict"]["kind"], "disproved");
@@ -96,13 +93,71 @@ fn opposite_locks() {
 fn worker_pool() {
     let (_, events) = write("worker-pool", &MemDisk::fixture("e1c-worker-pool"));
     assert_eq!(
-        events[2]["verdict"],
+        verdict_event(&events, "no-deadlock")["verdict"],
         json!({ "assumptions": [], "kind": "proved", "technique": "exhaustive", "markings": 3 })
     );
+    assert_eq!(
+        verdict_event(&events, "no-overflow")["verdict"],
+        json!({
+            "assumptions": [],
+            "kind": "proved",
+            "technique": { "noOverflowPlace": { "dropPlaces": [] } },
+            "markings": 0
+        })
+    );
+}
+
+#[test]
+fn producer_consumer() {
+    let (_, events) = write("producer-consumer", &MemDisk::fixture("producer-consumer"));
+    let overflow = &verdict_event(&events, "no-overflow")["verdict"];
+    assert_eq!(overflow["kind"], "disproved");
+    assert_eq!(
+        overflow["violation"],
+        json!({
+            "kind": "overflow",
+            "place": { "kind": "generated", "relationship": "orders" },
+            "capacity": 3,
+            "count": 4
+        })
+    );
+    assert_eq!(
+        overflow["frames"][3],
+        json!({
+            "step": 4,
+            "fired": { "kind": "own", "element": "api", "transition": "publish" }
+        })
+    );
+    let unknown = &verdict_event(&events, "no-deadlock")["verdict"];
+    assert_eq!(unknown["kind"], "unknown");
+    let reason = &unknown["reason"];
+    assert_eq!(reason["category"], "capacityExceededFirst");
+    assert_eq!(
+        reason["place"],
+        json!({ "kind": "generated", "relationship": "orders" })
+    );
+    assert_eq!(
+        (&reason["capacity"], &reason["count"]),
+        (&json!(3), &json!(4))
+    );
+    assert_eq!(reason["frames"].as_array().map(Vec::len), Some(4));
+}
+
+// The verdict event of `property` in a recorded run.
+fn verdict_event<'a>(events: &'a Value, property: &str) -> &'a Value {
+    events
+        .as_array()
+        .expect("the events are a list")
+        .iter()
+        .find(|event| event["kind"] == "verdict" && event["property"] == property)
+        .unwrap_or_else(|| panic!("no verdict for {property}"))
 }
 
 #[test]
 fn one_finished_job() {
     let (_, events) = write("one-job", &one_job());
-    assert_eq!(events[2]["verdict"]["violation"]["finished"], true);
+    assert_eq!(
+        verdict_event(&events, "no-deadlock")["verdict"]["violation"]["finished"],
+        true
+    );
 }
