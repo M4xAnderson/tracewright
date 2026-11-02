@@ -3,12 +3,15 @@
 
 use std::fmt;
 
+use serde::Serialize;
 use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::encode;
+use ts_rs::TS;
 
-/// BLAKE3-256 of `canonical(flat) ++ canonical_property(p)`, as 64 lowercase hex characters.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Serialized as its hex string (a newtype struct). BLAKE3-256 of `canonical(flat) ++ canonical_property(p)`, as 64 lowercase hex characters.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, TS)]
+#[ts(export, export_to = "check-key.ts")]
 pub struct CheckKey(String);
 
 impl CheckKey {

@@ -3,21 +3,44 @@
 
 use tracewright_engine::EngineEvent;
 use tracewright_engine::KeyState;
-use tracewright_engine::Verdict;
-use tracewright_net::Evidence;
-use tracewright_net::Technique;
-use tracewright_net::UnknownReason;
-use tracewright_net::Violation;
+use tracewright_engine::dto::Outcome;
+use tracewright_engine::dto::Technique;
+use tracewright_engine::dto::TransitionOrigin;
+use tracewright_engine::dto::UnknownDto;
+use tracewright_engine::dto::VerdictDto;
+use tracewright_engine::dto::ViolationDto;
 
 use super::support::MemDisk;
 use super::support::run_checks;
 
-fn fired(verdict: &Verdict) -> Vec<String> {
-    let Verdict::Disproved(violation) = verdict else {
+// The qualified ID of the flattened net (NS §6.1) that the origin names.
+fn qualified(origin: &TransitionOrigin) -> String {
+    match origin {
+        TransitionOrigin::Own(t) => format!("{}/{}", t.element, t.transition),
+        TransitionOrigin::Sync {
+            relationship,
+            caller,
+            callee,
+        } => format!("{relationship}/{}+{}", caller.transition, callee.transition),
+    }
+}
+
+fn fired(verdict: &VerdictDto) -> Vec<String> {
+    let Outcome::Disproved(disproved) = &verdict.outcome else {
         panic!("not Disproved: {verdict:?}")
     };
-    let Evidence::Counterexample(cx) = violation.evidence();
-    cx.steps.iter().map(|step| step.fired.0.clone()).collect()
+    disproved
+        .frames
+        .iter()
+        .map(|f| qualified(&f.fired))
+        .collect()
+}
+
+fn proved(verdict: &VerdictDto) -> (Technique, u64) {
+    let Outcome::Proved(proof) = &verdict.outcome else {
+        panic!("not Proved: {verdict:?}")
+    };
+    (proof.technique, proof.markings)
 }
 
 #[test]
@@ -25,12 +48,15 @@ fn opposite_locks_are_disproved_with_the_two_step_counterexample_of_v13() {
     let run = run_checks(&MemDisk::fixture("e1b-opposite-locks"));
     let verdict = run.verdict("no-deadlock");
     assert_eq!(fired(verdict), ["ra1/take_x+acq_x", "rb1/take_y+acq_y"]);
-    let Verdict::Disproved(violation) = verdict else {
+    let Outcome::Disproved(disproved) = &verdict.outcome else {
         unreachable!()
     };
-    let Evidence::Counterexample(cx) = violation.evidence();
-    let Violation::Deadlock { waiting } = &cx.violation;
-    let waiting_transitions: Vec<&str> = waiting.iter().map(|w| w.transition.0.as_str()).collect();
+    let ViolationDto::Deadlock(deadlock) = &disproved.violation;
+    let waiting_transitions: Vec<String> = deadlock
+        .waiting
+        .iter()
+        .map(|w| qualified(&w.transition))
+        .collect();
     assert_eq!(
         waiting_transitions,
         [
@@ -47,21 +73,17 @@ fn opposite_locks_are_disproved_with_the_two_step_counterexample_of_v13() {
 #[test]
 fn the_worker_pool_is_proved_by_exhaustive_exploration_of_its_three_markings() {
     let run = run_checks(&MemDisk::fixture("e1c-worker-pool"));
-    let Verdict::Proved(proof) = run.verdict("no-deadlock") else {
-        panic!("{:?}", run.verdict("no-deadlock"))
-    };
-    assert_eq!(*proof.technique(), Technique::Exhaustive);
-    assert_eq!(proof.markings(), 3);
+    assert_eq!(
+        proved(run.verdict("no-deadlock")),
+        (Technique::Exhaustive, 3)
+    );
 }
 
 #[test]
 fn a_worker_pool_whose_failure_path_also_releases_is_proved() {
     // e1c2: w/release is the callee of two relationships, so it fuses twice.
     let run = run_checks(&MemDisk::fixture("e1c2-worker-pool-fail-releases"));
-    let Verdict::Proved(proof) = run.verdict("no-deadlock") else {
-        panic!("{:?}", run.verdict("no-deadlock"))
-    };
-    assert_eq!(proof.markings(), 3);
+    assert_eq!(proved(run.verdict("no-deadlock")).1, 3);
 }
 
 #[test]
@@ -76,26 +98,23 @@ fn a_worker_pool_that_leaks_on_failure_is_disproved_as_v24() {
 #[test]
 fn an_own_scope_closes_its_ports_and_proves_v08() {
     let run = run_checks(&MemDisk::fixture("ns-v08"));
-    let Verdict::Proved(proof) = run.verdict("x-no-deadlock") else {
-        panic!("{:?}", run.verdict("x-no-deadlock"))
-    };
-    assert_eq!(proof.markings(), 1);
+    assert_eq!(proved(run.verdict("x-no-deadlock")).1, 1);
 }
 
 #[test]
 fn keys_come_first_and_each_verdict_carries_its_current_key() {
     let run = run_checks(&MemDisk::fixture("e1b-opposite-locks"));
     assert!(
-        matches!(run.events[0], EngineEvent::CurrentKeys { .. }),
+        matches!(run.events[0], EngineEvent::CurrentKeys(_)),
         "currentKeys is the first event"
     );
-    let EngineEvent::Verdict { key, .. } = &run.events[1] else {
-        panic!("{:?}", run.events[1])
+    let EngineEvent::Verdict(verdict) = &run.events[2] else {
+        panic!("{:?}", run.events[2])
     };
-    assert_eq!(key, run.key("no-deadlock"));
+    assert_eq!(&verdict.key, run.key("no-deadlock"));
     assert_eq!(
         run.events.len(),
-        2,
+        3,
         "one verdict: only no-deadlock is checked so far"
     );
 }
@@ -108,7 +127,7 @@ fn no_capacity_exceeded_is_not_checked_yet() {
     assert!(
         matches!(
             run.key_state("no-overflow"),
-            KeyState::Unknown(UnknownReason::PropertyNotCheckable(_))
+            KeyState::Unknown(UnknownDto::PropertyNotCheckable { .. })
         ),
         "{:?}",
         run.key_state("no-overflow")

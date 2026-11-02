@@ -1,0 +1,79 @@
+{
+  "elements": [
+    {
+      "id": "a",
+      "name": "Component A"
+    },
+    {
+      "id": "b",
+      "name": "Component B"
+    },
+    {
+      "id": "l",
+      "name": "Lock service"
+    }
+  ],
+  "properties": [
+    {
+      "id": "no-deadlock",
+      "kind": "deadlockFree",
+      "label": null,
+      "scope": {
+        "behavior": "combined",
+        "element": "sys"
+      }
+    },
+    {
+      "id": "no-overflow",
+      "kind": "noCapacityExceeded",
+      "label": null,
+      "scope": {
+        "behavior": "combined",
+        "element": "sys"
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "id": "ra1",
+      "meaning": null,
+      "source": "a",
+      "target": "l"
+    },
+    {
+      "id": "ra2",
+      "meaning": null,
+      "source": "a",
+      "target": "l"
+    },
+    {
+      "id": "ra3",
+      "meaning": null,
+      "source": "a",
+      "target": "l"
+    },
+    {
+      "id": "rb1",
+      "meaning": null,
+      "source": "b",
+      "target": "l"
+    },
+    {
+      "id": "rb2",
+      "meaning": null,
+      "source": "b",
+      "target": "l"
+    },
+    {
+      "id": "rb3",
+      "meaning": null,
+      "source": "b",
+      "target": "l"
+    }
+  ],
+  "rev": 0,
+  "system": {
+    "id": "sys",
+    "name": "Two components, two locks"
+  }
+}

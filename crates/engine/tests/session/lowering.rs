@@ -3,20 +3,21 @@
 
 use tracewright_engine::EngineEvent;
 use tracewright_engine::KeyState;
-use tracewright_net::UnknownReason;
+use tracewright_engine::dto::UnknownDto;
 
 use super::support::MemDisk;
 use super::support::run_checks;
 
 fn incomplete(disk: &MemDisk, property: &str) -> Vec<String> {
     let run = run_checks(disk);
-    let KeyState::Unknown(UnknownReason::ModelIncomplete(lines)) = run.key_state(property) else {
+    let KeyState::Unknown(UnknownDto::ModelIncomplete { details: lines }) = run.key_state(property)
+    else {
         panic!("{property}: {:?}", run.key_state(property));
     };
     assert!(
         run.events
             .iter()
-            .all(|event| !matches!(event, EngineEvent::Verdict { .. })),
+            .all(|event| !matches!(event, EngineEvent::Verdict(_))),
         "no worker runs for a scope that does not lower"
     );
     lines.clone()
@@ -224,7 +225,7 @@ fn drop_and_overflow_places_are_not_checked_yet() {
     assert!(
         matches!(
             run.key_state("no-deadlock"),
-            KeyState::Unknown(UnknownReason::PropertyNotCheckable(_))
+            KeyState::Unknown(UnknownDto::PropertyNotCheckable { .. })
         ),
         "{:?}",
         run.key_state("no-deadlock")

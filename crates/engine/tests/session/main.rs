@@ -3,5 +3,7 @@
 
 mod check_key;
 mod checks;
+mod events;
+mod fixtures;
 mod lowering;
 mod support;

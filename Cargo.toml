@@ -19,6 +19,8 @@ tracewright-scan = { path = "crates/scan" }
 tracewright-engine = { path = "crates/engine" }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ts-rs = "12"
 toml = "1"
 blake3 = { version = "1.8", default-features = false }
 proptest = "1"

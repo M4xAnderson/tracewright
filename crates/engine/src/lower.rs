@@ -456,16 +456,7 @@ pub fn flatten(open: &OpenNets) -> Result<Net, FlattenError> {
                 })
         };
         let (caller, callee) = (find(&fusion.caller)?, find(&fusion.callee)?);
-        let bare = |id: &QualifiedId| {
-            id.0.split_once('/')
-                .map_or(id.0.clone(), |(_, name)| name.to_owned())
-        };
-        let id = QualifiedId(format!(
-            "{}/{}+{}",
-            fusion.relationship,
-            bare(&fusion.caller),
-            bare(&fusion.callee)
-        ));
+        let id = fused_id(fusion);
         let pre = add_weights(&caller.pre, &callee.pre);
         let post = add_weights(&caller.post, &callee.post);
         let (Some(pre), Some(post)) = (pre, post) else {
@@ -475,6 +466,22 @@ pub fn flatten(open: &OpenNets) -> Result<Net, FlattenError> {
     }
     validate::net(&flat).map_err(FlattenError::Invalid)?;
     Ok(flat)
+}
+
+/// The qualified ID of a fusion's transition in the flattened net (NS §6.1):
+/// `relationship/caller+callee` with the bare transition names.
+#[must_use]
+pub fn fused_id(fusion: &Fusion) -> QualifiedId {
+    let bare = |id: &QualifiedId| {
+        id.0.split_once('/')
+            .map_or(id.0.clone(), |(_, name)| name.to_owned())
+    };
+    QualifiedId(format!(
+        "{}/{}+{}",
+        fusion.relationship,
+        bare(&fusion.caller),
+        bare(&fusion.callee)
+    ))
 }
 
 // Pointwise sum of two arc maps, or None if a weight leaves u32.

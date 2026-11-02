@@ -3,16 +3,18 @@
 #![forbid(unsafe_code)]
 
 pub mod check;
+pub mod dto;
 pub mod key;
 pub mod lower;
+mod origin;
 mod session;
 
 pub use check::Verdict;
+pub use dto::EngineEvent;
+pub use dto::KeyState;
 pub use key::CheckKey;
 pub use session::DEFAULT_MAX_MARKINGS;
 pub use session::Disk;
-pub use session::EngineEvent;
-pub use session::KeyState;
 pub use session::OpenError;
 pub use session::Session;
 pub use session::Sink;

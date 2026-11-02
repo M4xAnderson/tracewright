@@ -3745,6 +3745,7 @@ dependencies = [
  "blake3",
  "proptest",
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
  "toml 1.1.8+spec-1.1.0",
  "tracewright-format",
@@ -3753,6 +3754,7 @@ dependencies = [
  "tracewright-recheck",
  "tracewright-scan",
  "tracewright-verify",
+ "ts-rs",
 ]
 
 [[package]]

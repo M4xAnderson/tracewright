@@ -1,0 +1,25 @@
+{
+  "elements": [
+    {
+      "id": "job",
+      "name": "job"
+    }
+  ],
+  "properties": [
+    {
+      "id": "no-deadlock",
+      "kind": "deadlockFree",
+      "label": null,
+      "scope": {
+        "behavior": "combined",
+        "element": "sys"
+      }
+    }
+  ],
+  "relationships": [],
+  "rev": 0,
+  "system": {
+    "id": "sys",
+    "name": "sys"
+  }
+}
