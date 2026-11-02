@@ -378,6 +378,33 @@ pub enum Phase {
     Recheck,
 }
 
+/// What Reload found on disk (flows §4.5, file-format §9.3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "reload-outcome.ts")]
+pub enum ReloadOutcome {
+    /// No project file changed since the Session last read it (`S-RELOAD-NONE`).
+    NothingChanged,
+    /// Files changed and the model now shows them, at a new revision (`S-RELOAD-OK`, or
+    /// `S-RELOAD-PARSE` when a changed file did not load).
+    Reloaded(Reloaded),
+}
+
+/// The elements a Reload changed, each list by ID. The UI names them through the new `View`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "reloaded.ts")]
+pub struct Reloaded {
+    /// Elements whose file changed and loaded.
+    pub changed: Vec<String>,
+    /// Elements whose file is new and loaded.
+    pub added: Vec<String>,
+    /// Elements whose file is gone.
+    pub removed: Vec<String>,
+    /// The problem of each changed file that does not load, by path.
+    pub not_loaded: Vec<ProblemDto>,
+}
+
 /// The view of the open project (design §3 projection): the software system, its children and
 /// their relationships, and the properties whose scope is in the view.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]

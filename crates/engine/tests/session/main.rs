@@ -11,4 +11,5 @@ mod fixtures;
 mod lowering;
 mod pipeline;
 mod problems;
+mod reload;
 mod support;

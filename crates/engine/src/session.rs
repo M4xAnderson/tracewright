@@ -12,6 +12,7 @@ use tracewright_format::LoadError;
 use tracewright_format::ProjectFile;
 use tracewright_model::Behavior;
 use tracewright_model::Element;
+use tracewright_model::ElementId;
 use tracewright_model::ElementKind;
 use tracewright_model::Model;
 use tracewright_model::Property;
@@ -23,11 +24,16 @@ use tracewright_net::NetProperty;
 use tracewright_net::UnknownReason;
 
 use crate::check::CheckBudget;
+use crate::disk_sync::Changes;
+use crate::disk_sync::DiskSync;
 use crate::dto;
 use crate::dto::CheckQueued;
 use crate::dto::CurrentKeys;
 use crate::dto::EngineEvent;
 use crate::dto::KeyState;
+use crate::dto::ProblemDto;
+use crate::dto::ReloadOutcome;
+use crate::dto::Reloaded;
 use crate::dto::View;
 use crate::key::CheckKey;
 use crate::key::check_key;
@@ -35,6 +41,7 @@ use crate::lower;
 use crate::lower::LowerError;
 use crate::lower::Lowered;
 use crate::origin;
+use crate::problems;
 use crate::problems::Blocking;
 use crate::supervise;
 use crate::supervise::Job;
@@ -94,6 +101,7 @@ pub struct Session {
     rev: u64,
     ports: Ports,
     budget: CheckBudget,
+    disk: DiskSync,
 }
 
 impl fmt::Debug for Session {
@@ -129,7 +137,31 @@ impl Session {
             rev: 0,
             ports,
             budget: CheckBudget::default(),
+            disk: DiskSync::seen(&files),
         })
+    }
+
+    /// Re-reads the project on `disk`, the folder it was opened from (flows §4.5).
+    ///
+    /// # Errors
+    ///
+    /// The read failed or the project no longer opens (`LoadError`); the Session then keeps the
+    /// model it had.
+    pub fn reload(&mut self, disk: &dyn Disk) -> Result<ReloadOutcome, OpenError> {
+        let files = disk.read_tree().map_err(OpenError::Read)?;
+        let changes = self.disk.changes(&files);
+        if changes.is_empty() {
+            return Ok(ReloadOutcome::NothingChanged);
+        }
+        let model = tracewright_format::load(&files)?;
+        let reloaded = reloaded(&model, &changes);
+        self.model = model;
+        self.disk = DiskSync::seen(&files);
+        self.rev += 1;
+        // Slice 0 drops the verdicts of a changed scope (`V-NOV-2`); Check is one key away. A
+        // scope whose net did not change keeps its key, so its verdict stays current.
+        self.derive_and_emit_keys();
+        Ok(ReloadOutcome::Reloaded(reloaded))
     }
 
     /// Replaces the budget of every check started from now on.
@@ -225,24 +257,7 @@ impl Session {
     ///
     /// Only on a bug: a request for a scope that did not lower.
     pub fn run_checks(&self) {
-        let blocking = Blocking::new(&self.model);
-        let mut lowered: BTreeMap<Scope, Result<Arc<Lowered>, LowerError>> = BTreeMap::new();
-        let mut keys = BTreeMap::new();
-        let mut requests = Vec::new();
-        for element in self.model.elements.values() {
-            for property in &element.properties {
-                let scope = Scope {
-                    element: element.id.clone(),
-                    behavior: property.behavior,
-                };
-                let state = self.key_state(&blocking, &mut lowered, property, scope, &mut requests);
-                keys.insert(property.id.to_string(), state);
-            }
-        }
-        self.ports.sink.emit(EngineEvent::CurrentKeys(CurrentKeys {
-            rev: self.rev,
-            keys,
-        }));
+        let Derived { lowered, requests } = self.derive_and_emit_keys();
         for request in &requests {
             self.ports.sink.emit(EngineEvent::CheckQueued(CheckQueued {
                 property: request.property.to_string(),
@@ -272,7 +287,41 @@ impl Session {
     }
 }
 
+// The lowered scopes of one revision and the check each keyed property asks for.
+struct Derived {
+    lowered: BTreeMap<Scope, Result<Arc<Lowered>, LowerError>>,
+    requests: Vec<Request>,
+}
+
 impl Session {
+    // Derives the key of every property and emits them as `CurrentKeys` (design §4: the complete
+    // set of the revision, before any verdict for it).
+    fn derive_and_emit_keys(&self) -> Derived {
+        let blocking = Blocking::new(&self.model);
+        let mut lowered = BTreeMap::new();
+        let mut keys = BTreeMap::new();
+        let mut requests = Vec::new();
+        for element in self.model.elements.values() {
+            for property in &element.properties {
+                let scope = Scope {
+                    element: element.id.clone(),
+                    behavior: property.behavior,
+                };
+                let state = self.key_state(&blocking, &mut lowered, property, scope, &mut requests);
+                keys.insert(property.id.to_string(), state);
+            }
+        }
+        assert!(
+            requests.len() <= keys.len(),
+            "derive_and_emit_keys: at most one check per property"
+        );
+        self.ports.sink.emit(EngineEvent::CurrentKeys(CurrentKeys {
+            rev: self.rev,
+            keys,
+        }));
+        Derived { lowered, requests }
+    }
+
     // The key state of one property (design §3). A problem that blocks the scope wins over a
     // lowered net, also over nothing to check: the scope could have more behavior than what
     // loaded (file-format §10.5). A keyed property adds its check to `requests`.
@@ -316,6 +365,46 @@ impl Session {
             },
         }
     }
+}
+
+// The elements behind the changed files, in the model loaded from them. Only element files name
+// elements; a changed `arch.toml` or layout file reloads without one.
+fn reloaded(model: &Model, changes: &Changes) -> Reloaded {
+    let mut reloaded = Reloaded {
+        changed: Vec::new(),
+        added: Vec::new(),
+        removed: Vec::new(),
+        not_loaded: Vec::new(),
+    };
+    let present = |path: &str, into: &mut Vec<String>, not_loaded: &mut Vec<ProblemDto>| {
+        if let Some(not) = model.files_not_loaded.get(path) {
+            not_loaded.push(problems::problem_dto(&not.problem));
+        } else if let Some(id) = element_id(path) {
+            if model.elements.contains_key(&id) {
+                into.push(id.to_string());
+            }
+        }
+    };
+    for path in &changes.modified {
+        present(path, &mut reloaded.changed, &mut reloaded.not_loaded);
+    }
+    for path in &changes.added {
+        present(path, &mut reloaded.added, &mut reloaded.not_loaded);
+    }
+    reloaded.removed = changes
+        .removed
+        .iter()
+        .filter_map(|path| element_id(path))
+        .map(|id| id.to_string())
+        .collect();
+    reloaded.not_loaded.sort_by(|a, b| a.file.cmp(&b.file));
+    reloaded
+}
+
+// `elements/<id>.toml` names element `<id>`.
+fn element_id(path: &str) -> Option<ElementId> {
+    let stem = path.strip_prefix("elements/")?.strip_suffix(".toml")?;
+    ElementId::parse(stem).ok()
 }
 
 fn element_view(element: &Element) -> dto::ElementView {
