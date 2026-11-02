@@ -108,15 +108,20 @@ fn keys_come_first_and_each_verdict_carries_its_current_key() {
         matches!(run.events[0], EngineEvent::CurrentKeys(_)),
         "currentKeys is the first event"
     );
-    let EngineEvent::Verdict(verdict) = &run.events[2] else {
-        panic!("{:?}", run.events[2])
-    };
-    assert_eq!(&verdict.key, run.key("no-deadlock"));
+    let verdicts: Vec<_> = run
+        .events
+        .iter()
+        .filter_map(|event| match event {
+            EngineEvent::Verdict(verdict) => Some(verdict),
+            _ => None,
+        })
+        .collect();
     assert_eq!(
-        run.events.len(),
-        3,
+        verdicts.len(),
+        1,
         "one verdict: only no-deadlock is checked so far"
     );
+    assert_eq!(&verdicts[0].key, run.key("no-deadlock"));
 }
 
 #[test]

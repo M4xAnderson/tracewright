@@ -4,16 +4,18 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
 
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tracewright_engine::EngineEvent;
+use tracewright_engine::Ports;
 use tracewright_engine::Session;
 use tracewright_engine::Sink;
 use tracewright_engine::adapters::StdDisk;
+use tracewright_engine::adapters::SystemClock;
+use tracewright_engine::adapters::ThreadSpawner;
 use tracewright_engine::dto::View;
 use ts_rs::TS;
 
@@ -22,10 +24,10 @@ use crate::log;
 /// LIM-2: the longest folder path the UI may send. Linux's `PATH_MAX`; Windows paths are shorter.
 pub const PATH_BYTES_MAX: usize = 4096;
 
-/// The open project, if any. Behind an `Arc` because the checks run on their own thread.
+/// The open project, if any.
 #[derive(Default)]
 pub struct AppState {
-    session: Arc<Mutex<Option<Session>>>,
+    session: Mutex<Option<Session>>,
 }
 
 /// The error of every command, tagged by `kind` (SAFE-3); the UI matches it exhaustively.
@@ -83,12 +85,21 @@ impl Sink for ChannelSink {
     }
 }
 
-/// Opens the project folder at `path` with `sink` for its events.
+/// The app's ports: events to `sink`, the system clock, a std thread per check.
+pub fn std_ports(sink: Arc<dyn Sink>) -> Ports {
+    Ports {
+        sink,
+        clock: Arc::new(SystemClock),
+        spawner: Arc::new(ThreadSpawner),
+    }
+}
+
+/// Opens the project folder at `path` with `ports`.
 ///
 /// # Errors
 ///
 /// `InvalidArgument` for an overlong path, `OpenFailed` when the folder does not open.
-pub fn open_at(path: &str, sink: Box<dyn Sink>) -> Result<(Session, Opened), CommandError> {
+pub fn open_at(path: &str, ports: Ports) -> Result<(Session, Opened), CommandError> {
     if path.len() > PATH_BYTES_MAX {
         return Err(CommandError::InvalidArgument {
             reason: format!("the path is longer than {PATH_BYTES_MAX} bytes"),
@@ -106,7 +117,7 @@ pub fn open_at(path: &str, sink: Box<dyn Sink>) -> Result<(Session, Opened), Com
         return Err(failed("it is not a folder".to_owned()));
     }
     let session =
-        Session::open(&StdDisk::new(root.clone()), sink).map_err(|error| failed(cause(&error)))?;
+        Session::open(&StdDisk::new(root.clone()), ports).map_err(|error| failed(cause(&error)))?;
     let name = root.file_name().map_or_else(
         || root.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
@@ -154,39 +165,26 @@ pub async fn open_project(
     path: String,
     events: Channel<EngineEvent>,
 ) -> Result<Opened, CommandError> {
-    let (session, opened) = open_at(&path, Box::new(ChannelSink(events)))?;
+    let (session, opened) = open_at(&path, std_ports(Arc::new(ChannelSink(events))))?;
     *lock(&state.session)? = Some(session);
     log::line(log::Level::Info, &format!("opened {}", opened.name));
     Ok(opened)
 }
 
-/// Checks every property of the open project. Returns at once; keys and verdicts arrive as
-/// events (IPC-1).
+/// Checks every property of the open project. Returns once the checks are started on their
+/// workers; keys, progress and verdicts arrive as events (IPC-1).
 #[tauri::command]
 pub async fn run_checks(state: State<'_, AppState>) -> Result<(), CommandError> {
-    if lock(&state.session)?.is_none() {
+    let guard = lock(&state.session)?;
+    let Some(session) = guard.as_ref() else {
         return Err(CommandError::NoProjectOpen);
-    }
-    let session = Arc::clone(&state.session);
-    thread::Builder::new()
-        .name("checks".to_owned())
-        .spawn(move || match lock(&session) {
-            Ok(guard) => {
-                if let Some(session) = guard.as_ref() {
-                    session.run_checks();
-                } else {
-                    log::line(log::Level::Warn, "the project closed before its checks ran");
-                }
-            }
-            Err(error) => log::line(log::Level::Error, &error.to_string()),
-        })
-        .map_err(|error| CommandError::Internal {
-            message: format!("could not start the checks: {error}"),
-        })?;
+    };
+    session.run_checks();
     Ok(())
 }
 
-// A poisoned lock means a check panicked while it held the Session; the panic is in the log.
+// A poisoned lock means a command panicked while it held the Session; the panic hook aborts on
+// command threads (ADR 0012), so this is only reachable if that policy changes.
 fn lock(
     session: &Mutex<Option<Session>>,
 ) -> Result<std::sync::MutexGuard<'_, Option<Session>>, CommandError> {
@@ -291,7 +289,8 @@ mod tests {
     // The path differs per checkout, so the fixture carries a stand-in the UI tests show.
     fn opened_fixture(name: &str, project: &str) -> Opened {
         let (_session, mut opened) =
-            open_at(&engine_project(project), Box::new(Dropped)).expect("the fixture opens");
+            open_at(&engine_project(project), std_ports(Arc::new(Dropped)))
+                .expect("the fixture opens");
         assert_eq!(
             opened.name, project,
             "the project is named after its folder"
@@ -317,7 +316,7 @@ mod tests {
     #[test]
     fn a_folder_that_is_not_a_project_does_not_open() {
         let path = engine_project("");
-        let Err(error) = open_at(&path, Box::new(Dropped)) else {
+        let Err(error) = open_at(&path, std_ports(Arc::new(Dropped))) else {
             panic!("tests/projects has no arch.toml");
         };
         let json = serde_json::to_value(&error).expect("serializes");
@@ -336,7 +335,7 @@ mod tests {
     fn an_overlong_path_is_rejected_before_it_is_used() {
         let path = "a/".repeat(PATH_BYTES_MAX);
         assert!(matches!(
-            open_at(&path, Box::new(Dropped)),
+            open_at(&path, std_ports(Arc::new(Dropped))),
             Err(CommandError::InvalidArgument { .. })
         ));
     }

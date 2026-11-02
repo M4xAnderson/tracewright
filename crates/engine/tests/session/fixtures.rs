@@ -8,9 +8,11 @@ use std::path::Path;
 use serde_json::Value;
 use serde_json::json;
 
+use super::support::FakeClock;
 use super::support::MemDisk;
 use super::support::RecordingSink;
 use super::support::one_job;
+use super::support::ports;
 use tracewright_engine::Session;
 
 // Opens `disk`, runs the checks and writes `events-<name>.json`. The view reaches the UI inside
@@ -21,7 +23,7 @@ use tracewright_engine::Session;
 )]
 fn write(name: &str, disk: &MemDisk) -> (Value, Value) {
     let sink = RecordingSink::default();
-    let session = Session::open(disk, Box::new(sink.clone())).expect("the project opens");
+    let session = Session::open(disk, ports(&sink, &FakeClock::new())).expect("the project opens");
     let view = serde_json::to_value(session.view()).expect("the view serializes");
     session.run_checks();
     let events = serde_json::to_value(&*sink.events.lock().expect("test fixture"))
@@ -63,7 +65,11 @@ fn opposite_locks() {
         events[1],
         json!({ "kind": "checkQueued", "property": "no-deadlock", "key": key })
     );
-    let verdict = &events[2];
+    assert_eq!(
+        events[2],
+        json!({ "kind": "checkProgress", "property": "no-deadlock", "key": key, "phase": "main", "markings": 1 })
+    );
+    let verdict = &events[3];
     assert_eq!(verdict["kind"], "verdict");
     assert_eq!(verdict["key"], key);
     assert_eq!(verdict["verdict"]["kind"], "disproved");
@@ -92,11 +98,23 @@ fn opposite_locks() {
     );
 }
 
+// The one verdict event of a run with one checked property.
+fn verdict(events: &Value) -> &Value {
+    let verdicts: Vec<&Value> = events
+        .as_array()
+        .expect("the events are an array")
+        .iter()
+        .filter(|event| event["kind"] == "verdict")
+        .collect();
+    assert_eq!(verdicts.len(), 1, "one checked property");
+    verdicts[0]
+}
+
 #[test]
 fn worker_pool() {
     let (_, events) = write("worker-pool", &MemDisk::fixture("e1c-worker-pool"));
     assert_eq!(
-        events[2]["verdict"],
+        verdict(&events)["verdict"],
         json!({ "assumptions": [], "kind": "proved", "technique": "exhaustive", "markings": 3 })
     );
 }
@@ -104,5 +122,5 @@ fn worker_pool() {
 #[test]
 fn one_finished_job() {
     let (_, events) = write("one-job", &one_job());
-    assert_eq!(events[2]["verdict"]["violation"]["finished"], true);
+    assert_eq!(verdict(&events)["verdict"]["violation"]["finished"], true);
 }

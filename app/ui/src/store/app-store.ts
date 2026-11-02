@@ -3,6 +3,7 @@ import type { CheckKey } from "../ipc/bindings/check-key";
 import type { CommandError } from "../ipc/bindings/command-error";
 import type { CurrentKeys } from "../ipc/bindings/current-keys";
 import type { EngineEvent } from "../ipc/bindings/engine-event";
+import type { Phase } from "../ipc/bindings/phase";
 import type { Screen } from "../ipc/bindings/screen";
 import type { VerdictDto } from "../ipc/bindings/verdict-dto";
 import type { View } from "../ipc/bindings/view";
@@ -28,6 +29,8 @@ export interface AppState {
   verdicts: Partial<Record<string, { key: CheckKey; verdict: VerdictDto }>>;
   // Keys of checks queued or running.
   running: CheckKey[];
+  // The last progress of each running check, by key; dropped with its verdict.
+  progress: Partial<Record<CheckKey, { phase: Phase; markings: number }>>;
   // Properties whose verdict arrived since the running set was last empty.
   finishedInRun: string[];
   message: Message | null;
@@ -41,6 +44,7 @@ const initialState: AppState = {
   currentKeys: null,
   verdicts: {},
   running: [],
+  progress: {},
   finishedInRun: [],
   message: null,
 };
@@ -67,8 +71,20 @@ export function reduceEngineEvent(state: AppState, event: EngineEvent): Partial<
         finishedInRun: state.running.length === 0 ? [] : state.finishedInRun,
       };
     }
+    case "checkProgress": {
+      if (!state.running.includes(event.key)) {
+        return {};
+      }
+      return {
+        progress: {
+          ...state.progress,
+          [event.key]: { phase: event.phase, markings: event.markings },
+        },
+      };
+    }
     case "verdict": {
       const running = state.running.filter((key) => key !== event.key);
+      const { [event.key]: _finished, ...progress } = state.progress;
       const finishedInRun = [...state.finishedInRun, event.property];
       return {
         verdicts: {
@@ -76,6 +92,7 @@ export function reduceEngineEvent(state: AppState, event: EngineEvent): Partial<
           [event.property]: { key: event.key, verdict: event.verdict },
         },
         running,
+        progress,
         finishedInRun,
         ...(running.length === 0
           ? { message: { kind: "checksFinished", properties: finishedInRun } }

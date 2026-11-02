@@ -18,6 +18,11 @@ import { useAppStore } from "../../store/app-store";
 // JSON imports widen string literals; the fixtures were serialized from typed Rust values.
 const events = (json: unknown) => json as EngineEvent[];
 
+// The first event of a fixture with this kind; progress events come between queue and verdict.
+function first(json: unknown, kind: EngineEvent["kind"]): EngineEvent | undefined {
+  return events(json).find((event) => event.kind === kind);
+}
+
 interface Shell {
   emit: (...events: EngineEvent[]) => void;
   calls: string[];
@@ -231,6 +236,28 @@ describe("open a project and see the verdict", () => {
     expect(screen.getByRole("button", { name: "Checking…" })).toBeInTheDocument();
     expect(screen.getByText("Checking 1 property…")).toBeInTheDocument();
   });
+
+  test("a running check counts the markings of each phase as it explores", async () => {
+    resetStore();
+    const shell = await openProject(
+      fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
+    );
+    const [currentKeys, queued, progress] = events(eventsOppositeLocks);
+    if (currentKeys === undefined || queued?.kind !== "checkQueued" || progress === undefined) {
+      throw new Error("the fixture starts with currentKeys, checkQueued and checkProgress");
+    }
+
+    shell.emit(currentKeys, queued, progress);
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 1 marking");
+
+    const { property, key } = queued;
+    shell.emit({ kind: "checkProgress", property, key, phase: "main", markings: 120400 });
+    expect(row("Deadlock-free")).toHaveTextContent("Exploring… 120,400 markings");
+
+    shell.emit({ kind: "checkProgress", property, key, phase: "recheck", markings: 48100 });
+    expect(row("Deadlock-free")).toHaveTextContent("Re-checking… 48,100 markings");
+    expect(row("Deadlock-free")).not.toHaveTextContent("Exploring");
+  });
 });
 
 describe("keysFresh: a verdict is current only once the keys of its revision arrived", () => {
@@ -239,7 +266,8 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued, verdict] = events(eventsOppositeLocks);
+    const [currentKeys, queued] = events(eventsOppositeLocks);
+    const verdict = first(eventsOppositeLocks, "verdict");
     if (currentKeys === undefined || queued === undefined || verdict === undefined) {
       throw new Error("the fixture holds currentKeys, checkQueued and verdict");
     }
@@ -260,7 +288,8 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, queued, verdict] = events(eventsOppositeLocks);
+    const [currentKeys, queued] = events(eventsOppositeLocks);
+    const verdict = first(eventsOppositeLocks, "verdict");
     if (currentKeys?.kind !== "currentKeys" || queued === undefined || verdict === undefined) {
       throw new Error("the fixture holds currentKeys, checkQueued and verdict");
     }
@@ -279,7 +308,8 @@ describe("keysFresh: a verdict is current only once the keys of its revision arr
     const shell = await openProject(
       fakeShell({ picked: "/home/designer/e1b-opposite-locks", opened: openedOppositeLocks }),
     );
-    const [currentKeys, , verdict] = events(eventsOppositeLocks);
+    const [currentKeys] = events(eventsOppositeLocks);
+    const verdict = first(eventsOppositeLocks, "verdict");
     if (currentKeys === undefined || verdict?.kind !== "verdict") {
       throw new Error("the fixture holds currentKeys and a verdict");
     }

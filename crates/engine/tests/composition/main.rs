@@ -223,7 +223,7 @@ proptest! {
         let own = tracewright_recheck::compose(&open).expect("recheck composes what engine flattens");
         prop_assert_eq!(encode::canonical(&flat), encode::canonical(&own));
         // At most 3 parts × 2 places × capacity 2: 3^6 = 729 markings, far below the budget.
-        let budget = Budget { max_markings: 100_000 };
+        let budget = Budget { max_markings: 100_000, ..Budget::default() };
         let main = tracewright_verify::check(&flat, &NetProperty::DeadlockFree, &budget);
         let second = tracewright_recheck::explore(&own, &NetProperty::DeadlockFree, &budget);
         prop_assert!(!matches!(main, NetVerdict::Unknown(_)), "{:?}", main);
