@@ -1,0 +1,29 @@
+[package]
+name = "tracewright-engine"
+description = "The Session: one authoritative model, lowering, checks and ports to the world."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tracewright-model.workspace = true
+tracewright-net.workspace = true
+tracewright-verify.workspace = true
+tracewright-recheck.workspace = true
+tracewright-format.workspace = true
+tracewright-scan.workspace = true
+blake3.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+ts-rs.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde_json.workspace = true
+tempfile = "3"
+toml.workspace = true
+
+[lints]
+workspace = true

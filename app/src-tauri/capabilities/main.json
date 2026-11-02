@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The main window. Only the commands the UI calls (SEC-1).",
+  "windows": ["main"],
+  "permissions": [
+    "allow-ui-ready",
+    "allow-pick-project-folder",
+    "allow-open-project",
+    "allow-run-checks"
+  ]
+}

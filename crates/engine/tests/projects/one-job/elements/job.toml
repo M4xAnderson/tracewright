@@ -1,0 +1,19 @@
+# A workload that finishes: `work` moves the one token from todo to done, then nothing can fire.
+# Until done when arrives in slice 1 this is a deadlock with no token in any pre set (D-23).
+format = 1
+kind = "container"
+name = "Job"
+parent = "sys"
+
+[petri_net.places.todo]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.places.done]
+capacity = 1
+when_full = "block"
+
+[petri_net.transitions.work]
+pre = { todo = 1 }
+post = { done = 1 }

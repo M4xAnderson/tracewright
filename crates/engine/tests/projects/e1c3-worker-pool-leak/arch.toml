@@ -1,0 +1,3 @@
+# Spike E1 fixture. NS §14 net POOL-LEAK; vector V24.
+# The failure path forgets to give the worker back.
+format = 1

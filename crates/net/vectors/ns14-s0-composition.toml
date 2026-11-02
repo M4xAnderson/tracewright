@@ -1,0 +1,501 @@
+# Composition vectors of docs/specs/net-semantics.md §14.3: synchronous fusion and asynchronous
+# bindings. Read by the tests of `recheck::compose` and of `engine::flatten`, each with its own
+# harness: both must produce exactly `encoding`, or, for `rejected`, recheck returns a
+# ComposeError (engine refuses those inputs earlier, in lowering, with the L-rule named here).
+# A place is `block` unless it states `when_full`; a link is an AsyncLink with its sets as lists.
+# `deadlock_free` is the |R| of a Proved deadlock-free where NS gives it. C17–C20 are tagged S2 in
+# NS §15 because only state machines produce sets of more than one transition, but they pin the
+# set-valued AsyncLink that slice 0 already carries (ADR 0016).
+
+[[composition]]
+id = "C1"
+fusions = [{ relationship = "r", caller = "a/call", callee = "b/serve" }]
+deadlock_free = 2
+encoding = """
+petrinet-net 1
+place a/busy 1 block 0
+place a/idle 1 block 1
+place b/free 1 block 1
+transition a/done
+pre a/busy 1
+post a/idle 1
+transition r/call+serve
+pre a/idle 1
+pre b/free 1
+post a/busy 1
+post b/free 1
+"""
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/done", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+
+[[composition]]
+id = "C2"
+fusions = [
+  { relationship = "r1", caller = "a/call", callee = "b/serve" },
+  { relationship = "r2", caller = "a/call", callee = "c/serve" },
+]
+encoding = """
+petrinet-net 1
+place a/busy 1 block 0
+place a/idle 1 block 1
+place b/free 1 block 1
+place c/free 1 block 1
+transition a/done
+pre a/busy 1
+post a/idle 1
+transition r1/call+serve
+pre a/idle 1
+pre b/free 1
+post a/busy 1
+post b/free 1
+transition r2/call+serve
+pre a/idle 1
+pre c/free 1
+post a/busy 1
+post c/free 1
+"""
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/done", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "c/serve", pre = { "c/free" = 1 }, post = { "c/free" = 1 } }]
+
+[[composition]]
+id = "C3"
+fusions = [
+  { relationship = "ra", caller = "a/take", callee = "l/acq" },
+  { relationship = "ra", caller = "a/give", callee = "l/rel" },
+  { relationship = "rb", caller = "b/take", callee = "l/acq" },
+  { relationship = "rb", caller = "b/give", callee = "l/rel" },
+]
+deadlock_free = 3
+encoding = """
+petrinet-net 1
+place a/has 1 block 0
+place a/idle 1 block 1
+place b/has 1 block 0
+place b/idle 1 block 1
+place l/x 1 block 1
+transition ra/give+rel
+pre a/has 1
+post a/idle 1
+post l/x 1
+transition ra/take+acq
+pre a/idle 1
+pre l/x 1
+post a/has 1
+transition rb/give+rel
+pre b/has 1
+post b/idle 1
+post l/x 1
+transition rb/take+acq
+pre b/idle 1
+pre l/x 1
+post b/has 1
+"""
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has", capacity = 1 }]
+transitions = [{ id = "a/take", pre = { "a/idle" = 1 }, post = { "a/has" = 1 } }, { id = "a/give", pre = { "a/has" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has", capacity = 1 }]
+transitions = [{ id = "b/take", pre = { "b/idle" = 1 }, post = { "b/has" = 1 } }, { id = "b/give", pre = { "b/has" = 1 }, post = { "b/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "l/x", capacity = 1, initial = 1 }]
+transitions = [{ id = "l/acq", pre = { "l/x" = 1 } }, { id = "l/rel", post = { "l/x" = 1 } }]
+
+[[composition]]
+id = "C21"
+fusions = [
+  { relationship = "r", caller = "a/call", callee = "b/serve" },
+  { relationship = "r", caller = "b/ret", callee = "a/reply" },
+]
+deadlock_free = 2
+encoding = """
+petrinet-net 1
+place a/busy 1 block 0
+place a/idle 1 block 1
+place b/free 1 block 1
+place b/work 1 block 0
+transition r/call+serve
+pre a/idle 1
+pre b/free 1
+post a/busy 1
+post b/work 1
+transition r/ret+reply
+pre a/busy 1
+pre b/work 1
+post a/idle 1
+post b/free 1
+"""
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/reply", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }, { id = "b/work", capacity = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/work" = 1 } }, { id = "b/ret", pre = { "b/work" = 1 }, post = { "b/free" = 1 } }]
+
+[[composition]]
+id = "C4"
+links = [{ relationship = "r", from = ["p/produce"], to = ["c/consume"], capacity = 3, when_full = "overflow" }]
+encoding = """
+petrinet-net 1
+place c/got 5 block 0
+place p/items 5 block 5
+place r 3 overflow 0
+transition c/consume
+pre r 1
+post c/got 1
+transition p/produce
+pre p/items 1
+post r 1
+"""
+[[composition.parts]]
+places = [{ id = "p/items", capacity = 5, initial = 5 }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/got", capacity = 5 }]
+transitions = [{ id = "c/consume", post = { "c/got" = 1 } }]
+
+[[composition]]
+id = "C5"
+links = [{ relationship = "r", from = ["p/produce"], to = ["c/consume"], capacity = 3, when_full = "block" }]
+encoding = """
+petrinet-net 1
+place c/got 5 block 0
+place p/items 5 block 5
+place r 3 block 0
+transition c/consume
+pre r 1
+post c/got 1
+transition p/produce
+pre p/items 1
+post r 1
+"""
+[[composition.parts]]
+places = [{ id = "p/items", capacity = 5, initial = 5 }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/got", capacity = 5 }]
+transitions = [{ id = "c/consume", post = { "c/got" = 1 } }]
+
+# NS §14.4 (h): a second receiving transition adds one more `pre r 1`.
+[[composition]]
+id = "h"
+links = [{ relationship = "r", from = ["p/produce"], to = ["c/consume", "c/consume2"], capacity = 3, when_full = "overflow" }]
+encoding = """
+petrinet-net 1
+place c/got 5 block 0
+place p/items 5 block 5
+place r 3 overflow 0
+transition c/consume
+pre r 1
+post c/got 1
+transition c/consume2
+pre r 1
+post c/got 1
+transition p/produce
+pre p/items 1
+post r 1
+"""
+[[composition.parts]]
+places = [{ id = "p/items", capacity = 5, initial = 5 }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/got", capacity = 5 }]
+transitions = [{ id = "c/consume", post = { "c/got" = 1 } }, { id = "c/consume2", post = { "c/got" = 1 } }]
+
+[[composition]]
+id = "C17"
+links = [{ relationship = "jobs", from = ["producer/send"], to = ["consumer/run", "consumer/skip"], capacity = 2, when_full = "block" }]
+encoding = """
+petrinet-net 1
+place consumer/paused 1 overflow 0
+place consumer/ready 1 overflow 1
+place jobs 2 block 0
+place producer/p 1 block 1
+transition consumer/pause
+pre consumer/ready 1
+post consumer/paused 1
+transition consumer/resume
+pre consumer/paused 1
+post consumer/ready 1
+transition consumer/run
+pre consumer/ready 1
+pre jobs 1
+post consumer/ready 1
+transition consumer/skip
+pre consumer/paused 1
+pre jobs 1
+post consumer/paused 1
+transition producer/send
+pre producer/p 1
+post jobs 1
+post producer/p 1
+"""
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, when_full = "overflow", initial = 1 }, { id = "consumer/paused", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "consumer/pause", pre = { "consumer/ready" = 1 }, post = { "consumer/paused" = 1 } },
+  { id = "consumer/resume", pre = { "consumer/paused" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/skip", pre = { "consumer/paused" = 1 }, post = { "consumer/paused" = 1 } },
+]
+
+[[composition]]
+id = "C18"
+links = [{ relationship = "pings", from = ["pinger/p1", "pinger/p2"], to = ["ponger/q1", "ponger/q2"], capacity = 1, when_full = "block" }]
+encoding = """
+petrinet-net 1
+place pinger/a 1 overflow 1
+place pinger/b 1 overflow 0
+place pings 1 block 0
+place ponger/x 1 overflow 1
+place ponger/y 1 overflow 0
+transition pinger/p1
+pre pinger/a 1
+post pinger/b 1
+post pings 1
+transition pinger/p2
+pre pinger/b 1
+post pinger/a 1
+post pings 1
+transition ponger/q1
+pre pings 1
+pre ponger/x 1
+post ponger/y 1
+transition ponger/q2
+pre pings 1
+pre ponger/y 1
+post ponger/x 1
+"""
+[[composition.parts]]
+places = [{ id = "pinger/a", capacity = 1, when_full = "overflow", initial = 1 }, { id = "pinger/b", capacity = 1, when_full = "overflow" }]
+transitions = [{ id = "pinger/p1", pre = { "pinger/a" = 1 }, post = { "pinger/b" = 1 } }, { id = "pinger/p2", pre = { "pinger/b" = 1 }, post = { "pinger/a" = 1 } }]
+[[composition.parts]]
+places = [{ id = "ponger/x", capacity = 1, when_full = "overflow", initial = 1 }, { id = "ponger/y", capacity = 1, when_full = "overflow" }]
+transitions = [{ id = "ponger/q1", pre = { "ponger/x" = 1 }, post = { "ponger/y" = 1 } }, { id = "ponger/q2", pre = { "ponger/y" = 1 }, post = { "ponger/x" = 1 } }]
+
+# A call over a sync pair and its reply over an async pair on one relationship (D-07): the reply
+# pair runs from the target b back to the source a.
+[[composition]]
+id = "call-async-reply"
+fusions = [{ relationship = "r", caller = "a/call", callee = "b/serve" }]
+links = [{ relationship = "r", from = ["b/answer"], to = ["a/reply"], capacity = 1, when_full = "block" }]
+deadlock_free = 3
+encoding = """
+petrinet-net 1
+place a/busy 1 block 0
+place a/idle 1 block 1
+place b/free 1 block 1
+place b/work 1 block 0
+place r 1 block 0
+transition a/reply
+pre a/busy 1
+pre r 1
+post a/idle 1
+transition b/answer
+pre b/work 1
+post b/free 1
+post r 1
+transition r/call+serve
+pre a/idle 1
+pre b/free 1
+post a/busy 1
+post b/work 1
+"""
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/reply", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }, { id = "b/work", capacity = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/work" = 1 } }, { id = "b/answer", pre = { "b/work" = 1 }, post = { "b/free" = 1 } }]
+
+[[composition]]
+id = "C8"
+rejected = "L7: a/call is both fused and asynchronously bound"
+fusions = [{ relationship = "r1", caller = "a/call", callee = "b/serve" }]
+links = [{ relationship = "r2", from = ["a/call"], to = ["c/serve"], capacity = 2, when_full = "overflow" }]
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/done", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "c/serve", pre = { "c/free" = 1 }, post = { "c/free" = 1 } }]
+
+[[composition]]
+id = "C11"
+rejected = "L8: duplicate generated place r"
+links = [
+  { relationship = "r", from = ["p/produce"], to = ["c/consume"], capacity = 3, when_full = "overflow" },
+  { relationship = "r", from = ["p/produce2"], to = ["c/consume2"], capacity = 3, when_full = "overflow" },
+]
+[[composition.parts]]
+places = [{ id = "p/items", capacity = 5, initial = 5 }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 } }, { id = "p/produce2", pre = { "p/items" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/got", capacity = 5 }]
+transitions = [{ id = "c/consume", post = { "c/got" = 1 } }, { id = "c/consume2", post = { "c/got" = 1 } }]
+
+[[composition]]
+id = "C19"
+rejected = "an asynchronous binding with an empty to set"
+links = [{ relationship = "jobs", from = ["producer/send"], to = [], capacity = 2, when_full = "block" }]
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, when_full = "overflow", initial = 1 }, { id = "consumer/paused", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "consumer/pause", pre = { "consumer/ready" = 1 }, post = { "consumer/paused" = 1 } },
+  { id = "consumer/resume", pre = { "consumer/paused" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/skip", pre = { "consumer/paused" = 1 }, post = { "consumer/paused" = 1 } },
+]
+
+[[composition]]
+id = "C20"
+rejected = "L7: consumer/run is in two asynchronous bindings"
+links = [
+  { relationship = "jobs", from = ["producer/send"], to = ["consumer/run"], capacity = 2, when_full = "block" },
+  { relationship = "more", from = ["producer/send2"], to = ["consumer/run"], capacity = 2, when_full = "block" },
+]
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }, { id = "producer/send2", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, initial = 1 }]
+transitions = [{ id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } }]
+
+[[composition]]
+id = "unsorted-set"
+rejected = "an asynchronous binding set that is not sorted without duplicates (NS §6.1)"
+links = [{ relationship = "jobs", from = ["producer/send"], to = ["consumer/skip", "consumer/run"], capacity = 2, when_full = "block" }]
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, when_full = "overflow", initial = 1 }, { id = "consumer/paused", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "consumer/pause", pre = { "consumer/ready" = 1 }, post = { "consumer/paused" = 1 } },
+  { id = "consumer/resume", pre = { "consumer/paused" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/skip", pre = { "consumer/paused" = 1 }, post = { "consumer/paused" = 1 } },
+]
+
+[[composition]]
+id = "duplicate-member"
+rejected = "an asynchronous binding set that lists a transition twice (NS §6.1)"
+links = [{ relationship = "jobs", from = ["producer/send"], to = ["consumer/run", "consumer/run"], capacity = 2, when_full = "block" }]
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, when_full = "overflow", initial = 1 }, { id = "consumer/paused", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "consumer/pause", pre = { "consumer/ready" = 1 }, post = { "consumer/paused" = 1 } },
+  { id = "consumer/resume", pre = { "consumer/paused" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/skip", pre = { "consumer/paused" = 1 }, post = { "consumer/paused" = 1 } },
+]
+
+[[composition]]
+id = "unknown-member"
+rejected = "an asynchronous binding names a transition that no part has"
+links = [{ relationship = "jobs", from = ["producer/send"], to = ["consumer/ready"], capacity = 2, when_full = "block" }]
+[[composition.parts]]
+places = [{ id = "producer/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "producer/send", pre = { "producer/p" = 1 }, post = { "producer/p" = 1 } }]
+[[composition.parts]]
+places = [{ id = "consumer/ready", capacity = 1, when_full = "overflow", initial = 1 }, { id = "consumer/paused", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "consumer/pause", pre = { "consumer/ready" = 1 }, post = { "consumer/paused" = 1 } },
+  { id = "consumer/resume", pre = { "consumer/paused" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/run", pre = { "consumer/ready" = 1 }, post = { "consumer/ready" = 1 } },
+  { id = "consumer/skip", pre = { "consumer/paused" = 1 }, post = { "consumer/paused" = 1 } },
+]
+
+[[composition]]
+id = "C7"
+rejected = "L12: duplicate fused ID r/call+serve"
+fusions = [
+  { relationship = "r", caller = "a/call", callee = "b/serve" },
+  { relationship = "r", caller = "a/call", callee = "b/serve" },
+]
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/done", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+
+[[composition]]
+id = "C9"
+rejected = "L6: a/ping and a/pong belong to one part"
+fusions = [{ relationship = "r", caller = "a/ping", callee = "a/pong" }]
+[[composition.parts]]
+places = [{ id = "a/s", capacity = 1, initial = 1 }]
+transitions = [{ id = "a/ping", pre = { "a/s" = 1 }, post = { "a/s" = 1 } }, { id = "a/pong", pre = { "a/s" = 1 }, post = { "a/s" = 1 } }]
+
+[[composition]]
+id = "C10"
+rejected = "L7: b/serve is both caller and callee"
+fusions = [
+  { relationship = "r1", caller = "a/call", callee = "b/serve" },
+  { relationship = "r2", caller = "b/serve", callee = "c/serve" },
+]
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }, { id = "a/done", pre = { "a/busy" = 1 }, post = { "a/idle" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+[[composition.parts]]
+places = [{ id = "c/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "c/serve", pre = { "c/free" = 1 }, post = { "c/free" = 1 } }]
+
+[[composition]]
+id = "C22"
+rejected = "L12: duplicate fused ID r/x+y"
+fusions = [
+  { relationship = "r", caller = "a/x", callee = "b/y" },
+  { relationship = "r", caller = "b/x", callee = "a/y" },
+]
+[[composition.parts]]
+places = [{ id = "a/s", capacity = 1, initial = 1 }]
+transitions = [{ id = "a/x", pre = { "a/s" = 1 }, post = { "a/s" = 1 } }, { id = "a/y", pre = { "a/s" = 1 }, post = { "a/s" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/s", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/x", pre = { "b/s" = 1 }, post = { "b/s" = 1 } }, { id = "b/y", pre = { "b/s" = 1 }, post = { "b/s" = 1 } }]
+
+[[composition]]
+id = "unknown-port"
+rejected = "a fusion names a transition that no part has"
+fusions = [{ relationship = "r", caller = "a/call", callee = "b/missing" }]
+[[composition.parts]]
+places = [{ id = "a/idle", capacity = 1, initial = 1 }, { id = "a/busy", capacity = 1 }]
+transitions = [{ id = "a/call", pre = { "a/idle" = 1 }, post = { "a/busy" = 1 } }]
+[[composition.parts]]
+places = [{ id = "b/free", capacity = 1, initial = 1 }]
+transitions = [{ id = "b/serve", pre = { "b/free" = 1 }, post = { "b/free" = 1 } }]
+
+[[composition]]
+id = "invalid-part"
+rejected = "a part fails NS §2.3 (V29)"
+fusions = []
+[[composition.parts]]
+places = [{ id = "x/p", capacity = 3, initial = 5 }]
+transitions = []

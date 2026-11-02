@@ -1,0 +1,25 @@
+format = 1
+kind = "container"
+name = "Order API"
+parent = "sys"
+
+[petri_net.places.ready]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.transitions.publish]
+port = true
+pre = { ready = 1 }
+post = { ready = 1 }
+
+[relationships.orders]
+to = "billing"
+meaning = "publishes to"
+interaction = "asynchronous"
+
+[[relationships.orders.binding]]
+mode = "async"
+from = "api/publish"
+to = "billing/receive"
+capacity = 3

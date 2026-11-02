@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="tracewright.net" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <page id="tracewright.page">
+      <place id="c__got"><name><text>c__got</text></name></place>
+      <place id="c__got.cmp"><name><text>c__got.cmp</text></name><initialMarking><text>5</text></initialMarking></place>
+      <place id="p__items"><name><text>p__items</text></name><initialMarking><text>5</text></initialMarking></place>
+      <place id="p__items.cmp"><name><text>p__items.cmp</text></name></place>
+      <place id="r"><name><text>r</text></name></place>
+      <transition id="c__consume"><name><text>c__consume</text></name></transition>
+      <transition id="p__produce"><name><text>p__produce</text></name></transition>
+      <arc id="arc.0" source="c__consume" target="c__got"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.1" source="c__got.cmp" target="c__consume"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.2" source="r" target="c__consume"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.3" source="p__items" target="p__produce"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.4" source="p__produce" target="p__items.cmp"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.5" source="p__produce" target="r"><inscription><text>1</text></inscription></arc>
+    </page>
+  </net>
+</pnml>

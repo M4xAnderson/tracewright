@@ -1,0 +1,85 @@
+{
+  "outcome": {
+    "added": [],
+    "changed": [
+      "job"
+    ],
+    "kind": "reloaded",
+    "notLoaded": [],
+    "removed": []
+  },
+  "view": {
+    "elements": [
+      {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "done",
+              "initial": 0,
+              "name": "done",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 1,
+              "displayName": "todo",
+              "initial": 0,
+              "name": "todo",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "work",
+              "name": "work",
+              "port": false,
+              "post": [
+                {
+                  "place": "done",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "todo",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "id": "job",
+        "kind": "container",
+        "name": "Nightly job",
+        "position": null,
+        "technology": null
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 1,
+    "system": {
+      "behavior": null,
+      "id": "sys",
+      "kind": "softwareSystem",
+      "name": "One job",
+      "position": null,
+      "technology": null
+    }
+  }
+}

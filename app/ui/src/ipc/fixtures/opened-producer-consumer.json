@@ -1,0 +1,143 @@
+{
+  "name": "producer-consumer",
+  "path": "/home/designer/producer-consumer",
+  "view": {
+    "elements": [
+      {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "ready",
+              "initial": 1,
+              "name": "ready",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "publish",
+              "name": "publish",
+              "port": true,
+              "post": [
+                {
+                  "place": "ready",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "ready",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "id": "api",
+        "kind": "container",
+        "name": "Order API",
+        "position": null,
+        "technology": null
+      },
+      {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "idle",
+              "initial": 1,
+              "name": "idle",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "receive",
+              "name": "receive",
+              "port": true,
+              "post": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "id": "billing",
+        "kind": "container",
+        "name": "Billing",
+        "position": null,
+        "technology": null
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "no-overflow",
+        "kind": "noCapacityExceeded",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      },
+      {
+        "id": "no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "combined",
+          "element": "sys"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [
+      {
+        "bindings": [
+          {
+            "from": {
+              "element": "api",
+              "name": "publish"
+            },
+            "mode": {
+              "capacity": 3,
+              "kind": "async",
+              "whenFull": "overflow"
+            },
+            "to": {
+              "element": "billing",
+              "name": "receive"
+            }
+          }
+        ],
+        "id": "orders",
+        "meaning": "publishes to",
+        "source": "api",
+        "target": "billing"
+      }
+    ],
+    "rev": 0,
+    "system": {
+      "behavior": null,
+      "id": "sys",
+      "kind": "softwareSystem",
+      "name": "Order platform",
+      "position": null,
+      "technology": null
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "name": "ns-v08",
+  "path": "/home/designer/ns-v08",
+  "view": {
+    "elements": [
+      {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 1,
+              "displayName": "p",
+              "initial": 1,
+              "name": "p",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "t",
+              "name": "t",
+              "port": false,
+              "post": [
+                {
+                  "place": "p",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "p",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        "id": "x",
+        "kind": "container",
+        "name": "x",
+        "position": null,
+        "technology": null
+      }
+    ],
+    "problems": [],
+    "properties": [
+      {
+        "id": "x-no-deadlock",
+        "kind": "deadlockFree",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "x"
+        },
+        "template": null
+      },
+      {
+        "id": "x-no-overflow",
+        "kind": "noCapacityExceeded",
+        "label": null,
+        "scope": {
+          "behavior": "own",
+          "element": "x"
+        },
+        "template": null
+      }
+    ],
+    "relationships": [],
+    "rev": 0,
+    "system": {
+      "behavior": null,
+      "id": "sys",
+      "kind": "softwareSystem",
+      "name": "sys",
+      "position": null,
+      "technology": null
+    }
+  }
+}

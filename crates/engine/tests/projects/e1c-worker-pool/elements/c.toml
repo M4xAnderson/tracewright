@@ -1,0 +1,43 @@
+format = 1
+kind = "container"
+name = "Clients"
+parent = "sys"
+
+[petri_net.places.idle]
+capacity = 3
+when_full = "block"
+initial = 3
+
+[petri_net.places.running]
+capacity = 3
+when_full = "block"
+
+[petri_net.transitions.start]
+port = true
+pre = { idle = 1 }
+post = { running = 1 }
+
+[petri_net.transitions.finish]
+port = true
+pre = { running = 1 }
+post = { idle = 1 }
+
+[relationships.r1]
+to = "w"
+meaning = "takes a worker from"
+interaction = "synchronous"
+
+[[relationships.r1.binding]]
+mode = "sync"
+from = "c/start"
+to = "w/acquire"
+
+[relationships.r2]
+to = "w"
+meaning = "gives the worker back to"
+interaction = "synchronous"
+
+[[relationships.r2.binding]]
+mode = "sync"
+from = "c/finish"
+to = "w/release"

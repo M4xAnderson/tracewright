@@ -1,0 +1,309 @@
+[
+  {
+    "keys": {
+      "no-deadlock": {
+        "key": "key-1"
+      },
+      "no-overflow": {
+        "key": "key-2"
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "key-1",
+    "kind": "checkQueued",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "key-2",
+    "kind": "checkQueued",
+    "property": "no-overflow"
+  },
+  {
+    "key": "key-1",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "no-deadlock"
+  },
+  {
+    "key": "key-1",
+    "kind": "verdict",
+    "property": "no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "frames": [
+        {
+          "fired": {
+            "callee": {
+              "element": "l",
+              "transition": "acq_x"
+            },
+            "caller": {
+              "element": "a",
+              "transition": "take_x"
+            },
+            "kind": "sync",
+            "relationship": "ra1"
+          },
+          "step": 1
+        },
+        {
+          "fired": {
+            "callee": {
+              "element": "l",
+              "transition": "acq_y"
+            },
+            "caller": {
+              "element": "b",
+              "transition": "take_y"
+            },
+            "kind": "sync",
+            "relationship": "rb1"
+          },
+          "step": 2
+        }
+      ],
+      "kind": "disproved",
+      "violation": {
+        "finished": false,
+        "kind": "deadlock",
+        "waiting": [
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "acq_x"
+              },
+              "caller": {
+                "element": "a",
+                "transition": "take_x"
+              },
+              "kind": "sync",
+              "relationship": "ra1"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "a",
+                  "kind": "own",
+                  "place": "has_1"
+                },
+                "reason": {
+                  "capacity": 1,
+                  "holds": 1,
+                  "kind": "outputFull"
+                }
+              },
+              {
+                "place": {
+                  "element": "a",
+                  "kind": "own",
+                  "place": "idle"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              },
+              {
+                "place": {
+                  "element": "l",
+                  "kind": "own",
+                  "place": "x"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          },
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "acq_y"
+              },
+              "caller": {
+                "element": "a",
+                "transition": "take_y"
+              },
+              "kind": "sync",
+              "relationship": "ra2"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "l",
+                  "kind": "own",
+                  "place": "y"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          },
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "rel_xy"
+              },
+              "caller": {
+                "element": "a",
+                "transition": "release"
+              },
+              "kind": "sync",
+              "relationship": "ra3"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "a",
+                  "kind": "own",
+                  "place": "has_2"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          },
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "acq_y"
+              },
+              "caller": {
+                "element": "b",
+                "transition": "take_y"
+              },
+              "kind": "sync",
+              "relationship": "rb1"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "b",
+                  "kind": "own",
+                  "place": "has_1"
+                },
+                "reason": {
+                  "capacity": 1,
+                  "holds": 1,
+                  "kind": "outputFull"
+                }
+              },
+              {
+                "place": {
+                  "element": "b",
+                  "kind": "own",
+                  "place": "idle"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              },
+              {
+                "place": {
+                  "element": "l",
+                  "kind": "own",
+                  "place": "y"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          },
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "acq_x"
+              },
+              "caller": {
+                "element": "b",
+                "transition": "take_x"
+              },
+              "kind": "sync",
+              "relationship": "rb2"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "l",
+                  "kind": "own",
+                  "place": "x"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          },
+          {
+            "transition": {
+              "callee": {
+                "element": "l",
+                "transition": "rel_xy"
+              },
+              "caller": {
+                "element": "b",
+                "transition": "release"
+              },
+              "kind": "sync",
+              "relationship": "rb3"
+            },
+            "waits": [
+              {
+                "place": {
+                  "element": "b",
+                  "kind": "own",
+                  "place": "has_2"
+                },
+                "reason": {
+                  "holds": 0,
+                  "kind": "needsTokens",
+                  "needed": 1
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "key": "key-2",
+    "kind": "verdict",
+    "property": "no-overflow",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 0,
+      "technique": {
+        "noOverflowPlace": {
+          "dropPlaces": []
+        }
+      }
+    }
+  }
+]

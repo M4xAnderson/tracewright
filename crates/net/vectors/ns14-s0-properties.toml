@@ -1,0 +1,445 @@
+# Conformance vectors of docs/specs/net-semantics.md §14.1, slice 0, written as flattened nets
+# (qualified IDs, NS §2.4). Read by the tests of `verify` and of `recheck`, each with its own
+# harness, so neither explorer's tests lean on the other's code (ADR 0010). Nets follow the E1
+# corpus (`prototype/e1-state-space`, fixtures/ns-vectors.toml); the drop, overflow and generated
+# place nets (PC, BRANCH, FE1, ...) are the shared nets of NS §14.
+#
+# A place is `block` unless it states `when_full`. `property` is "deadlock-free" unless stated.
+# `expect` is one of:
+#   "proved"                   exhaustive, `markings` = |R|
+#   "certificate"              Proved by NoOverflowPlace with exactly `drop_places`, no exploration
+#   "disproved"                a counterexample firing `fired`; its violation is `waiting` (a
+#                              deadlock) or `overflow` = { place, capacity, count }
+#   "capacity-exceeded-first"  Unknown after a complete exploration, naming `place`, with the run
+#                              `fired` to the first overflow marking
+#   "rejected"                 a structurally invalid net: Unknown InternalError
+# `stored` is the number of stored markings when the violation is discovered, or |R ∪ O| for a
+# capacity exceeded first (NS §14); `markings` is |R| of a Proved. Both are pinned through the
+# budget too: the vector holds with exactly that many markings and runs out with one fewer
+# (NS §10.1 c, d; budget vectors B1, B2, B11, B12). A certificate holds with a budget of 0 (B13).
+# A wait is { place, needs = [needed, holds] } or { place, full = [capacity, would_hold] }.
+
+[nets.ONE]
+places = [{ id = "x/p", capacity = 1, initial = 1 }]
+transitions = []
+
+[nets.SRC]
+places = [{ id = "x/p", capacity = 2 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.V08]
+places = [{ id = "x/p", capacity = 1, initial = 1 }]
+transitions = [{ id = "x/t", pre = { "x/p" = 1 }, post = { "x/p" = 1 } }]
+
+[nets.V09]
+places = [{ id = "x/p", capacity = 3, initial = 3 }, { id = "x/q", capacity = 1 }]
+transitions = [{ id = "x/t", pre = { "x/p" = 2 }, post = { "x/q" = 1 } }]
+
+[nets.V10]
+places = [{ id = "x/p", capacity = 2 }]
+transitions = [{ id = "x/t", post = { "x/p" = 3 } }]
+
+[nets.V52]
+places = [{ id = "x/p", capacity = 4294967294, initial = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.LOCKS_yx]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_y+acq_y", pre = { "b/idle" = 1, "l/y" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_x+acq_x", pre = { "b/has_1" = 1, "l/x" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+]
+
+[nets.LOCKS_xy]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_x+acq_x", pre = { "b/idle" = 1, "l/x" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_y+acq_y", pre = { "b/has_1" = 1, "l/y" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+]
+
+[nets.MASK]
+places = [
+  { id = "a/idle", capacity = 1, initial = 1 }, { id = "a/has_1", capacity = 1 }, { id = "a/has_2", capacity = 1 },
+  { id = "b/idle", capacity = 1, initial = 1 }, { id = "b/has_1", capacity = 1 }, { id = "b/has_2", capacity = 1 },
+  { id = "l/x", capacity = 1, initial = 1 }, { id = "l/y", capacity = 1, initial = 1 },
+  { id = "h/s", capacity = 1, initial = 1 },
+]
+transitions = [
+  { id = "ra1/take_x+acq_x", pre = { "a/idle" = 1, "l/x" = 1 }, post = { "a/has_1" = 1 } },
+  { id = "ra2/take_y+acq_y", pre = { "a/has_1" = 1, "l/y" = 1 }, post = { "a/has_2" = 1 } },
+  { id = "ra3/release+rel_xy", pre = { "a/has_2" = 1 }, post = { "a/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "rb1/take_y+acq_y", pre = { "b/idle" = 1, "l/y" = 1 }, post = { "b/has_1" = 1 } },
+  { id = "rb2/take_x+acq_x", pre = { "b/has_1" = 1, "l/x" = 1 }, post = { "b/has_2" = 1 } },
+  { id = "rb3/release+rel_xy", pre = { "b/has_2" = 1 }, post = { "b/idle" = 1, "l/x" = 1, "l/y" = 1 } },
+  { id = "h/tick", pre = { "h/s" = 1 }, post = { "h/s" = 1 } },
+]
+
+[nets.POOL]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+]
+
+[nets.POOL_LEAK]
+places = [{ id = "c/idle", capacity = 3, initial = 3 }, { id = "c/running", capacity = 3 }, { id = "w/free", capacity = 2, initial = 2 }]
+transitions = [
+  { id = "r1/start+acquire", pre = { "c/idle" = 1, "w/free" = 1 }, post = { "c/running" = 1 } },
+  { id = "r2/finish+release", pre = { "c/running" = 1 }, post = { "c/idle" = 1, "w/free" = 1 } },
+  { id = "c/fail", pre = { "c/running" = 1 }, post = { "c/idle" = 1 } },
+]
+
+[nets.SRC_drop]
+places = [{ id = "x/p", capacity = 2, when_full = "drop" }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.SRC_overflow]
+places = [{ id = "x/p", capacity = 2, when_full = "overflow" }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.V11]
+places = [{ id = "x/p", capacity = 2, when_full = "drop" }]
+transitions = [{ id = "x/t", post = { "x/p" = 3 } }]
+
+[nets.V12]
+places = [{ id = "x/p", capacity = 1, when_full = "drop", initial = 1 }]
+transitions = [{ id = "x/t", pre = { "x/p" = 1 }, post = { "x/p" = 2 } }]
+
+# PC(k): the producer and consumer of C4/C5, flattened; `r` is the generated place.
+[nets.PC_block]
+places = [{ id = "p/items", capacity = 5, initial = 5 }, { id = "c/got", capacity = 5 }, { id = "r", capacity = 3 }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 }, post = { "r" = 1 } }, { id = "c/consume", pre = { "r" = 1 }, post = { "c/got" = 1 } }]
+
+[nets.PC_drop]
+places = [{ id = "p/items", capacity = 5, initial = 5 }, { id = "c/got", capacity = 5 }, { id = "r", capacity = 3, when_full = "drop" }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 }, post = { "r" = 1 } }, { id = "c/consume", pre = { "r" = 1 }, post = { "c/got" = 1 } }]
+
+[nets.PC_overflow]
+places = [{ id = "p/items", capacity = 5, initial = 5 }, { id = "c/got", capacity = 5 }, { id = "r", capacity = 3, when_full = "overflow" }]
+transitions = [{ id = "p/produce", pre = { "p/items" = 1 }, post = { "r" = 1 } }, { id = "c/consume", pre = { "r" = 1 }, post = { "c/got" = 1 } }]
+
+[nets.BRANCH]
+places = [{ id = "x/c", capacity = 1, initial = 1 }, { id = "x/d", capacity = 1 }, { id = "x/p", capacity = 1, when_full = "overflow" }]
+transitions = [
+  { id = "x/t1", pre = { "x/c" = 1 }, post = { "x/d" = 1 } },
+  { id = "x/t2", pre = { "x/c" = 1 }, post = { "x/p" = 1 } },
+  { id = "x/t3", pre = { "x/p" = 1 }, post = { "x/p" = 2 } },
+]
+
+[nets.V27]
+places = [{ id = "x/a", capacity = 1, when_full = "overflow", initial = 1 }, { id = "x/b", capacity = 1, when_full = "overflow", initial = 1 }]
+transitions = [{ id = "x/t", post = { "x/a" = 1, "x/b" = 1 } }]
+
+# FE1 in its own scope, ports closed.
+[nets.FE1]
+places = [{ id = "fe1/peer_threads", capacity = 4, when_full = "overflow" }, { id = "fe1/map_entries", capacity = 8, when_full = "overflow" }]
+transitions = [
+  { id = "fe1/open_peer_thread", post = { "fe1/peer_threads" = 1 } },
+  { id = "fe1/receive_info", pre = { "fe1/peer_threads" = 1 }, post = { "fe1/peer_threads" = 1, "fe1/map_entries" = 1 } },
+]
+
+[nets.V51]
+places = [{ id = "x/p", capacity = 4294967294, when_full = "overflow", initial = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+[nets.V53]
+places = [{ id = "x/p", capacity = 4294967294, when_full = "drop", initial = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 1 } }]
+
+# Structurally invalid nets (NS §2.3): both explorers reject them on entry (Unknown InternalError),
+# because engine fails lowering on them (L10) and never hands them to a worker.
+[nets.V29]
+places = [{ id = "x/p", capacity = 3, initial = 5 }]
+transitions = []
+
+[nets.V54]
+places = [{ id = "x/p", capacity = 4294967294 }]
+transitions = [{ id = "x/t", post = { "x/p" = 2 } }]
+
+[[vector]]
+id = "V01"
+net = "ONE"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = []
+
+[[vector]]
+id = "V03"
+net = "SRC"
+expect = "disproved"
+fired = ["x/t", "x/t"]
+stored = 3
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [2, 3] }] }]
+
+[[vector]]
+id = "V08"
+net = "V08"
+expect = "proved"
+markings = 1
+
+[[vector]]
+id = "V09"
+net = "V09"
+expect = "disproved"
+fired = ["x/t"]
+stored = 2
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", needs = [2, 1] }, { place = "x/q", full = [1, 2] }] }]
+
+[[vector]]
+id = "V10"
+net = "V10"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [2, 3] }] }]
+
+[[vector]]
+id = "V13"
+net = "LOCKS_yx"
+expect = "disproved"
+fired = ["ra1/take_x+acq_x", "rb1/take_y+acq_y"]
+stored = 5
+waiting = [
+  { transition = "ra1/take_x+acq_x", waits = [{ place = "a/has_1", full = [1, 2] }, { place = "a/idle", needs = [1, 0] }, { place = "l/x", needs = [1, 0] }] },
+  { transition = "ra2/take_y+acq_y", waits = [{ place = "l/y", needs = [1, 0] }] },
+  { transition = "ra3/release+rel_xy", waits = [{ place = "a/has_2", needs = [1, 0] }] },
+  { transition = "rb1/take_y+acq_y", waits = [{ place = "b/has_1", full = [1, 2] }, { place = "b/idle", needs = [1, 0] }, { place = "l/y", needs = [1, 0] }] },
+  { transition = "rb2/take_x+acq_x", waits = [{ place = "l/x", needs = [1, 0] }] },
+  { transition = "rb3/release+rel_xy", waits = [{ place = "b/has_2", needs = [1, 0] }] },
+]
+
+[[vector]]
+id = "V14"
+net = "LOCKS_xy"
+expect = "proved"
+markings = 5
+
+[[vector]]
+id = "V22"
+net = "POOL"
+expect = "proved"
+markings = 3
+
+[[vector]]
+id = "V24"
+net = "POOL_LEAK"
+expect = "disproved"
+fired = ["r1/start+acquire", "c/fail", "r1/start+acquire", "c/fail"]
+stored = 6
+waiting = [
+  { transition = "c/fail", waits = [{ place = "c/idle", full = [3, 4] }, { place = "c/running", needs = [1, 0] }] },
+  { transition = "r1/start+acquire", waits = [{ place = "w/free", needs = [1, 0] }] },
+  { transition = "r2/finish+release", waits = [{ place = "c/idle", full = [3, 4] }, { place = "c/running", needs = [1, 0] }] },
+]
+
+[[vector]]
+id = "V43"
+net = "MASK"
+expect = "proved"
+markings = 6
+
+[[vector]]
+id = "V52"
+net = "V52"
+expect = "disproved"
+fired = []
+stored = 1
+waiting = [{ transition = "x/t", waits = [{ place = "x/p", full = [4294967294, 4294967295] }] }]
+
+[[vector]]
+id = "V02"
+net = "ONE"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = []
+
+[[vector]]
+id = "V04"
+net = "SRC_drop"
+expect = "proved"
+markings = 3
+
+[[vector]]
+id = "V05"
+net = "SRC_drop"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = ["x/p"]
+
+[[vector]]
+id = "V06"
+net = "SRC_overflow"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["x/t", "x/t", "x/t"]
+stored = 4
+overflow = { place = "x/p", capacity = 2, count = 3 }
+
+[[vector]]
+id = "V07"
+net = "SRC_overflow"
+expect = "capacity-exceeded-first"
+place = "x/p"
+fired = ["x/t", "x/t", "x/t"]
+stored = 4
+
+[[vector]]
+id = "V11"
+net = "V11"
+expect = "proved"
+markings = 2
+
+[[vector]]
+id = "V12"
+net = "V12"
+expect = "proved"
+markings = 1
+
+[[vector]]
+id = "V15"
+net = "LOCKS_xy"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = []
+
+[[vector]]
+id = "V16"
+net = "PC_overflow"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["p/produce", "p/produce", "p/produce", "p/produce"]
+stored = 9
+overflow = { place = "r", capacity = 3, count = 4 }
+
+[[vector]]
+id = "V17"
+net = "PC_overflow"
+expect = "disproved"
+fired = ["p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume"]
+stored = 20
+waiting = [{ transition = "c/consume", waits = [{ place = "c/got", full = [5, 6] }, { place = "r", needs = [1, 0] }] }, { transition = "p/produce", waits = [{ place = "p/items", needs = [1, 0] }] }]
+
+[[vector]]
+id = "V18"
+net = "PC_block"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = []
+
+[[vector]]
+id = "V19"
+net = "PC_block"
+expect = "disproved"
+fired = ["p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume", "p/produce", "c/consume"]
+stored = 18
+waiting = [{ transition = "c/consume", waits = [{ place = "c/got", full = [5, 6] }, { place = "r", needs = [1, 0] }] }, { transition = "p/produce", waits = [{ place = "p/items", needs = [1, 0] }] }]
+
+[[vector]]
+id = "V20"
+net = "PC_drop"
+expect = "disproved"
+fired = ["p/produce", "p/produce", "p/produce", "p/produce", "p/produce", "c/consume", "c/consume", "c/consume"]
+stored = 27
+waiting = [{ transition = "c/consume", waits = [{ place = "r", needs = [1, 0] }] }, { transition = "p/produce", waits = [{ place = "p/items", needs = [1, 0] }] }]
+
+[[vector]]
+id = "V21"
+net = "PC_drop"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = ["r"]
+
+[[vector]]
+id = "V23"
+net = "POOL"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = []
+
+[[vector]]
+id = "V25"
+net = "BRANCH"
+expect = "disproved"
+fired = ["x/t1"]
+stored = 2
+waiting = [
+  { transition = "x/t1", waits = [{ place = "x/c", needs = [1, 0] }, { place = "x/d", full = [1, 2] }] },
+  { transition = "x/t2", waits = [{ place = "x/c", needs = [1, 0] }] },
+  { transition = "x/t3", waits = [{ place = "x/p", needs = [1, 0] }] },
+]
+
+[[vector]]
+id = "V26"
+net = "BRANCH"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["x/t2", "x/t3"]
+stored = 4
+overflow = { place = "x/p", capacity = 1, count = 2 }
+
+[[vector]]
+id = "V27"
+net = "V27"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["x/t"]
+stored = 2
+overflow = { place = "x/a", capacity = 1, count = 2 }
+
+[[vector]]
+id = "V45"
+net = "MASK"
+property = "no-capacity-exceeded"
+expect = "certificate"
+drop_places = []
+
+[[vector]]
+id = "V48"
+net = "FE1"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["fe1/open_peer_thread", "fe1/open_peer_thread", "fe1/open_peer_thread", "fe1/open_peer_thread", "fe1/open_peer_thread"]
+stored = 12
+overflow = { place = "fe1/peer_threads", capacity = 4, count = 5 }
+
+[[vector]]
+id = "V51"
+net = "V51"
+property = "no-capacity-exceeded"
+expect = "disproved"
+fired = ["x/t"]
+stored = 2
+overflow = { place = "x/p", capacity = 4294967294, count = 4294967295 }
+
+[[vector]]
+id = "V53"
+net = "V53"
+expect = "proved"
+markings = 1
+
+[[vector]]
+id = "V29"
+net = "V29"
+expect = "rejected"
+
+[[vector]]
+id = "V54"
+net = "V54"
+expect = "rejected"

@@ -1,0 +1,13 @@
+format = 1
+kind = "software_system"
+name = "Two components, two locks"
+
+[[property]]
+id = "no-deadlock"
+behavior = "combined"
+kind = "deadlock_free"
+
+[[property]]
+id = "no-overflow"
+behavior = "combined"
+kind = "no_capacity_exceeded"

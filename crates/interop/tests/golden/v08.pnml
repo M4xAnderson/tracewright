@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="tracewright.net" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <page id="tracewright.page">
+      <place id="x__p"><name><text>x__p</text></name><initialMarking><text>1</text></initialMarking></place>
+      <place id="x__p.cmp"><name><text>x__p.cmp</text></name></place>
+      <transition id="x__t"><name><text>x__t</text></name></transition>
+      <arc id="arc.0" source="x__p" target="x__t"><inscription><text>1</text></inscription></arc>
+      <arc id="arc.1" source="x__t" target="x__p"><inscription><text>1</text></inscription></arc>
+    </page>
+  </net>
+</pnml>

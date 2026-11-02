@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tracewright",
+  "identifier": "dev.tracewright.app",
+  "build": {
+    "beforeDevCommand": { "script": "bun run dev", "cwd": "../ui" },
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": { "script": "bun run build", "cwd": "../ui" },
+    "frontendDist": "../ui/dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "Tracewright", "width": 1280, "height": 800 }],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"]
+  }
+}

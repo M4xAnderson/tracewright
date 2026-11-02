@@ -1,0 +1,65 @@
+[
+  {
+    "keys": {
+      "job-no-deadlock": {
+        "key": "key-1"
+      },
+      "no-deadlock": {
+        "unknown": {
+          "category": "modelIncomplete",
+          "causes": [
+            {
+              "code": null,
+              "column": 12,
+              "element": "billing",
+              "file": "elements/billing.toml",
+              "kind": "parse",
+              "line": 7,
+              "message": "extra `=`, expected nothing",
+              "place": null,
+              "port": null,
+              "property": null,
+              "relationship": null,
+              "severity": "error"
+            }
+          ],
+          "details": [
+            "elements/billing.toml did not load"
+          ]
+        }
+      }
+    },
+    "kind": "currentKeys",
+    "rev": 0
+  },
+  {
+    "key": "key-1",
+    "kind": "checkQueued",
+    "property": "job-no-deadlock"
+  },
+  {
+    "key": "key-1",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "main",
+    "property": "job-no-deadlock"
+  },
+  {
+    "key": "key-1",
+    "kind": "checkProgress",
+    "markings": 1,
+    "phase": "recheck",
+    "property": "job-no-deadlock"
+  },
+  {
+    "key": "key-1",
+    "kind": "verdict",
+    "property": "job-no-deadlock",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 2,
+      "technique": "exhaustive"
+    }
+  }
+]
