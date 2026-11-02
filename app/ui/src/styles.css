@@ -1,1 +1,120 @@
 @import "tailwindcss";
+/* IBM Plex is bundled with the app, never fetched from a CDN (CSP default-src 'self'). Latin only:
+   the UI copy is English (US). */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+
+/* Semantic tokens (flows §3.4) from the visual baseline, option 2b. Components use the Tailwind
+   names below, never hex values. Light and dark are separate palettes; the theme follows the OS. */
+:root {
+  color-scheme: light dark;
+  --surface-app: #eef0f3;
+  --surface-panel: #ffffff;
+  --surface-canvas: #f8f9fb;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f2f4f6;
+  --surface-hover: #e9ecf0;
+  --text-primary: #15181d;
+  --text-secondary: #434a54;
+  --text-muted: #5a626d;
+  --border-hairline: #e1e4e9;
+  --border-control: #7b828c;
+  --accent: #3550c8;
+  --accent-hover: #2b43ad;
+  --on-accent: #ffffff;
+  --focus-ring: #3550c8;
+  --verdict-proved: #1c7047;
+  --verdict-disproved: #c22f2a;
+  --verdict-unknown: #5a626d;
+  --verdict-pending: #8d939b;
+  --problem: #c22f2a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-app: #0d1015;
+    --surface-panel: #141920;
+    --surface-canvas: #10141a;
+    --surface-raised: #1a2029;
+    --surface-sunken: #0b0e12;
+    --surface-hover: #1f2631;
+    --text-primary: #e9ecf1;
+    --text-secondary: #b2b9c3;
+    --text-muted: #949ba6;
+    --border-hairline: #232a34;
+    --border-control: #6f7782;
+    --accent: #4864e2;
+    --accent-hover: #3a55c8;
+    --on-accent: #ffffff;
+    --focus-ring: #8fa1ff;
+    --verdict-proved: #4bc48a;
+    --verdict-disproved: #ff6b61;
+    --verdict-unknown: #a0a7b1;
+    --verdict-pending: #5d636c;
+    --problem: #ff6b61;
+  }
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-surface-app: var(--surface-app);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-hairline: var(--border-hairline);
+  --color-border-control: var(--border-control);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-focus-ring: var(--focus-ring);
+  --color-verdict-proved: var(--verdict-proved);
+  --color-verdict-disproved: var(--verdict-disproved);
+  --color-verdict-unknown: var(--verdict-unknown);
+  --color-verdict-pending: var(--verdict-pending);
+  --color-problem: var(--problem);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-surface-app font-sans text-[13px] leading-[1.45] text-text-primary;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Feedback that must not blink on fast changes (flows §3.3): shown only once the state has
+   lasted `--appear-after`. CSS, not timers, so tests and renders stay deterministic. */
+@keyframes appear {
+  from {
+    visibility: hidden;
+  }
+  to {
+    visibility: visible;
+  }
+}
+.appear-after {
+  visibility: hidden;
+  animation: appear 0s linear var(--appear-after, 0s) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+}
