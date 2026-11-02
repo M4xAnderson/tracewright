@@ -270,6 +270,9 @@ pub enum UnknownDto {
     ModelIncomplete {
         /// The causes.
         details: Vec<String>,
+        /// The problems behind the lines, so the UI can render each in the user's terms
+        /// (`U-INC-*`, flows R2); empty when only lowering itself found the cause.
+        causes: Vec<ProblemDto>,
     },
     /// The property cannot be checked (yet); one line per cause.
     PropertyNotCheckable {
@@ -325,6 +328,8 @@ pub struct View {
     pub relationships: Vec<RelationshipView>,
     /// Properties of the system and of its children, by scope element, then file order.
     pub properties: Vec<PropertyView>,
+    /// Every problem of the project, sorted by file, then line (flows §4.5).
+    pub problems: Vec<ProblemDto>,
 }
 
 /// An element as the view shows it.
@@ -364,6 +369,8 @@ pub struct PropertyView {
     pub label: Option<String>,
     /// What it states.
     pub kind: PropertyKind,
+    /// The template ID when `kind` is `template`, for example `pool-share`.
+    pub template: Option<String>,
     /// Its scope.
     pub scope: ScopeView,
 }
@@ -383,6 +390,8 @@ pub enum PropertyKind {
     Never,
     /// Always reachable p.
     AlwaysReachable,
+    /// A template property (D-11); `PropertyView.template` names it.
+    Template,
 }
 
 /// The scope of a property: its element and behavior.
@@ -405,4 +414,98 @@ pub enum Behavior {
     Own,
     /// The combined behavior of its children.
     Combined,
+}
+
+/// One problem (file-format §10.2, flows R2): it makes a file not load or a check not run. The
+/// UI renders the Problems list copy (`PR-*`) from the typed fields and falls back to `message`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "problem-dto.ts")]
+pub struct ProblemDto {
+    /// What is wrong.
+    pub kind: ProblemKind,
+    /// The NS L-rule, PL code or LIM-2.
+    pub code: Option<String>,
+    /// Error or warning.
+    pub severity: Severity,
+    /// The project file.
+    pub file: Option<String>,
+    /// 1-based line, for problems found while parsing.
+    pub line: Option<u32>,
+    /// 1-based column.
+    pub column: Option<u32>,
+    /// The element ID.
+    pub element: Option<String>,
+    /// The relationship ID.
+    pub relationship: Option<String>,
+    /// A port, as its qualified ID `element/name`.
+    pub port: Option<String>,
+    /// A place, as its qualified ID `element/name`.
+    pub place: Option<String>,
+    /// The property ID.
+    pub property: Option<String>,
+    /// The cause, with qualified IDs.
+    pub message: String,
+}
+
+/// The problem kinds of file-format §10.3 that slice 0 reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "problem-kind.ts")]
+pub enum ProblemKind {
+    /// The file is not valid TOML or not UTF-8.
+    Parse,
+    /// The file fails at the element level.
+    Schema,
+    /// The file is over a limit.
+    TooLarge,
+    /// The behavior model section did not load.
+    BehaviorNotLoaded,
+    /// L1.
+    NoBehavior,
+    /// L2.
+    NoWhenFull,
+    /// L3: a parent, relationship target or arc place that names nothing.
+    Dangling,
+    /// L3: a binding port that does not exist.
+    UnknownPort,
+    /// L4.
+    Unbound,
+    /// L5.
+    NotAPort,
+    /// L6.
+    BindingSelf,
+    /// L8.
+    BindingAsync,
+    /// L10.
+    NameClash,
+    /// L10, L13.
+    NoCapacity,
+    /// L10.
+    BadInitial,
+    /// L11.
+    BindingDirection,
+    /// L12.
+    BindingDuplicate,
+    /// L13.
+    BadBinding,
+    /// L3.
+    DuplicateId,
+    /// L3.
+    ParentCycle,
+    /// PL E4xx, E114.
+    Property,
+    /// D-25.
+    FinalNotChecked,
+}
+
+/// Error or warning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "severity.ts")]
+pub enum Severity {
+    /// A file does not load or a check does not run.
+    Error,
+    /// Reported; checks run.
+    Warning,
 }

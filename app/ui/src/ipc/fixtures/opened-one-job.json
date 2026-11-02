@@ -8,6 +8,7 @@
         "name": "Job"
       }
     ],
+    "problems": [],
     "properties": [
       {
         "id": "no-deadlock",
@@ -16,7 +17,8 @@
         "scope": {
           "behavior": "combined",
           "element": "sys"
-        }
+        },
+        "template": null
       }
     ],
     "relationships": [],

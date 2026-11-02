@@ -8,6 +8,7 @@ pub mod dto;
 pub mod key;
 pub mod lower;
 mod origin;
+mod problems;
 mod session;
 
 pub use check::Verdict;

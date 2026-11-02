@@ -10,7 +10,8 @@ use super::support::run_checks;
 
 fn incomplete(disk: &MemDisk, property: &str) -> Vec<String> {
     let run = run_checks(disk);
-    let KeyState::Unknown(UnknownDto::ModelIncomplete { details: lines }) = run.key_state(property)
+    let KeyState::Unknown(UnknownDto::ModelIncomplete { details: lines, .. }) =
+        run.key_state(property)
     else {
         panic!("{property}: {:?}", run.key_state(property));
     };

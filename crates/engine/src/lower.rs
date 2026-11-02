@@ -82,6 +82,11 @@ impl Lines {
     }
 }
 
+// L1 for a behavior section that did not load (file-format §3.3).
+fn not_loaded(element: &Element) -> String {
+    format!("{} has a behavior model that did not load", element.id)
+}
+
 fn qualified(element: &Element, name: &str) -> String {
     format!("{}/{name}", element.id)
 }
@@ -106,8 +111,12 @@ pub fn lower(model: &Model, scope: &Scope) -> Result<Lowered, LowerError> {
     let mut lines = Lines::default();
     let (open, assumptions) = match scope.behavior {
         Behavior::Own => {
-            let Some(BehaviorModel::PetriNet(net)) = &element.behavior else {
-                return Err(LowerError::NothingToCheck);
+            let net = match &element.behavior {
+                None => return Err(LowerError::NothingToCheck),
+                Some(BehaviorModel::Unloaded { .. }) => {
+                    return Err(LowerError::ModelIncomplete(vec![not_loaded(element)]));
+                }
+                Some(BehaviorModel::PetriNet(net)) => net,
             };
             let part = part(element, net, &mut lines);
             (
@@ -277,6 +286,9 @@ fn combined(
                 child.id.as_str(),
                 format!("{} has no behavior model", child.id),
             ),
+            Some(BehaviorModel::Unloaded { .. }) => {
+                lines.add(1, child.id.as_str(), not_loaded(child));
+            }
             Some(BehaviorModel::PetriNet(net)) => open.parts.push(part(child, net, lines)),
         }
     }

@@ -7,4 +7,5 @@ mod disk;
 mod events;
 mod fixtures;
 mod lowering;
+mod problems;
 mod support;

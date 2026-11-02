@@ -47,6 +47,7 @@ fn opposite_locks() {
             "id": "no-deadlock",
             "label": null,
             "kind": "deadlockFree",
+            "template": null,
             "scope": { "element": "sys", "behavior": "combined" }
         })
     );
