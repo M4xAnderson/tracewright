@@ -1,4 +1,4 @@
-//! The IPC contract test, Rust side (design §8, seam C): the view and the events of real check
+//! The IPC contract test, Rust side (design §8, seam C): the events of real check
 //! runs, written as JSON for the UI tests, which replay them through mockIPC. `check` fails when a
 //! regenerated fixture differs from the commit, so the UI is always tested against what this
 //! engine sends.
@@ -13,7 +13,8 @@ use super::support::RecordingSink;
 use super::support::one_job;
 use tracewright_engine::Session;
 
-// Opens `disk`, runs the checks and writes `view-<name>.json` and `events-<name>.json`.
+// Opens `disk`, runs the checks and writes `events-<name>.json`. The view reaches the UI inside
+// the app's `Opened`, whose fixture the app writes.
 #[expect(
     clippy::disallowed_methods,
     reason = "writes a test fixture for the UI, not a project file"
@@ -26,11 +27,9 @@ fn write(name: &str, disk: &MemDisk) -> (Value, Value) {
     let events = serde_json::to_value(&*sink.events.lock().expect("test fixture"))
         .expect("the events serialize");
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/ui/src/ipc/fixtures");
-    for (kind, value) in [("view", &view), ("events", &events)] {
-        let text = serde_json::to_string_pretty(value).expect("JSON");
-        std::fs::write(dir.join(format!("{kind}-{name}.json")), format!("{text}\n"))
-            .expect("fixture written");
-    }
+    let text = serde_json::to_string_pretty(&events).expect("JSON");
+    std::fs::write(dir.join(format!("events-{name}.json")), format!("{text}\n"))
+        .expect("fixture written");
     (view, events)
 }
 
