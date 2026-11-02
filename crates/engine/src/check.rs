@@ -2,17 +2,21 @@
 //! or converts to a DTO (VER-1, D-53).
 //!
 //! `verify` explores the engine's flattened net; `recheck` composes the open nets itself,
-//! compares the two encodings, re-explores to confirm a Proved and replays a counterexample to
-//! confirm a Disproved. `CheckedProof` and `CheckedViolation` have private fields and are built
-//! only in this module, after that confirmation: there is no other path to Proved or Disproved.
+//! compares the two encodings, re-explores or checks the certificate to confirm a Proved, and
+//! replays a counterexample to confirm a Disproved or the run of a capacity exceeded first.
+//! `CheckedProof` and `CheckedViolation` have private fields and are built only in this module,
+//! after that confirmation: there is no other path to Proved or Disproved.
 
 use tracewright_net::Budget;
+use tracewright_net::Counterexample;
 use tracewright_net::Evidence;
+use tracewright_net::Net;
 use tracewright_net::NetProperty;
 use tracewright_net::NetVerdict;
 use tracewright_net::Phase;
 use tracewright_net::Technique;
 use tracewright_net::UnknownReason;
+use tracewright_net::Violation;
 use tracewright_net::encode;
 
 use crate::key::CheckKey;
@@ -109,32 +113,24 @@ fn pipeline(lowered: &Lowered, property: &NetProperty, max_markings: u64) -> Ver
     );
     match tracewright_verify::check(&lowered.flat, property, &main) {
         NetVerdict::Proved {
-            technique,
+            technique: Technique::Exhaustive,
             markings,
-        } => match technique {
-            // Step 2: agreement of the plain BFS on recheck's own composition (NS §9.4).
-            Technique::Exhaustive => match tracewright_recheck::explore(&own, property, &rest) {
-                NetVerdict::Proved {
-                    technique: Technique::Exhaustive,
-                    markings: confirmed,
-                } if confirmed == markings => Verdict::Proved(CheckedProof {
-                    technique: Technique::Exhaustive,
+        } => agree(&own, property, markings, rest),
+        // Step 2, the certificate path of ADR 0008: recheck checks it on its own composition.
+        NetVerdict::Proved {
+            technique: Technique::Certificate(certificate),
+            markings,
+        } => {
+            if markings == 0 && tracewright_recheck::check_certificate(&own, property, &certificate)
+            {
+                Verdict::Proved(CheckedProof {
+                    technique: Technique::Certificate(certificate),
                     markings,
-                }),
-                NetVerdict::Unknown(
-                    reason @ UnknownReason::BudgetExhausted {
-                        phase: Phase::Recheck,
-                        ..
-                    },
-                ) => Verdict::Unknown(reason),
-                NetVerdict::Unknown(UnknownReason::Cancelled) => {
-                    Verdict::Unknown(UnknownReason::Cancelled)
-                }
-                NetVerdict::Proved { .. } | NetVerdict::Disproved(_) | NetVerdict::Unknown(_) => {
-                    Verdict::Unknown(UnknownReason::InternalDisagreement)
-                }
-            },
-        },
+                })
+            } else {
+                Verdict::Unknown(UnknownReason::InternalDisagreement)
+            }
+        }
         // Step 3: replay on recheck's own composition (NS §9.3); a failed replay is an internal
         // error, not a disagreement (D-24).
         NetVerdict::Disproved(evidence) => match &evidence {
@@ -143,7 +139,63 @@ fn pipeline(lowered: &Lowered, property: &NetProperty, max_markings: u64) -> Ver
                 Err(_replay) => Verdict::Unknown(UnknownReason::InternalError),
             },
         },
-        // Step 4: an Unknown from verify is final.
+        // Step 4: an Unknown from verify is final, except that the run of a capacity exceeded
+        // first is replayed like a no capacity exceeded counterexample (NS §10.2, VER-2).
+        NetVerdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps }) => {
+            let cx = overflow_run(&own, place.clone(), steps.clone());
+            let replayed = cx.is_some_and(|cx| {
+                tracewright_recheck::replay(&own, &cx, &NetProperty::CapacityNeverExceeded).is_ok()
+            });
+            if replayed {
+                Verdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps })
+            } else {
+                Verdict::Unknown(UnknownReason::InternalError)
+            }
+        }
         NetVerdict::Unknown(reason) => Verdict::Unknown(reason),
     }
+}
+
+// Step 2 for a Proved by exhaustion: the plain BFS on recheck's own composition must agree on the
+// marking count (NS §9.4).
+fn agree(own: &Net, property: &NetProperty, markings: u64, rest: Budget) -> Verdict {
+    match tracewright_recheck::explore(own, property, &rest) {
+        NetVerdict::Proved {
+            technique: Technique::Exhaustive,
+            markings: confirmed,
+        } if confirmed == markings => Verdict::Proved(CheckedProof {
+            technique: Technique::Exhaustive,
+            markings,
+        }),
+        NetVerdict::Unknown(
+            reason @ UnknownReason::BudgetExhausted {
+                phase: Phase::Recheck,
+                ..
+            },
+        ) => Verdict::Unknown(reason),
+        NetVerdict::Unknown(UnknownReason::Cancelled) => Verdict::Unknown(UnknownReason::Cancelled),
+        NetVerdict::Proved { .. } | NetVerdict::Disproved(_) | NetVerdict::Unknown(_) => {
+            Verdict::Unknown(UnknownReason::InternalDisagreement)
+        }
+    }
+}
+
+// The run of a capacity exceeded first as the no capacity exceeded counterexample it is: its last
+// marking exceeds `place`. The capacity is read from recheck's composition, so a run that names a
+// place the composition lacks does not replay.
+fn overflow_run(
+    own: &Net,
+    place: tracewright_net::QualifiedId,
+    steps: Vec<tracewright_net::Step>,
+) -> Option<Counterexample> {
+    let capacity = own.places.iter().find(|p| p.id == place)?.capacity;
+    let count = *steps.last()?.marking.0.get(&place)?;
+    Some(Counterexample {
+        steps,
+        violation: Violation::Overflow {
+            place,
+            capacity,
+            count,
+        },
+    })
 }

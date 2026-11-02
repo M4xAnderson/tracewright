@@ -51,13 +51,13 @@ pub enum LowerError {
 /// Why `flatten` refuses an `OpenNets` value.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FlattenError {
-    /// A fusion names a transition no part has.
+    /// A fusion or an asynchronous binding names a transition no part has.
     #[error("{transition} not found")]
     UnknownTransition {
         /// The transition.
         transition: String,
     },
-    /// Adding a caller's and a callee's weights left u32.
+    /// Adding a caller's and a callee's weights, or a generated place's arc, left u32.
     #[error("the arcs of {transition} exceed u32")]
     WeightOverflow {
         /// The fused transition.
@@ -114,6 +114,7 @@ pub fn lower(model: &Model, scope: &Scope) -> Result<Lowered, LowerError> {
                 OpenNets {
                     parts: vec![part],
                     fusions: Vec::new(),
+                    links: Vec::new(),
                 },
                 Vec::new(),
             )
@@ -412,13 +413,15 @@ fn resolve(model: &Model, port: &PortRef, lines: &mut Lines) -> bool {
     }
 }
 
-/// The engine's composition of `open` (NS §6.5): the parts' places and unbound transitions, plus
-/// one fused transition per fusion whose arcs add up the caller's and the callee's. recheck
-/// composes the same `open` on its own, and the check compares the two encodings (ADR 0010).
+/// The engine's composition of `open` (NS §6.5): the parts' places and transitions; one generated
+/// place per asynchronous binding, with an arc from every sender and to every receiver; then one
+/// fused transition per fusion whose arcs add up the caller's and the callee's, in place of the
+/// two. recheck composes the same `open` on its own, and the check compares the two encodings
+/// (ADR 0010).
 ///
 /// # Errors
 ///
-/// A fusion that names no transition, or a result that fails NS §2.3.
+/// A binding that names no transition, or a result that fails NS §2.3.
 #[expect(
     clippy::similar_names,
     reason = "caller and callee are the terms of NS §6.3"
@@ -429,7 +432,8 @@ pub fn flatten(open: &OpenNets) -> Result<Net, FlattenError> {
         .iter()
         .flat_map(|fusion| [&fusion.caller, &fusion.callee])
         .collect();
-    let mut transitions: BTreeMap<&QualifiedId, &Transition> = BTreeMap::new();
+    // Step 1–3: every part's transitions, then the generated places' arcs on them.
+    let mut transitions: BTreeMap<QualifiedId, Transition> = BTreeMap::new();
     let mut flat = Net::default();
     for part in &open.parts {
         flat.places.extend(part.places.iter().cloned());
@@ -440,17 +444,21 @@ pub fn flatten(open: &OpenNets) -> Result<Net, FlattenError> {
                 .map(|(id, count)| (id.clone(), *count)),
         );
         for transition in &part.transitions {
-            transitions.insert(&transition.id, transition);
-            if !bound.contains(&transition.id) {
-                flat.transitions.push(transition.clone());
-            }
+            transitions.insert(transition.id.clone(), transition.clone());
         }
     }
+    apply_links(open, &mut transitions, &mut flat)?;
+    // Steps 4–5: fused transitions from the arcs after step 3; bound ones never fire alone.
+    flat.transitions.extend(
+        transitions
+            .values()
+            .filter(|transition| !bound.contains(&transition.id))
+            .cloned(),
+    );
     for fusion in &open.fusions {
         let find = |id: &QualifiedId| {
             transitions
                 .get(id)
-                .copied()
                 .ok_or_else(|| FlattenError::UnknownTransition {
                     transition: id.0.clone(),
                 })
@@ -466,6 +474,50 @@ pub fn flatten(open: &OpenNets) -> Result<Net, FlattenError> {
     }
     validate::net(&flat).map_err(FlattenError::Invalid)?;
     Ok(flat)
+}
+
+// NS §6.4 and §6.5 step 3: one generated place per asynchronous binding, named after its
+// relationship and initially empty; W⁺(s, r) += 1 for every sender, W⁻(r, d) += 1 for every
+// receiver.
+fn apply_links(
+    open: &OpenNets,
+    transitions: &mut BTreeMap<QualifiedId, Transition>,
+    flat: &mut Net,
+) -> Result<(), FlattenError> {
+    for link in &open.links {
+        let place = QualifiedId(link.relationship.clone());
+        flat.places.push(Place {
+            id: place.clone(),
+            capacity: link.capacity,
+            when_full: link.when_full,
+        });
+        let ends = link
+            .from
+            .iter()
+            .map(|id| (id, true))
+            .chain(link.to.iter().map(|id| (id, false)));
+        for (id, sends) in ends {
+            let transition =
+                transitions
+                    .get_mut(id)
+                    .ok_or_else(|| FlattenError::UnknownTransition {
+                        transition: id.0.clone(),
+                    })?;
+            let arcs = if sends {
+                &mut transition.post
+            } else {
+                &mut transition.pre
+            };
+            let weight = arcs.get(&place).copied().unwrap_or(0).checked_add(1);
+            let Some(weight) = weight else {
+                return Err(FlattenError::WeightOverflow {
+                    transition: id.0.clone(),
+                });
+            };
+            arcs.insert(place.clone(), weight);
+        }
+    }
+    Ok(())
 }
 
 /// The qualified ID of a fusion's transition in the flattened net (NS §6.1):

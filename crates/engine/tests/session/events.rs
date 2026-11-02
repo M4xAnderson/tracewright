@@ -6,6 +6,7 @@ use tracewright_engine::EngineEvent;
 use tracewright_engine::dto::Behavior;
 use tracewright_engine::dto::DeadlockDto;
 use tracewright_engine::dto::Outcome;
+use tracewright_engine::dto::PlaceOrigin;
 use tracewright_engine::dto::PlaceRef;
 use tracewright_engine::dto::PropertyKind;
 use tracewright_engine::dto::Technique;
@@ -41,10 +42,10 @@ fn sync(relationship: &str, caller: (&str, &str), callee: (&str, &str)) -> Trans
 
 fn needs(element: &str, place: &str, needed: u32, holds: u32) -> tracewright_engine::dto::WaitDto {
     tracewright_engine::dto::WaitDto {
-        place: PlaceRef {
+        place: PlaceOrigin::Own(PlaceRef {
             element: element.to_owned(),
             place: place.to_owned(),
-        },
+        }),
         reason: WaitReason::NeedsTokens { needed, holds },
     }
 }
@@ -53,7 +54,9 @@ fn deadlock(outcome: &Outcome) -> &DeadlockDto {
     let Outcome::Disproved(disproved) = outcome else {
         panic!("not Disproved: {outcome:?}")
     };
-    let ViolationDto::Deadlock(deadlock) = &disproved.violation;
+    let ViolationDto::Deadlock(deadlock) = &disproved.violation else {
+        panic!("not a deadlock: {:?}", disproved.violation)
+    };
     deadlock
 }
 
@@ -200,10 +203,10 @@ fn the_opposite_locks_deadlock_lists_one_waiting_line_per_waiting_step() {
             transition: sync("ra1", ("a", "take_x"), ("l", "acq_x")),
             waits: vec![
                 tracewright_engine::dto::WaitDto {
-                    place: PlaceRef {
+                    place: PlaceOrigin::Own(PlaceRef {
                         element: "a".to_owned(),
                         place: "has_1".to_owned(),
-                    },
+                    }),
                     reason: WaitReason::OutputFull {
                         capacity: 1,
                         holds: 1,

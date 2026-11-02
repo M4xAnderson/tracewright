@@ -4,13 +4,16 @@
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
+use tracewright_net::AsyncLink;
 use tracewright_net::Fusion;
 use tracewright_net::Net;
+use tracewright_net::NetProperty;
 use tracewright_net::OpenNets;
 use tracewright_net::Place;
 use tracewright_net::QualifiedId;
 use tracewright_net::Transition;
 use tracewright_net::TransitionWaits;
+use tracewright_net::Violation;
 use tracewright_net::Wait;
 use tracewright_net::WaitReason;
 use tracewright_net::WhenFull;
@@ -32,6 +35,16 @@ struct PlaceSpec {
     capacity: u32,
     #[serde(default)]
     initial: u32,
+    when_full: Option<String>,
+}
+
+fn when_full(text: Option<&str>) -> WhenFull {
+    match text {
+        None | Some("block") => WhenFull::Block,
+        Some("drop") => WhenFull::Drop,
+        Some("overflow") => WhenFull::Overflow,
+        Some(other) => panic!("unknown when_full {other}"),
+    }
 }
 
 #[derive(Deserialize)]
@@ -50,7 +63,7 @@ impl NetSpec {
             net.places.push(Place {
                 id: q(&place.id),
                 capacity: place.capacity,
-                when_full: WhenFull::Block,
+                when_full: when_full(place.when_full.as_deref()),
             });
             if place.initial > 0 {
                 net.initial.0.insert(q(&place.id), place.initial);
@@ -84,11 +97,47 @@ pub struct PropertyFile {
 pub struct PropertyVector {
     pub id: String,
     pub net: String,
+    property: Option<String>,
     pub expect: String,
     pub markings: Option<u64>,
     pub stored: Option<u64>,
     pub fired: Option<Vec<String>>,
     pub waiting: Option<Vec<WaitingSpec>>,
+    overflow: Option<OverflowSpec>,
+    pub drop_places: Option<Vec<String>>,
+    pub place: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct OverflowSpec {
+    place: String,
+    capacity: u32,
+    count: u32,
+}
+
+impl PropertyVector {
+    pub fn property(&self) -> NetProperty {
+        match self.property.as_deref() {
+            None | Some("deadlock-free") => NetProperty::DeadlockFree,
+            Some("no-capacity-exceeded") => NetProperty::CapacityNeverExceeded,
+            Some(other) => panic!("{}: unknown property {other}", self.id),
+        }
+    }
+
+    /// The violation a disproved vector expects.
+    pub fn violation(&self) -> Violation {
+        match (&self.waiting, &self.overflow) {
+            (Some(spec), None) => Violation::Deadlock {
+                waiting: waiting(spec),
+            },
+            (None, Some(spec)) => Violation::Overflow {
+                place: q(&spec.place),
+                capacity: spec.capacity,
+                count: spec.count,
+            },
+            _ => panic!("{}: a disproved vector has waiting or overflow", self.id),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -146,7 +195,10 @@ pub struct CompositionFile {
 pub struct CompositionVector {
     pub id: String,
     parts: Vec<NetSpec>,
+    #[serde(default)]
     fusions: Vec<FusionSpec>,
+    #[serde(default)]
+    links: Vec<LinkSpec>,
     pub encoding: Option<String>,
     pub rejected: Option<String>,
     pub deadlock_free: Option<u64>,
@@ -157,6 +209,15 @@ struct FusionSpec {
     relationship: String,
     caller: String,
     callee: String,
+}
+
+#[derive(Deserialize)]
+struct LinkSpec {
+    relationship: String,
+    from: Vec<String>,
+    to: Vec<String>,
+    capacity: u32,
+    when_full: String,
 }
 
 impl CompositionVector {
@@ -170,6 +231,17 @@ impl CompositionVector {
                     relationship: f.relationship.clone(),
                     caller: q(&f.caller),
                     callee: q(&f.callee),
+                })
+                .collect(),
+            links: self
+                .links
+                .iter()
+                .map(|l| AsyncLink {
+                    relationship: l.relationship.clone(),
+                    from: l.from.iter().map(|id| q(id)).collect(),
+                    to: l.to.iter().map(|id| q(id)).collect(),
+                    capacity: l.capacity,
+                    when_full: when_full(Some(&l.when_full)),
                 })
                 .collect(),
         }

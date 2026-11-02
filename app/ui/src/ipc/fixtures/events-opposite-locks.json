@@ -81,6 +81,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "has_1"
                 },
                 "reason": {
@@ -92,6 +93,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "idle"
                 },
                 "reason": {
@@ -103,6 +105,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "x"
                 },
                 "reason": {
@@ -130,6 +133,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "y"
                 },
                 "reason": {
@@ -157,6 +161,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "has_2"
                 },
                 "reason": {
@@ -184,6 +189,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "has_1"
                 },
                 "reason": {
@@ -195,6 +201,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "idle"
                 },
                 "reason": {
@@ -206,6 +213,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "y"
                 },
                 "reason": {
@@ -233,6 +241,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "x"
                 },
                 "reason": {
@@ -260,6 +269,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "has_2"
                 },
                 "reason": {

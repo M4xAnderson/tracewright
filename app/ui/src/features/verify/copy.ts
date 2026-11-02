@@ -1,6 +1,6 @@
 // Verdict copy from the flows §5 catalog, word for word. Names are resolved from the view at
 // render time (design §3), so a rename never shows an old label.
-import type { PlaceRef } from "../../ipc/bindings/place-ref";
+import type { PlaceOrigin } from "../../ipc/bindings/place-origin";
 import type { PropertyKind } from "../../ipc/bindings/property-kind";
 import type { PropertyView } from "../../ipc/bindings/property-view";
 import type { TransitionOrigin } from "../../ipc/bindings/transition-origin";
@@ -111,11 +111,24 @@ export function deadlockHeadline(scope: string, steps: number): string {
 export const NO_FINAL_S0 =
   "No transition is enabled and no final predicate (done when) is defined, so this run stops here. If this is where the run is meant to end, done when will let you say so; it comes with slice 1. Until then, a run that finishes counts as a deadlock.";
 
-// A place in the waiting element is bare ("lock_b"); any other is qualified ("Billing: lock_b").
-function placeLabel(view: View, place: PlaceRef, owner: string | null): string {
-  return place.element === owner
-    ? place.place
-    : `${elementName(view, place.element)}: ${place.place}`;
+// A place in the waiting element is bare ("lock_b"); any other is qualified ("Billing: lock_b");
+// a generated place is its relationship ("Order API → Billing (publishes to)").
+function placeLabel(view: View, place: PlaceOrigin, owner: string | null): string {
+  switch (place.kind) {
+    case "own":
+      return place.element === owner
+        ? place.place
+        : `${elementName(view, place.element)}: ${place.place}`;
+    case "generated":
+      return relationshipLabel(view, place.relationship);
+    default:
+      return assertNever(place);
+  }
+}
+
+// A generated place holds messages, a place of a behavior model tokens (flows §5).
+function unit(place: PlaceOrigin): string {
+  return place.kind === "generated" ? "messages" : "tokens";
 }
 
 // One clause of V-DIS-DL-EMPTY / V-DIS-DL-FULL. With several clauses the "it holds" note moves
@@ -135,7 +148,7 @@ function clause(view: View, wait: WaitDto, owner: string | null, alone: boolean)
         : `for ${what} (it holds ${reason.holds})`;
     }
     case "outputFull":
-      return `for room in ${place}: ${reason.holds} of ${reason.capacity} tokens, when full: block`;
+      return `for room in ${place}: ${reason.holds} of ${reason.capacity} ${unit(wait.place)}, when full: block`;
     default:
       return assertNever(reason);
   }
@@ -193,7 +206,7 @@ export function unknownLines(reason: UnknownDto): string[] {
       ];
     case "capacityExceededFirst":
       return [
-        `Deadlock-free was decided only up to the first time ${reason.place} exceeds its capacity.`,
+        `Deadlock-free was decided only up to the first time ${reason.place.kind === "own" ? `${reason.place.element}/${reason.place.place}` : reason.place.relationship} exceeds capacity ${count.format(reason.capacity)}.`,
       ];
     default:
       return assertNever(reason);

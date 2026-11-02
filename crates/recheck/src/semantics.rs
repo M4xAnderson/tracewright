@@ -1,5 +1,6 @@
-//! recheck's own reading of NS §4 (enabling and firing) and §7 (waits), on a dense form of the
-//! net: one row of pre and post weights per transition, one column per place.
+//! recheck's own reading of NS §3.2 (overflow markings), §4 (enabling and firing for block, drop
+//! and overflow) and §7 (waits), on a dense form of the net: one row of pre and post weights per
+//! transition, one column per place.
 
 use tracewright_net::Marking;
 use tracewright_net::Net;
@@ -13,7 +14,7 @@ pub(crate) struct Dense {
     /// Place IDs in canonical order; column `p` of every row is this place.
     pub(crate) places: Vec<QualifiedId>,
     capacity: Vec<u64>,
-    block: Vec<bool>,
+    pub(crate) when_full: Vec<WhenFull>,
     /// Transition IDs in canonical order; row `t` of `pre` and `post` is this transition.
     pub(crate) transitions: Vec<QualifiedId>,
     pre: Vec<Vec<u64>>,
@@ -52,10 +53,7 @@ impl Dense {
                 .iter()
                 .map(|place| u64::from(place.capacity))
                 .collect(),
-            block: places
-                .iter()
-                .map(|place| matches!(place.when_full, WhenFull::Block))
-                .collect(),
+            when_full: places.iter().map(|place| place.when_full).collect(),
             places: places.iter().map(|place| place.id.clone()).collect(),
             transitions: transitions
                 .iter()
@@ -78,6 +76,21 @@ impl Dense {
         (0..self.places.len()).any(|p| m[p] > self.capacity[p])
     }
 
+    /// The column of the smallest-ID place above its capacity (places are in canonical order),
+    /// with its capacity and count as the evidence carries them.
+    pub(crate) fn smallest_exceeded(&self, m: &[u64]) -> Option<(usize, u32, u32)> {
+        let p = (0..self.places.len()).find(|p| m[*p] > self.capacity[*p])?;
+        Some((
+            p,
+            u32::try_from(self.capacity[p]).ok()?,
+            u32::try_from(m[p]).ok()?,
+        ))
+    }
+
+    fn blocks(&self, p: usize) -> bool {
+        self.when_full[p] == WhenFull::Block
+    }
+
     /// NS §4.1 (E1), (E2) and (E3).
     pub(crate) fn enabled(&self, m: &[u64], t: usize) -> bool {
         if self.is_overflow(m) {
@@ -88,7 +101,7 @@ impl Dense {
                 return false;
             }
             if self.post[t][p] > 0
-                && self.block[p]
+                && self.blocks(p)
                 && self.tentative(m, t, p) > i128::from(self.capacity[p])
             {
                 return false;
@@ -97,11 +110,18 @@ impl Dense {
         true
     }
 
-    /// NS §4.2 for block places: M'(p) = M⁺ₜ(p) for every place.
+    /// NS §4.2: M'(p) = M⁺ₜ(p) for block and overflow places, min(cap(p), M⁺ₜ(p)) for drop
+    /// places (subtract first, then add, then clamp).
     pub(crate) fn fire(&self, m: &[u64], t: usize) -> Option<Vec<u64>> {
         let mut next = Vec::with_capacity(m.len());
-        for ((count, pre), post) in m.iter().zip(&self.pre[t]).zip(&self.post[t]) {
-            next.push(count.checked_sub(*pre)?.checked_add(*post)?);
+        for (p, count) in m.iter().enumerate() {
+            let tentative = count
+                .checked_sub(self.pre[t][p])?
+                .checked_add(self.post[t][p])?;
+            next.push(match self.when_full[p] {
+                WhenFull::Drop => tentative.min(self.capacity[p]),
+                WhenFull::Block | WhenFull::Overflow => tentative,
+            });
         }
         Some(next)
     }
@@ -120,7 +140,7 @@ impl Dense {
                         reason: WaitReason::NeedsTokens { needed, holds },
                     });
                 } else if self.post[t][p] > 0
-                    && self.block[p]
+                    && self.blocks(p)
                     && self.tentative(m, t, p) > i128::from(self.capacity[p])
                 {
                     let capacity = u32::try_from(self.capacity[p]).ok()?;

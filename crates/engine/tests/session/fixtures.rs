@@ -86,7 +86,7 @@ fn opposite_locks() {
     assert_eq!(
         violation["waiting"][0]["waits"][0],
         json!({
-            "place": { "element": "a", "place": "has_1" },
+            "place": { "kind": "own", "element": "a", "place": "has_1" },
             "reason": { "kind": "outputFull", "capacity": 1, "holds": 1 }
         })
     );

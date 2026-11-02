@@ -212,6 +212,9 @@ function DisprovedDetail(props: {
   const scope = elementName(view, property.scope.element);
   const deadlock = disproved.violation;
   const frames = disproved.frames;
+  if (deadlock.kind !== "deadlock") {
+    return <Lines lines={assumptions} />;
+  }
   const scrolls = deadlock.waiting.length >= WAITING_SCROLL_FROM;
   return (
     <>

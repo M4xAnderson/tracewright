@@ -2,7 +2,7 @@
 import type { Technique } from "./technique";
 
 /**
- * A Proved: how and over how many markings (VER-5, `V-PRO-1`).
+ * A Proved: how and over how many markings (VER-5, `V-PRO-1`). A certificate has 0 markings.
  */
 export type ProvedDto = { 
 /**

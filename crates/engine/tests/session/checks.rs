@@ -40,7 +40,7 @@ fn proved(verdict: &VerdictDto) -> (Technique, u64) {
     let Outcome::Proved(proof) = &verdict.outcome else {
         panic!("not Proved: {verdict:?}")
     };
-    (proof.technique, proof.markings)
+    (proof.technique.clone(), proof.markings)
 }
 
 #[test]
@@ -51,7 +51,9 @@ fn opposite_locks_are_disproved_with_the_two_step_counterexample_of_v13() {
     let Outcome::Disproved(disproved) = &verdict.outcome else {
         unreachable!()
     };
-    let ViolationDto::Deadlock(deadlock) = &disproved.violation;
+    let ViolationDto::Deadlock(deadlock) = &disproved.violation else {
+        panic!("not a deadlock: {:?}", disproved.violation)
+    };
     let waiting_transitions: Vec<String> = deadlock
         .waiting
         .iter()
