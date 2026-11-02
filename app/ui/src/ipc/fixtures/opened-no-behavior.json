@@ -4,12 +4,20 @@
   "view": {
     "elements": [
       {
+        "behavior": null,
         "id": "order-api",
-        "name": "Order API"
+        "kind": "container",
+        "name": "Order API",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": null,
         "id": "orders",
-        "name": "Orders"
+        "kind": "database",
+        "name": "Orders",
+        "position": null,
+        "technology": null
       }
     ],
     "problems": [],
@@ -28,8 +36,12 @@
     "relationships": [],
     "rev": 0,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "Order platform"
+      "kind": "softwareSystem",
+      "name": "Order platform",
+      "position": null,
+      "technology": null
     }
   }
 }

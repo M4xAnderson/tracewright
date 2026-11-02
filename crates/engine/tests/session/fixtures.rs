@@ -39,10 +39,8 @@ fn write(name: &str, disk: &MemDisk) -> (Value, Value) {
 fn opposite_locks() {
     let (view, events) = write("opposite-locks", &MemDisk::fixture("e1b-opposite-locks"));
     assert_eq!(view["rev"], 0);
-    assert_eq!(
-        view["system"],
-        json!({ "id": "sys", "name": "Two components, two locks" })
-    );
+    assert_eq!(view["system"]["id"], "sys");
+    assert_eq!(view["system"]["name"], "Two components, two locks");
     assert_eq!(
         view["properties"][0],
         json!({

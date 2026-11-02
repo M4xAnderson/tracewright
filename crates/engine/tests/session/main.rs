@@ -2,6 +2,7 @@
 //! then the events and verdicts it emits.
 
 mod budget;
+mod canvas;
 mod capacity;
 mod check_key;
 mod checks;

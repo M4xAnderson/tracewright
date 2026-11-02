@@ -4,12 +4,114 @@
   "view": {
     "elements": [
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 3,
+              "displayName": "idle",
+              "initial": 3,
+              "name": "idle",
+              "port": false,
+              "whenFull": "block"
+            },
+            {
+              "capacity": 3,
+              "displayName": "running",
+              "initial": 0,
+              "name": "running",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "finish",
+              "name": "finish",
+              "port": true,
+              "post": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "running",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "start",
+              "name": "start",
+              "port": true,
+              "post": [
+                {
+                  "place": "running",
+                  "weight": 1
+                }
+              ],
+              "pre": [
+                {
+                  "place": "idle",
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
         "id": "c",
-        "name": "Clients"
+        "kind": "container",
+        "name": "Clients",
+        "position": null,
+        "technology": null
       },
       {
+        "behavior": {
+          "kind": "petriNet",
+          "places": [
+            {
+              "capacity": 2,
+              "displayName": "free",
+              "initial": 2,
+              "name": "free",
+              "port": false,
+              "whenFull": "block"
+            }
+          ],
+          "transitions": [
+            {
+              "displayName": "acquire",
+              "name": "acquire",
+              "port": true,
+              "post": [],
+              "pre": [
+                {
+                  "place": "free",
+                  "weight": 1
+                }
+              ]
+            },
+            {
+              "displayName": "release",
+              "name": "release",
+              "port": true,
+              "post": [
+                {
+                  "place": "free",
+                  "weight": 1
+                }
+              ],
+              "pre": []
+            }
+          ]
+        },
         "id": "w",
-        "name": "Worker pool"
+        "kind": "container",
+        "name": "Worker pool",
+        "position": null,
+        "technology": null
       }
     ],
     "problems": [],
@@ -37,12 +139,42 @@
     ],
     "relationships": [
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "c",
+              "name": "start"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "w",
+              "name": "acquire"
+            }
+          }
+        ],
         "id": "r1",
         "meaning": "takes a worker from",
         "source": "c",
         "target": "w"
       },
       {
+        "bindings": [
+          {
+            "from": {
+              "element": "c",
+              "name": "finish"
+            },
+            "mode": {
+              "kind": "sync"
+            },
+            "to": {
+              "element": "w",
+              "name": "release"
+            }
+          }
+        ],
         "id": "r2",
         "meaning": "gives the worker back to",
         "source": "c",
@@ -51,8 +183,12 @@
     ],
     "rev": 0,
     "system": {
+      "behavior": null,
       "id": "sys",
-      "name": "Worker pool"
+      "kind": "softwareSystem",
+      "name": "Worker pool",
+      "position": null,
+      "technology": null
     }
   }
 }

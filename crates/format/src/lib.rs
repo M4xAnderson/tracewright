@@ -11,6 +11,7 @@
 #![forbid(unsafe_code)]
 
 mod element;
+mod layout;
 mod property;
 mod read;
 
@@ -24,6 +25,7 @@ use tracewright_model::Problem;
 use tracewright_model::ProblemKind;
 use tracewright_model::PropertyId;
 
+pub use layout::LAYOUT_FILE_BYTES_MAX;
 pub use property::PREDICATE_BYTES_MAX;
 pub use read::read_dir;
 
@@ -121,7 +123,8 @@ pub enum LoadError {
 }
 
 /// Reads a project from its files. Files outside the project set (file-format §2.1) are
-/// ignored; layout files are not read yet.
+/// ignored. A layout file that does not load, or names no element, leaves no layout
+/// (file-format §3.3, §7).
 ///
 /// # Errors
 ///
@@ -133,11 +136,14 @@ pub enum LoadError {
 pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
     let mut arch = None;
     let mut elements = BTreeMap::new();
+    let mut layouts = Vec::new();
     for file in files {
         if file.path == "arch.toml" {
             arch = Some(file);
-        } else if let Some(stem) = element_stem(&file.path) {
+        } else if let Some(stem) = stem_in("elements/", &file.path) {
             elements.insert(stem, file);
+        } else if let Some(stem) = stem_in("layouts/", &file.path) {
+            layouts.push((stem, file));
         }
     }
     let arch = arch.ok_or(LoadError::NotAProject)?;
@@ -173,6 +179,9 @@ pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
     }
     add_relationships(&mut model, relationships);
     unique_property_ids(&mut model);
+    for (stem, file) in layouts {
+        read_layout(&mut model, stem, file)?;
+    }
     Ok(model)
 }
 
@@ -278,9 +287,31 @@ fn unique_property_ids(model: &mut Model) {
     }
 }
 
-// `elements/<stem>.toml`, not a dotfile.
-fn element_stem(path: &str) -> Option<&str> {
-    let name = path.strip_prefix("elements/")?;
+// file-format §3.3: a layout file that does not load leaves its element unplaced and touches
+// nothing else; one whose stem names no element is an orphan (§7), kept on disk and not read.
+// Only a newer format stops the project, as for every project file (§3.2).
+fn read_layout(model: &mut Model, stem: &str, file: &ProjectFile) -> Result<(), LoadError> {
+    let Ok(id) = ElementId::parse(stem) else {
+        return Ok(());
+    };
+    if !model.elements.contains_key(&id) {
+        return Ok(());
+    }
+    match layout::read(&file.path, &file.bytes)? {
+        Ok(layout) => {
+            model.layouts.insert(id, layout);
+        }
+        // The element stays unplaced and the canvas places it (§7, "missing entry"). The
+        // Problems list has no layout kind yet; `schema` would mark the element file as not
+        // loaded.
+        Err(_not_loaded) => {}
+    }
+    Ok(())
+}
+
+// `<folder><stem>.toml`, not a dotfile and not in a subfolder.
+fn stem_in<'p>(folder: &str, path: &'p str) -> Option<&'p str> {
+    let name = path.strip_prefix(folder)?;
     if name.contains('/') || name.starts_with('.') {
         return None;
     }

@@ -347,6 +347,11 @@ function rowFor(property: string, scope: string) {
   return found[0] as HTMLElement;
 }
 
+// The bottom pane opens on its Behavior model tab.
+async function showProblems() {
+  await userEvent.click(screen.getByRole("tab", { name: /^Problems/ }));
+}
+
 function problemLines() {
   const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
   return within(pane)
@@ -359,6 +364,7 @@ describe("a model that is incomplete still loads: problems and the loading Unkno
     resetStore();
     await openProject(fakeShell({ picked: "/home/designer/half-done", opened: openedHalfDone }));
 
+    await showProblems();
     const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
     expect(within(pane).getByRole("heading", { name: "Problems (7)" })).toBeInTheDocument();
     expect(problemLines()).toEqual([
@@ -438,6 +444,7 @@ describe("a model that is incomplete still loads: problems and the loading Unkno
     expect(rowFor("Deadlock-free", "One job · Level")).toHaveTextContent(
       "elements/billing.toml did not load.",
     );
+    await showProblems();
     expect(problemLines()).toEqual([
       // Billing's file did not load, so the list knows only its ID.
       "Error: elements/billing.toml, line 7: extra `=`, expected nothingelements/billing.toml · billing",
@@ -460,6 +467,7 @@ describe("a model that is incomplete still loads: problems and the loading Unkno
       expect(nothing).not.toHaveTextContent(word);
     }
     expect(within(screen.getByRole("region", { name: "Verdicts" })).queryByRole("note")).toBeNull();
+    await showProblems();
     const pane = screen.getByRole("region", { name: "Bottom pane: Problems" });
     expect(within(pane).getByRole("heading", { name: "Problems (0)" })).toBeInTheDocument();
     expect(pane).toHaveTextContent("No problems. Every file loaded and every port is bound.");
