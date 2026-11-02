@@ -12,6 +12,7 @@ import type { PlaceOrigin } from "../../ipc/bindings/place-origin";
 import type { View } from "../../ipc/bindings/view";
 import type { WaitingDto } from "../../ipc/bindings/waiting-dto";
 import eventsProducerConsumer from "../../ipc/fixtures/events-producer-consumer.json";
+import eventsProducerConsumerDrop from "../../ipc/fixtures/events-producer-consumer-drop.json";
 import eventsWorkerPool from "../../ipc/fixtures/events-worker-pool.json";
 import openedProducerConsumer from "../../ipc/fixtures/opened-producer-consumer.json";
 import openedWorkerPool from "../../ipc/fixtures/opened-worker-pool.json";
@@ -130,6 +131,8 @@ describe("no capacity exceeded", () => {
       "Worker pool never goes over any capacity.",
       "Places that block or drop can still make senders wait or lose messages.",
       "Proved with a certificate; a second explorer re-checked the certificate.",
+      "No place in Worker pool can overflow: every place blocks or drops.",
+      "No place drops, so no token is discarded.",
       "Holds for every order of steps with the capacities and initial tokens in this model. Time and rates are not modeled.",
     ];
     for (const line of lines) {
@@ -137,6 +140,26 @@ describe("no capacity exceeded", () => {
     }
     expect(proved).not.toHaveTextContent("reachable markings");
     expect(proved).not.toHaveTextContent("never deadlocks");
+  });
+
+  test("the certificate names the places where tokens may be discarded", async () => {
+    const emit = await open(openedProducerConsumer);
+
+    emit(...events(eventsProducerConsumerDrop));
+
+    const proved = row("No capacity exceeded");
+    expect(within(proved).getByText("Proved")).toBeInTheDocument();
+    expect(
+      within(proved).getByText(
+        "No place in Order platform can overflow: every place blocks or drops.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proved).getByText(
+        "Tokens may be discarded at: Billing: idle, Order API → Billing (publishes to).",
+      ),
+    ).toBeInTheDocument();
+    expect(proved).not.toHaveTextContent("no token is discarded");
   });
 });
 
