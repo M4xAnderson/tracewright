@@ -26,6 +26,7 @@ use tracewright_model::PropertyId;
 
 pub use property::PREDICATE_BYTES_MAX;
 pub use read::read_dir;
+pub use read::read_file;
 
 /// The format version this build reads and writes (file-format §3.2).
 pub const FORMAT_VERSION: u32 = 1;
@@ -33,6 +34,8 @@ pub const FORMAT_VERSION: u32 = 1;
 pub const ARCH_FILE_BYTES_MAX: usize = 64 * 1024;
 /// LIM-2, file-format §3.5: far above the 0.3–5 KB of a typical element file.
 pub const ELEMENT_FILE_BYTES_MAX: usize = 4 * 1024 * 1024;
+/// LIM-2, file-format §3.5.
+pub const LAYOUT_FILE_BYTES_MAX: usize = 4 * 1024 * 1024;
 /// LIM-2, file-format §3.5: five times the 2,000 elements per project target.
 pub const ELEMENTS_MAX: usize = 10_000;
 /// LIM-2, file-format §3.5.
@@ -121,7 +124,7 @@ pub enum LoadError {
 }
 
 /// Reads a project from its files. Files outside the project set (file-format §2.1) are
-/// ignored; layout files are not read yet.
+/// ignored; layout files are not decoded yet.
 ///
 /// # Errors
 ///

@@ -26,6 +26,7 @@ use tracewright_net::UnknownReason;
 use crate::check::CheckBudget;
 use crate::disk_sync::Changes;
 use crate::disk_sync::DiskSync;
+use crate::disk_sync::FileHash;
 use crate::dto;
 use crate::dto::CheckQueued;
 use crate::dto::CurrentKeys;
@@ -56,12 +57,40 @@ pub trait Disk {
     ///
     /// The IO error that stopped the read.
     fn read_tree(&self) -> io::Result<Vec<ProjectFile>>;
+
+    /// The bytes of the project file at `path`, relative to the project directory, or `None`
+    /// when it does not exist. Save reads each target with it just before writing.
+    ///
+    /// The default reads the whole tree; an adapter on a real folder reads the one file.
+    ///
+    /// # Errors
+    ///
+    /// The IO error that stopped the read.
+    fn read_file(&self, path: &str) -> io::Result<Option<Vec<u8>>> {
+        let files = self.read_tree()?;
+        Ok(files
+            .into_iter()
+            .find(|file| file.path == path)
+            .map(|file| file.bytes))
+    }
 }
 
 /// Where the engine sends its events (the UI's Channel in the app, a recorder in tests).
 pub trait Sink: Send + Sync {
     /// Delivers one event.
     fn emit(&self, event: EngineEvent);
+}
+
+/// Which of the files Save would write it may write (file-format §9.2), each list in the
+/// order asked.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteCheck {
+    /// Files whose bytes on disk are the ones the Session last read; a file it never read is
+    /// writable while it does not exist.
+    pub writable: Vec<String>,
+    /// Files changed on disk since the Session last read them. Save skips them and reports them
+    /// as conflicts, "changed on disk since load; Reload first" (design §4).
+    pub changed_on_disk: Vec<String>,
 }
 
 /// Why a project does not open.
@@ -162,6 +191,38 @@ impl Session {
         // scope whose net did not change keeps its key, so its verdict stays current.
         self.derive_and_emit_keys();
         Ok(ReloadOutcome::Reloaded(reloaded))
+    }
+
+    /// Splits `paths`, the files Save would write, into the ones it may write and the ones that
+    /// changed on disk since the Session last read them (FMT-2: never overwrite them silently).
+    /// Save calls it right before writing; a Reload makes a changed file writable again.
+    ///
+    /// # Errors
+    ///
+    /// The IO error that stopped reading a file; Save then writes nothing.
+    ///
+    /// # Panics
+    ///
+    /// Only on a bug: a path that ends in neither list.
+    pub fn check_writes(&self, disk: &dyn Disk, paths: &[&str]) -> io::Result<WriteCheck> {
+        let mut check = WriteCheck {
+            writable: Vec::new(),
+            changed_on_disk: Vec::new(),
+        };
+        for path in paths {
+            let on_disk = disk.read_file(path)?.map(|bytes| FileHash::of(&bytes));
+            if on_disk == self.disk.last_seen(path) {
+                check.writable.push((*path).to_owned());
+            } else {
+                check.changed_on_disk.push((*path).to_owned());
+            }
+        }
+        assert_eq!(
+            check.writable.len() + check.changed_on_disk.len(),
+            paths.len(),
+            "check_writes: every path is writable or changed"
+        );
+        Ok(check)
     }
 
     /// Replaces the budget of every check started from now on.

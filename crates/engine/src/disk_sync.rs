@@ -74,6 +74,11 @@ impl DiskSync {
         DiskSync { last_seen }
     }
 
+    /// The hash of `path` when last read; `None` for a file the Session never saw.
+    pub(crate) fn last_seen(&self, path: &str) -> Option<FileHash> {
+        self.last_seen.get(path).copied()
+    }
+
     /// How `files`, read from disk now, differ from what was last seen.
     pub(crate) fn changes(&self, files: &[ProjectFile]) -> Changes {
         let mut changes = Changes::default();

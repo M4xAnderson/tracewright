@@ -30,6 +30,10 @@ impl Disk for StdDisk {
     fn read_tree(&self) -> io::Result<Vec<ProjectFile>> {
         tracewright_format::read_dir(&self.root)
     }
+
+    fn read_file(&self, path: &str) -> io::Result<Option<Vec<u8>>> {
+        tracewright_format::read_file(&self.root, path)
+    }
 }
 
 /// The monotonic clock of the operating system.

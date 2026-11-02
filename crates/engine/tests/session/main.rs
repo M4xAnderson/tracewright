@@ -3,6 +3,7 @@
 
 mod budget;
 mod capacity;
+mod changed_on_disk;
 mod check_key;
 mod checks;
 mod disk;
