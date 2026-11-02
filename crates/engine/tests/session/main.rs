@@ -8,4 +8,5 @@ mod disk;
 mod events;
 mod fixtures;
 mod lowering;
+mod pipeline;
 mod support;
