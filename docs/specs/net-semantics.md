@@ -957,7 +957,7 @@ Revision 2's ten open questions are decided; the table maps each to its decision
 | 7 | Initial marking above capacity | D-08: `ModelIncomplete` |
 | 8 | Structural Proved for no capacity exceeded | D-03: yes, as the `NoOverflowPlace` certificate checked by recheck; ADR 0017 |
 | 9 | Deadlock replay highlight | D-34: the 6.7 rule is the slice 0 rule; UX may replace it with V13 as the test |
-| 10 | Differential corpus encoding | D-35: adopted as written; the researcher checks V08 and V12 against TAPAAL before E1 |
+| 10 | Differential corpus encoding | D-35: adopted as written; checked by spike E1 against TAPAAL verifypn 4.2.3 (`docs/product/experiments/e1-state-space.md`): the net-effect complement is required (V08), drop nets stay excluded (V12). Queries: on a net with an overflow place, deadlock-free is `E[inb U (inb ∧ deadlock)]` (a deadlock reachable through in-bounds markings only) followed by `AG inb`, never a plain `EF deadlock`, which explores past overflow markings; no capacity exceeded is `AG inb`, where `inb` is M(p) ≤ cap(p) for every overflow place. The export emits no inhibitor arcs (a verifypn 4.2.3 defect), skips nets with counts near 2³¹ (TAPAAL counts are signed 32-bit), and CI pins the verifypn build by checksum |
 
 ---
 
