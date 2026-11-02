@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>always-in-bounds</id>
+    <description>always-in-bounds</description>
+    <formula><all-paths><globally><true/></globally></all-paths></formula>
+  </property>
+</property-set>

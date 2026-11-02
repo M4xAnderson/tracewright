@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>deadlock-reachable</id>
+    <description>deadlock-reachable</description>
+    <formula><exists-path><until><before><integer-le><tokens-count><place>x__p</place></tokens-count><integer-constant>1</integer-constant></integer-le></before><reach><conjunction><integer-le><tokens-count><place>x__p</place></tokens-count><integer-constant>1</integer-constant></integer-le><deadlock/></conjunction></reach></until></exists-path></formula>
+  </property>
+</property-set>

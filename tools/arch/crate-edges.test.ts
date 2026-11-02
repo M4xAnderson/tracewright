@@ -29,6 +29,8 @@ const ALLOWED: Edge[] = [
   ["tracewright-engine", "tracewright-format"],
   ["tracewright-engine", "tracewright-scan"],
   ["tracewright-interop", "tracewright-net"],
+  ["tracewright-interop", "tracewright-verify", "dev"],
+  ["tracewright-interop", "tracewright-recheck", "dev"],
   ["tracewright-app", "tracewright-engine"],
   ["tracewright-app", "tauri"],
   ["tauri", "tokio"],
@@ -69,6 +71,28 @@ describe("checkCrateEdges", () => {
       `${from} must not depend on ${to} (ADR 0004, 0009)`,
     ]);
   });
+
+  test.each([
+    ["tracewright-engine", "normal"],
+    ["tracewright-app", "normal"],
+    ["tracewright-app", "dev"],
+    ["tracewright-verify", "dev"],
+  ] as const)("keeps the development-only interop out of %s (%s)", (from, kind) => {
+    const edges: Edge[] = [...ALLOWED, [from, "tracewright-interop", kind]];
+    expect(checkCrateEdges(metadata(edges))).toEqual([
+      `${from} must not depend on tracewright-interop (ADR 0004, 0009)`,
+    ]);
+  });
+
+  test.each(["tracewright-verify", "tracewright-recheck"])(
+    "allows %s only as a dev-dependency of interop, for the TAPAAL corpus",
+    (to) => {
+      const edges: Edge[] = [...ALLOWED, ["tracewright-interop", to]];
+      expect(checkCrateEdges(metadata(edges))).toEqual([
+        `tracewright-interop must not depend on ${to} (ADR 0004, 0009)`,
+      ]);
+    },
+  );
 
   test("rejects a forbidden edge that is only a dev-dependency", () => {
     const edges: Edge[] = [...ALLOWED, ["tracewright-recheck", "tracewright-verify", "dev"]];
