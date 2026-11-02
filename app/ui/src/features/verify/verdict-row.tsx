@@ -220,7 +220,7 @@ function DisprovedDetail(props: {
         aria-label="Waiting steps"
         // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a list that scrolls inside its row must be reachable by keyboard (flows §4.8, A11Y-2)
         tabIndex={scrolls ? 0 : undefined}
-        className={scrolls ? "max-h-[18em] overflow-y-auto" : undefined}
+        className={scrolls ? "max-h-[18em] space-y-1 overflow-y-auto" : "space-y-1"}
       >
         {deadlock.waiting.map((waiting) => {
           const text = waitingLine(view, waiting);
