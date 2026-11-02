@@ -1,0 +1,3 @@
+[test]
+# The fixture trees hold *.test.tsx files that exist only to be cruised, never run.
+pathIgnorePatterns = ["tools/arch/fixtures/**"]

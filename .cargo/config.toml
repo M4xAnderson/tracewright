@@ -1,0 +1,3 @@
+[env]
+# ts-rs writes the IPC bindings here on `cargo test`; CI fails if they drift (IPC-2).
+TS_RS_EXPORT_DIR = { value = "app/ui/src/ipc/bindings", relative = true }

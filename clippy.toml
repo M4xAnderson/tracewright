@@ -1,0 +1,10 @@
+too-many-lines-threshold = 70 # TigerStyle; an upper bound, never a reason to split (LIM-3)
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+max-fn-params-bools = 1 # Google: enum over bool (API-1)
+disallowed-methods = [
+  { path = "std::panic::catch_unwind", reason = "SAFE-4, ADR 0006: a panicked check is joined and becomes Unknown" },
+  { path = "std::process::Command::new", reason = "SEC-3: never shell out" },
+  { path = "std::fs::write", reason = "FMT-2: project files go through the atomic writer in crates/format" },
+  { path = "std::thread::sleep", reason = "TEST-1: no sleeps; wait on a channel or the cancel flag" },
+]
