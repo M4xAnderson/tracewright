@@ -1,12 +1,12 @@
 # File format, version 1
 
-Specification `docs/specs/file-format.md`. Status: **Accepted** (applies `docs/specs/decisions.md`; final for implementation once every spec has applied that file), revision 3, 2026-11-02. Owner: senior backend developer. Revision 3 applies the decisions D-01 to D-59 that touch storage (§17 maps each one to its section) and closes every open question of revision 2 (§18). It is based on:
+Specification `docs/specs/file-format.md`. Status: **Accepted** (applies `docs/specs/decisions.md`; final for implementation once every spec has applied that file), revision 4, 2026-11-02. Owner: senior backend developer. Revision 3 applied the decisions D-01 to D-59 that touch storage (§17.1 maps each one to its section) and closed every open question of revision 2 (§18). Revision 4 applies spike E2 (D-70, ADR 0024): one layout file per element instead of one per view, so `layouts/_landscape.toml` is gone; every file ends with an empty line; and corrected merge advice (§17.1 lists the sections). It is based on:
 
 - `docs/specs/net-semantics.md` revision 3 (cited as **NS §n**)
 - `docs/specs/state-machines.md` revision 3 (**SM §n**)
 - `docs/specs/property-language.md` revision 3 (**PL §n**)
 - `docs/specs/scan-rules.md` v1 (**SR §n**), read with D-18
-- `docs/specs/decisions.md` (**D-nn**) and ADRs 0015–0021
+- `docs/specs/decisions.md` (**D-nn**) and ADRs 0015–0021 and 0024
 
 How the claims were checked (§19):
 
@@ -17,7 +17,7 @@ How the claims were checked (§19):
 
 This spec implements three ADRs:
 
-- ADR 0001 as amended by ADR 0020: TOML directory, explicit Save, recovery journal, dangling references reported; lowercase slug IDs, `suppressions.toml`, a format version per file, a read-only second window, an unknown element kind isolated to its file.
+- ADR 0001 as amended by ADR 0020 and ADR 0024: TOML directory, explicit Save, recovery journal, dangling references reported; lowercase slug IDs, `suppressions.toml`, a format version per file, a read-only second window, an unknown element kind isolated to its file; one layout file per element and an empty last line in every file.
 - ADR 0011: after-image journal with revisions and `SaveBegin`/`SaveDone`.
 
 It owns **how things are stored**: the directory layout, the TOML schema of every file, IDs, versioning, the writer, the journal, loading and problem reporting. It does not own what the stored data means; §1 lists which spec owns what. Where this text disagrees with an ADR, NS revision 3 or `decisions.md`, those win and this text is the bug.
@@ -30,7 +30,7 @@ Tags **[S0]**–**[S5]** give the slice that first *uses* a shape. Format 1 cont
 
 | # | Decision | Section |
 |---|---|---|
-| F1 | Layout: `arch.toml`, `elements/<id>.toml`, `layouts/<view>.toml`, `suppressions.toml`. The directory is flat; `parent` is a key, not a folder. | §2 |
+| F1 | Layout: `arch.toml`, `elements/<id>.toml`, `layouts/<id>.toml`, `suppressions.toml`. The directory is flat; `parent` is a key, not a folder. | §2 |
 | F2 | Every file starts with `format = <n>`. Files migrate one at a time and lazily. A project with any newer file does not open. | §3.2, §12 |
 | F3 | Strictness is per section. An unknown key or a wrong type at the element level makes the file not load. In a behavior model it makes the behavior `Unloaded` (SM-E10). In a property entry the entry is kept, and only that property is not checked (PL E407). A typo can never quietly change a net. | §3.3 |
 | F4 | Element, relationship, view and property IDs follow FMT-3 (`order-api`, `order-api-2`): lowercase, letter-first, no trailing `-`, at most 48 characters, never a Windows device name. Names inside a behavior model keep their case, contain no `__` and do not end in `-` (D-12, ADR 0020). IDs never change on a rename, because every part has a display `name`. The slug generator never reissues an ID that anything still references. | §4 |
@@ -38,10 +38,10 @@ Tags **[S0]**–**[S5]** give the slice that first *uses* a shape. Format 1 cont
 | F6 | Ports: a Petri net place or transition is a port with `port = true`. In a state machine, input and output events are transition ports, states are place ports, and internal events are not ports (ADR 0015). Only transition ports are bound (NS §6.2). | §6.4–6.6 |
 | F7 | Scan attributes follow SR §2.3–2.6 exactly: `replicas`, `zones`, `service`, `interaction`, `timeout`. An absent key means **not stated**. | §6.3, §6.7 |
 | F8 | Properties are `[[property]]` entries in the scope element's file, in the shape of PL §9, built-ins included; templates are stored by kind, version and parameters (D-11). Final predicates are `[final]` with the keys `combined` and `own`; lowering copies each into the deadlock-free property of its behavior (D-04). Predicate strings are opaque in slice 0, `[final]` is parsed from slice 1 and properties from slice 4 (D-25). | §6.8 |
-| F9 | Each view's layout is in its own file. A missing entry means unplaced. A stale entry is kept and reported. | §7 |
+| F9 | Each element's layout is in its own file `layouts/<id>.toml`: its position in its parent's view (the landscape for a top-level element), the bend points of its outgoing relationships and its behavior-model layout (ADR 0024). A view is drawn from its children's files. A missing entry means unplaced. A stale entry is kept and reported. | §7 |
 | F10 | Suppressions are a `[[suppression]]` array in one project file, keyed by the finding key of SR §3.7. | §8 |
 | F11 | Entities (element, behavior model, relationship, property, final predicate, layout entry, suppression) are the unit of Save diffs, journal after-images and Reload conflicts. Array entries are identified by their `id` or `key`, never by position. | §9 |
-| F12 | Writer: new text is canonical. Existing files are edited in place with `toml_edit`: untouched bytes stay identical, value comments survive because decor is copied, and line endings are restored per file. | §11 |
+| F12 | Writer: new text is canonical, and every file ends with an empty line (ADR 0024). Existing files are edited in place with `toml_edit`: untouched bytes stay identical, value comments survive because decor is copied, and line endings are restored per file. | §11 |
 | F13 | Journal: a framed append-only log (`@record <len> <hash>` + TOML body) with `seq`, `rev`, expected file hashes and `save_begin`/`save_done`. | §13 |
 | F14 | Never check a smaller net: a file or section that did not load blocks exactly the scopes it could change. | §10.5 |
 | F15 | LIM-2 limits on bytes and counts are checked before the model is built. Exceeding one gives a named problem, never a truncation. | §3.5 |
@@ -60,7 +60,7 @@ Tags **[S0]**–**[S5]** give the slice that first *uses* a shape. Format 1 cont
 | Which places a combined-scope predicate may name | NS L9, ADR 0015 (D-01) | validates against it (§6.8, §10.3) |
 | Scan attributes, their values, "not stated" | SR §2, ADR 0021 | adopts the encoding of SR §2.6 (§6.3, §6.7) |
 | Suppressions and finding keys | SR §2.7, §3.7, §3.8 (D-18) | adopts them (§8) |
-| Project file list, slug alphabet, second window, unknown element kind | ADR 0020 | details them (§2, §4, §10.5, §13.1) |
+| Project file list, slug alphabet, second window, unknown element kind; one layout file per element | ADR 0020, ADR 0024 | details them (§2, §4, §10.5, §13.1) |
 | Directory layout, file schemas, IDs and renames, references, versioning, writer, journal, loading and problem reporting, limits, merge behavior | **this spec** | — |
 
 ## 2. Project directory
@@ -71,13 +71,13 @@ Tags **[S0]**–**[S5]** give the slice that first *uses* a shape. Format 1 cont
 <project>/                          the folder the user opens; usually inside a git repository
   arch.toml                         project file; its presence makes the folder a project
   elements/<element-id>.toml        one file per element: kind, attributes, behavior model, outgoing relationships, properties, final predicate
-  layouts/<view-id>.toml            one file per view: positions, sizes, bend points; plus the element's behavior-model layout
-  layouts/_landscape.toml           the top view (elements without a parent)
+  layouts/<element-id>.toml         one file per element: its position and size in its parent's view (the landscape when it has no parent),
+                                    the bend points of its outgoing relationships, and its behavior-model layout
   suppressions.toml                 suppressions; created on the first suppression [S5]
 ```
 
 - **Project files** are exactly `arch.toml`, `elements/*.toml`, `layouts/*.toml` and `suppressions.toml`. Nothing else is read, written, hashed or journaled. Other files (a README, `.git/`, subfolders) are ignored.
-  - A `*.toml` file in `elements/` or `layouts/` whose stem is not a valid ID (§4.1) gets the problem `schema` "file name is not a valid ID" and is not loaded. In `layouts/`, `_landscape` is also valid.
+  - A `*.toml` file in `elements/` or `layouts/` whose stem is not a valid ID (§4.1) gets the problem `schema` "file name is not a valid ID" and is not loaded. That includes `layouts/_landscape.toml`, which revision 3 used and ADR 0024 removed.
 - **Dotfiles** in `elements/` and `layouts/` are ignored. The app's own temporary files are named `.pn-<8 lowercase hex>.tmp` (§11.4). At open, the app deletes leftovers that match this exact pattern, and nothing else.
 - **Flat:** an element file stays put when the element moves to another parent. Re-parenting edits one key and never moves a file in git.
 - **Path budget** (Windows `MAX_PATH` = 260, including the terminating null):
@@ -89,23 +89,24 @@ Tags **[S0]**–**[S5]** give the slice that first *uses* a shape. Format 1 cont
 
 ### 2.2 Why this split
 
-ADR 0001 sets one file per element plus one layout file per view. Everything else goes where each common edit touches one file:
+ADR 0001 sets one file per element, with layout kept apart; ADR 0024 gives layout one file per element too, so every entity has exactly one owning element. Everything else goes where each common edit touches one file:
 
-- a drag touches one layout file;
+- a drag of one element touches that element's layout file, and dragging two elements touches two different files;
 - a net edit, a binding or a property touches one element file;
-- a display rename touches one element file.
+- a display rename touches one element file;
+- adding an element to a view adds two files (`elements/<id>.toml` and `layouts/<id>.toml`) and edits no shared file.
 
-§15 measures the result on real merges.
+§15 measures the result on real merges. Revision 3 kept one layout file per view; spike E2 found that two elements added to one view then conflict in that shared file (§15 S6b), which is why ADR 0024 changed the split.
 
 ### 2.3 Sizes
 
 At the target sizes (300 elements per view, 2,000 per project) a project has:
 
 - about 2,000 element files of 0.3–5 KB;
-- one layout file per element that has children or a behavior layout;
+- at most one layout file per element (every placed element has one), so up to about 2,000 layout files;
 - one suppressions file.
 
-The open-time target is **[assumption]** under 1 s for 2,000 files on an SSD. E4 measures it together with the IPC load.
+That is up to about **4,000 files**. The open-time target is **[assumption]** under 1 s for 4,000 files on an SSD. Slice 0 measures it on a generated project of 2,000 elements with a layout file each (`docs/product/v1-slices.md`, slice 0); it is a dev measurement, not a user-facing criterion.
 
 ### 2.4 New project [S0, contract R16]
 
@@ -165,7 +166,7 @@ Three things are reported: a key that this version does not define, a wrong TOML
 | Inside `[petri_net]` or `[state_machine]`, including enum values (`when_full`, `direction`) and the per-net limits | The element loads with `BehaviorModel::Unloaded` (SM §1.4, SM-E10, SM-E12) and the problem `behaviorNotLoaded`. Every scope that contains the element fails L1. The section's bytes are kept and never written. Behavior edits on it are Rejected until the file is fixed and reloaded. | The rest of the element (relationships, the properties of its scopes, scan attributes) stays usable, and no scope is checked without that behavior. |
 | Inside a `[[property]]` entry | The entry is kept verbatim and reported with its PL code (E407 for an unknown key, E412 for a bad template parameter, …). Only that property is not checked (PL §9.2). | A property is one question; nothing else depends on it. |
 | A predicate string (`predicate`, a `[final]` value, a template parameter) | Never a schema problem. Slice 0 stores it verbatim and never parses it; parse and resolution errors (E1xx, E2xx) are reported from slice 1 for `[final]` and from slice 4 for properties and template parameters (D-25, §6.8). | The string is the user's text; one parser (`model::property`) judges it, in the slice that checks it. |
-| A `layouts/*.toml` file | The file does not load. Positions in that view are unplaced; nothing else is affected. | Layout never changes meaning. |
+| A `layouts/*.toml` file | The file does not load. That element's position is unplaced, its outgoing relationships are routed automatically and its behavior layout is unplaced; nothing else is affected. | Layout never changes meaning. |
 | `suppressions.toml` | The file does not load, and every finding shows unsuppressed. | Failing open shows more, never less. |
 
 **Model problems, not schema problems.** Some missing data is what NS calls "model incomplete": `when_full`, `capacity`, a behavior model, an async capacity, a binding. That is not a schema error. The file loads, and validation reports the gap with its L-rule (§10.3), so the user can see the incomplete net. Scan attribute values outside their range are model problems too (SR §2.6, §3.10).
@@ -215,7 +216,7 @@ NS vectors V51–V54 are therefore net-level vectors only and cannot be written 
 | properties | 256 per element, 4,096 per project (PL §9.2) | per file before decoding; the project total while loading | E409. All entries are kept. Above the per-element limit, none of that element's properties is checked. Above the project limit, none is checked in the file that crosses it or in any file after it. |
 | `SUPPRESSIONS_MAX` | 10,000 (SR §2.7) | before decoding | `tooLarge`; the file does not load |
 | suppression `key` | 131,072 bytes | before decoding the entry | `badSuppression` |
-| `LAYOUT_ENTRIES_MAX` | 20,000 per layout file (elements, relationships and behavior items together); 64 bend points per relationship | before decoding | the layout file does not load |
+| `LAYOUT_ENTRIES_MAX` | 20,000 per layout file (the position, relationship entries and behavior items together); 64 bend points per relationship | before decoding | the layout file does not load |
 | `JOURNAL_RECORD_BYTES_MAX`, `JOURNAL_BYTES_MAX` | 16 MiB per record body, 256 MiB per journal | before writing a record and before reading one | writer: journaling stops for the session with the warning "Save to keep crash recovery" (Save still works); reader: the frame counts as damaged (§13.2) |
 
 ## 4. IDs
@@ -234,7 +235,7 @@ Both alphabets allow 1–48 characters and exclude `and`, `or` and `not`. IDs al
 These narrow NS §2.2, which allows the narrowing; they are decided (D-12, ADR 0020) and NS §2.2 revision 3 cites them. Each has a stated reason:
 
 - **IDs are lowercase only.** Element IDs are file stems, and `Billing.toml` and `billing.toml` are one file on Windows and macOS. Relationship IDs share the element namespace (§4.2), so they follow the same rule. Display names keep any case.
-- **IDs start with a letter**, so `_landscape` can never be an element.
+- **IDs start with a letter** (D-12), so a file stem that starts with `_` or a digit is never an element. Revision 3 relied on this for `layouts/_landscape.toml`; ADR 0024 removed that file, and the rule stays as decided.
 - **Neither ends in `-`.** Otherwise the predicate lexer would read a following minus as part of the ID (`x/p- 1`, PL E111).
 - **Names contain no `__`.** SM §1.3 F1 reserves it for later per-leaf names. The rule applies to both behavior notations, so the editor has one rule. IDs need no such rule: the slug generator never produces `__` (§4.3), and nothing is reserved in the ID namespace.
 - **At most 48 characters**, for the path budget of §2.1.
@@ -249,7 +250,7 @@ Consequences recorded by ADR 0020: every fixture and the slice 4 acceptance text
 |---|---|---|---|
 | Element | project, **shared with relationships** | file stem `elements/<id>.toml` | `<id>` |
 | Relationship | project, **shared with elements** | table key `[relationships.<id>]` in the source element's file | `<id>`; it is also the generated place's qualified ID |
-| View | project | `layouts/<view>.toml`: the ID of the element whose inside it shows, or `_landscape` | `<view>` |
+| View | project | not stored: a view is named by the element whose inside it shows, and is drawn from the layout files of that element's children. The landscape (elements without a parent) has no ID in the files. | `<view>` |
 | Place, transition (Petri net) | element; one namespace for both (NS §2.2) | `[petri_net.places.<name>]`, `[petri_net.transitions.<name>]` | `element/name` |
 | State, event, state machine transition | element; one namespace for all three (SM-E04) | `[state_machine.states.<name>]`, `[state_machine.events.<name>]`, `[state_machine.transitions.<name>]` | `element/name` |
 | Fused transition | flattened net | not stored | `relationship/caller+callee`, with bare names (NS §2.2) |
@@ -289,7 +290,7 @@ The 40-byte cut leaves room for the suffix within 48 characters. Fallbacks are `
 
 | Generating | Taken means |
 |---|---|
-| Element or relationship ID | every element and relationship ID in the current model and in the saved snapshot; the stem of **every** file in `elements/` and `layouts/`, including files that did not load; every relationship key the loader saw leniently (§10.5) in an element file that did not load; every ID **referenced** anywhere, whether it resolves or not: `parent`, relationship `to`, the element part of binding ports, the element part of qualified IDs and the bare relationship IDs in predicates, final predicates and template parameters, layout entry keys (orphans included), and every ID in a suppression key |
+| Element or relationship ID | every element and relationship ID in the current model and in the saved snapshot; the stem of **every** file in `elements/` and `layouts/`, including files that did not load; every relationship key the loader saw leniently (§10.5) in an element file that did not load; every ID **referenced** anywhere, whether it resolves or not: `parent`, relationship `to`, the element part of binding ports, the element part of qualified IDs and the bare relationship IDs in predicates, final predicates and template parameters, the stems of layout files and the relationship keys in layout files (orphans included), and every ID in a suppression key |
 | Name inside element E | every name in E's behavior model (for an `Unloaded` behavior, every table key the loader saw); every `E/<name>` referenced anywhere: binding ports, predicates, final predicates, template parameters, E's behavior layout entries (orphans included) |
 | Property ID | every property ID in the project, including entries with problems |
 
@@ -302,9 +303,9 @@ IDs are created once and never change on a rename (FMT-3). Every part that the U
 | Rename an element, relationship, place, transition, state, event or state machine transition | Only `name` changes (`meaning` for a relationship). | None: names are not part of the CheckKey (ADR 0013, NS §14.4 d, SM K-04). |
 | Rename a property | Only `label` changes (PL §9.2). | None |
 | Change an ID by hand (rename the file, or edit a table key or an `id`) | The old ID disappears and a new one appears. Every reference to the old ID is reported as dangling; the app does not guess. | Affected scopes fail lowering (L3) until the references are fixed. |
-| Re-parent an element | `parent` changes. The layout entry moves from the old view's file to the new view's file and becomes unplaced. | The combined scopes of the old and new parent change. |
-| Reconnect a relationship's source | The `[relationships.<id>]` table moves from the old source file to the new one; the ID stays. Binding pairs that named a port of the old source are removed. | The affected scopes change. |
-| Reconnect a relationship's target | `to` changes. Binding pairs that named a port of the old target are removed. | The affected scopes change. |
+| Re-parent an element | `parent` changes. `[position]` is removed from the element's own layout file, so the element is unplaced in its new view. The bend points of its relationships whose ends stop being siblings are removed from their source's layout file. No entry moves between files. | The combined scopes of the old and new parent change. |
+| Reconnect a relationship's source | The `[relationships.<id>]` table moves from the old source's element file to the new one; the ID stays. Binding pairs that named a port of the old source are removed. Its bend points are removed from the old source's layout file, so it is routed automatically. | The affected scopes change. |
+| Reconnect a relationship's target | `to` changes. Binding pairs that named a port of the old target are removed. Its bend points are removed from the source's layout file, so it is routed automatically. | The affected scopes change. |
 
 An ID derived from a placeholder name ("Container 7" → `container-7`) keeps it. A "Change ID…" command that rewrites every reference as one Batch could be added later; it is not part of v1.
 
@@ -336,7 +337,7 @@ There is no per-project rule disabling (SR §2.7, §11), so revision 1's `[scan]
 | `format` | integer | yes | §3.2 |
 | `kind` | string | yes | Element kind (§6.2). An unknown kind is `schema`: only this file does not load; it is reported, kept byte for byte, never written, and the scopes it could change are blocked (§10.5; D-19, ADR 0020). The rest of the project stays editable. |
 | `name` | string | no; defaults to the ID | Display name. The writer always writes it. |
-| `parent` | ID | no | The element whose view shows this element. When absent, the element is top-level and shown in `_landscape`. An element is a **child** of the combined scope of its `parent` (NS §6.6, D-13). |
+| `parent` | ID | no | The element whose view shows this element. When absent, the element is top-level and shown in the landscape. An element is a **child** of the combined scope of its `parent` (NS §6.6, D-13). |
 | `technology`, `description` | string | no | Display only |
 | `replicas`, `zones`, `service` | §6.3 | no | Scan attributes |
 | `[petri_net]` or `[state_machine]` | table | no; at most one | The behavior model (§6.4, §6.5). Both present: `schema` at the element level. |
@@ -591,39 +592,48 @@ own = "job/done = 1"                  # optional: final predicate of this elemen
 - Slice 1 brings the minimal form in the editor (a conjunction of `place = n`, and for a state machine with several final states the sum atom `Σ E/f = 1`); a hand-written `[final]` may be any predicate of NS §5.3 (D-05). The stored shape is the same in every slice.
 - A state machine's `final` list is not a `[final]` value: the own-scope default derived from it (D-42, §6.5) is never written.
 
-## 7. Layout files `layouts/<view>.toml`
+## 7. Layout files `layouts/<id>.toml`
+
+One layout file per element (ADR 0024). It holds everything about where **this** element and its inside are drawn:
 
 ```toml
+# layouts/fe1.toml
 format = 1
 
-[elements.fe1]               # an element shown in this view
+[position]                   # where fe1 is drawn in its parent's view; the landscape when it has no parent
 x = 320                      # required; integer canvas units, top-left corner
 y = 80
 w = 200                      # optional; default size by kind when absent
 h = 120
 
-[relationships.membership-updates]
-points = [[160, 40], [320, 40]]              # optional bend points; absent means routed automatically
+[relationships.fe1-audit]                    # bend points of a relationship whose source is fe1 (as in §6.7)
+points = [[440, 40], [560, 40]]              # optional; absent means routed automatically
 
-[behavior.places.peer_threads]               # [S1] layout of the element's own behavior model (in the element's own view file)
+[behavior.places.peer_threads]               # [S1] layout of fe1's own behavior model
 x = 40
 y = 0
 ```
 
 - **Which file.**
-  - An element's entry is in the file of the view that shows it: `layouts/<parent>.toml`, or `layouts/_landscape.toml` for a top-level element.
-  - A relationship's entry is in the view of its ends' common parent. v1 lays out only relationships between siblings.
-  - An element's behavior-model layout (`BehaviorLayout`, design §7) is in `layouts/<element>.toml`, the file of the element's own view:
+  - An element's position is `[position]` in its own file, in the coordinates of its parent's view. A top-level element's `[position]` is its place in the landscape. The landscape has no file of its own; it is drawn from the layout files of the elements without a parent.
+  - A relationship's bend points are `[relationships.<id>]` in the layout file of its **source**, the element whose file holds the relationship (§6.7). They are drawn in the view of its ends' common parent; v1 lays out only relationships between siblings.
+  - An element's behavior-model layout (`BehaviorLayout`, design §7) is in the same file:
     - Petri net: `[behavior.places.*]` and `[behavior.transitions.*]` with `x` and `y`; places may also have `w` and `h`.
     - State machine: `[behavior.states.*]` with `x`, `y`, `w` and `h`, and `[behavior.transitions.*]` with `points`.
-  - Deleting an element therefore removes everything about its inside in one place.
-- **Missing entry** means unplaced. ELK places it, and only unplaced elements are placed that way (UX brief). The position is written at the next Save. A missing file means everything in that view is unplaced.
-- **Stale entry** (an element or name that is not in this view, or no longer exists): it is kept verbatim, never written by the app, and reported as the info problem `orphanLayout`.
+  - A view is drawn from the layout files of its children. No file is shared by two elements, so moving, resizing or placing two different elements touches two different files.
+- **Which gestures write it.**
+  - A layout-only Save (move, resize, bend points, behavior-layout moves) touches only `layouts/`, and a model edit never touches a layout file (spike E2).
+  - Creating an element writes its first position into its own, new layout file, next to its element file.
+  - Deleting an element deletes `elements/<id>.toml` and `layouts/<id>.toml`, and removes the bend points of the relationships that pointed to it from their sources' layout files.
+  - Re-parenting and reconnecting remove entries as §4.4 says. No entry ever moves between two layout files.
+- **Missing entry** means unplaced. ELK places it, and only unplaced elements are placed that way (UX brief). The position is written at the next Save. A missing file means the element and its inside are unplaced.
+- **Stale entry** (`orphanLayout`, info): a layout file whose stem names no element; a `[relationships.<id>]` entry that is not an outgoing relationship of this element; a `[behavior.*]` entry whose name is not in the element's behavior model. It is kept verbatim and never written by the app.
   - A merge that brings the element back later finds its position again.
   - The app removes an entry only as part of a gesture: delete, re-parent or reconnect.
-- Layout files hold only positions and sizes. A layout change never changes a CheckKey (ADR 0005, 0013) or the scan input hash (SR §3.9).
-- Entries are multi-line tables rather than one-line inline tables, because git conflicts on changes to adjacent lines (§15 S2). A blank line and a header between two entries keep moves of different elements mergeable.
-- The app deletes a layout file only when the element whose view it is gets deleted. Otherwise a file with no entries stays, holding `format = 1` and any comments.
+- Layout files hold only positions, sizes and bend points. A layout change never changes a CheckKey (ADR 0005, 0013) or the scan input hash (SR §3.9).
+- Entries are multi-line tables rather than one-line inline tables, because git conflicts on changes to adjacent lines (§15 S2). A blank line and a header between two entries keep edits of different entries mergeable.
+- The app deletes a layout file only when its element is deleted. Otherwise a file with no entries stays, holding `format = 1` and any comments.
+- `[position]` assumes that v1 draws each element in exactly one view. If a later version shows one element in several views, it becomes `[position.<view>]`, which is a format bump (ADR 0024).
 
 ## 8. Suppressions file `suppressions.toml` [S5]
 
@@ -668,7 +678,8 @@ date = 2026-11-02            # required: TOML local date, from the Clock port
 | `relationship:<rid>` | `elements/<source>.toml` | `relationships.<rid>`, including its `binding` array |
 | `property:<pid>` | `elements/<scope element>.toml` | the `[[property]]` entry whose `id = "<pid>"` |
 | `final:<id>` | `elements/<id>.toml` | `final` |
-| `layout:<view>/<id>` | `layouts/<view>.toml` | `elements.<id>` or `relationships.<id>` (one namespace, §4.2) |
+| `layout:<id>` | `layouts/<id>.toml` | `position` |
+| `layout:<rid>` | `layouts/<source>.toml` | `relationships.<rid>`, the bend points; elements and relationships share one namespace (§4.2), so `layout:<id>` never collides |
 | `behavior_layout:<id>` [S1] | `layouts/<id>.toml` | `behavior` |
 | `suppression:<key>` | `suppressions.toml` | the `[[suppression]]` entry whose `key` equals `<key>` |
 
@@ -681,7 +692,7 @@ date = 2026-11-02            # required: TOML local date, from the Clock port
 ### 9.2 Save file set
 
 - A file is written when at least one of its entities differs between the saved snapshot and the current snapshot. Entities are compared with `Arc::ptr_eq` first, then by value.
-- An element file is deleted when its element is deleted.
+- An element file and its layout file are deleted when their element is deleted.
 - A file whose rendered bytes equal its bytes on disk is not written.
 - Every write carries the hash the app last saw on disk (design §4). A file whose disk hash differs is skipped and reported as a conflict.
 - A file that did not load (§3.3) is never written or deleted.
@@ -752,7 +763,7 @@ The "Blocks" column says what the problem stops:
 | `behaviorNotLoaded` | SM-E10, SM-E12 | error | a schema or limit failure inside `[petri_net]` or `[state_machine]` | behavior (L1: "`<element>` has a behavior model that did not load") |
 | `noBehavior` | L1 | error | a child of a combined scope has no behavior model. Listed only when another child has one; with none at all, or for an own scope whose element has none, the key state is `nothingToCheck` (NS §6.6, D-13, flows R9) and nothing is reported. | scopes |
 | `noWhenFull` | L2 | error | a place without `when_full` | scopes |
-| `dangling` | L3 | error | `parent`, relationship `to` or an arc place names nothing | scopes. For `parent`: the element is shown in `_landscape`; when the parent's file did not load, §10.5 blocks that parent's combined scope. A predicate place that names nothing is a `property` problem (PL E2xx). |
+| `dangling` | L3 | error | `parent`, relationship `to` or an arc place names nothing | scopes. For `parent`: the element is shown in the landscape; when the parent's file did not load, §10.5 blocks that parent's combined scope. A predicate place that names nothing is a `property` problem (PL E2xx). |
 | `unknownPort` | L3 | error | a binding port that does not exist | scopes |
 | `unbound` | L4, SM-B07 | error | a transition port, or an input or output event, of a child is bound by no contributing relationship | scopes |
 | `notAPort` | L5, SM-B02 | error | a binding names a place, a place port, a state, an internal event, or a transition without `port = true` | scopes |
@@ -799,7 +810,9 @@ Some SM §8.3 rows are also editor invariants (SM-B01, SM-B02, SM-B04–B06); `m
 | `pre` / `post` keys | place in the same Petri net | `dangling` |
 | state machine `initial`, `final`, `from`, `to`, `event` | state or event in the same state machine | `smStructure` (SM-E03, SM-E09, SM-E06, SM-E07) |
 | predicate place, template parameter place | place in the scope (PL §4.3) | `property` (E201–E208) |
-| layout entry | element or relationship in that view; for a behavior layout, a name in that element's behavior model | `orphanLayout` (info) |
+| layout file stem | an element | `orphanLayout` (info) |
+| layout `[relationships.<rid>]` | a relationship whose source is this file's element | `orphanLayout` (info) |
+| layout `[behavior.*]` key | a name in this element's behavior model | `orphanLayout` (info) |
 | suppression key IDs | not checked at load; matched against findings at display time (SR §3.8) | — |
 
 ### 10.5 Effect on checks: never check a smaller net
@@ -825,13 +838,13 @@ Lowering fails with `ModelIncomplete` for every touched scope (design §6: "lowe
 
 - **An `Unloaded` behavior** blocks, through L1, the element's own scope and its parent's combined scope, and nothing else.
 - **On Reload or a disk change**, a file that loaded before keeps its last loaded version in memory. Checks run on that version, which is exactly what Save would write. The UX shows "Verdicts are for the last version that loaded" (V-BANNER-FNL).
-- A broken layout file only drops positions, and a broken suppressions file shows findings unsuppressed. Neither touches a scope.
+- A broken layout file only drops one element's positions and bend points, and a broken suppressions file shows findings unsuppressed. Neither touches a scope.
 
 ## 11. Writing: canonical writer and comment preservation
 
 ### 11.1 Canonical form (new files, new entities, new keys)
 
-1. UTF-8 without a BOM, and LF line endings in new files. A final newline; no trailing whitespace; no tabs.
+1. UTF-8 without a BOM, and LF line endings in new files. **The text ends with a newline followed by one empty line** (`…\n\n`; `…\r\n\r\n` in a CRLF file, §11.3), so a table appended at the end never sits next to an edited last line (ADR 0024, §15 S21). No trailing whitespace on any line; no tabs.
 2. Key order:
    - element file: `format, kind, name, parent, technology, description, replicas, zones, service`, then the tables in this order: `petri_net` or `state_machine`, `relationships.*`, `[[property]]`, `final`;
    - Petri net: all `places.*` (`name, capacity, when_full, initial, port`), then all `transitions.*` (`name, port, pre, post`);
@@ -839,11 +852,11 @@ Lowering fails with `ModelIncomplete` for every touched scope (design §6: "lowe
    - relationship: `to, meaning, technology, description, interaction, timeout`, then its `[[…binding]]` pairs (`mode, from, to, capacity, when_full`);
    - property: as in PL §9.2 (`id, label, behavior, kind, predicate, template, template_version`, then the parameters alphabetically);
    - `final`: `combined, own`;
-   - layout file: `format`, then `elements.*` (`x, y, w, h`), `relationships.*` (`points`), `behavior.*`;
+   - layout file: `format`, then `position` (`x, y, w, h`), `relationships.*` (`points`), `behavior.*`;
    - suppression: `key, disposition, reason, date`;
    - `arch.toml`: `format`, `budget` (`time_ms, max_markings`).
 3. Sorting:
-   - keyed tables in a group (places, transitions, states, events, relationships, layout entries) bytewise by key;
+   - keyed tables in a group (places, transitions, states, events, relationships, relationship and behavior entries in a layout file) bytewise by key;
    - `[[property]]` entries by `id`;
    - `[[suppression]]` entries by `key`;
    - binding pairs by `mode`, then `from`, then `to`.
@@ -876,6 +889,8 @@ The session keeps one `DocumentMut` per file (design §3). Save edits it in plac
 6. A changed inline table (`pre`, `post`) is rebuilt canonically, and the decor of the inline table value as a whole is kept.
 7. A changed predicate string is replaced verbatim with what the user typed.
 8. The writer never reorders existing keys or tables, never reformats untouched values, and never changes quoting, number styles or TOML 1.1 syntax that the user chose.
+9. **The empty last line stays last** (§11.1 rule 1). In a parsed file, the empty last line is whitespace after the last item, which toml_edit is expected to keep as the document's trailing decor (`DocumentMut::trailing`) and to render after every table. A table, array entry or key appended at the end (rules 3 and 4) is then rendered before it, with its own one blank line of prefix decor, and the file ends in `…\n\n` with the same bytes as §11.1 gives. When Save writes a file whose rendered text does not end with an empty line (hand-edited, or trimmed by an editor), the writer appends the missing line breaks in the file's style (§11.3); that is the only change it makes outside an edited entity.
+   - **Not verified.** Spike E2 ran only the canonical writer, so slice 0 must test that toml_edit 0.25 keeps the empty last line when it appends a table, an array entry and a key (§16). If it does not, the writer sets the trailing decor itself before rendering.
 
 ### 11.3 Line endings
 
@@ -885,7 +900,7 @@ toml_edit renders a parsed CRLF file with LF line breaks (§19). A Windows check
 - After rendering, every line break is converted to that style.
 - The file hash is computed over the bytes written.
 - A file with mixed line endings is written in the style of its first line break.
-- Nothing else is normalized.
+- Apart from the empty last line (§11.2 rule 9), nothing else is normalized.
 
 ### 11.4 Atomic writes
 
@@ -934,7 +949,7 @@ Migrated values become the `saved` snapshot. So migrating alone makes nothing di
 - **The files that one project step touched are written together.** If any of them is skipped by a conflict or a failed write, none of them is written in that Save, and they all stay dirty.
 - Mixed formats in one project are legal, because every file states its own.
 
-This keeps a format bump from rewriting 2,000 files in one commit, and it lets a merge combine a migrated branch with an old one (§15 S14).
+This keeps a format bump from rewriting about 4,000 files in one commit, and it lets a merge combine a migrated branch with an old one (§15 S14).
 
 ### 12.4 Obligations per format bump (ADR 0001, FMT-1, TEST-3)
 
@@ -1023,7 +1038,7 @@ Because an image has the shape of a file, journal migration reuses the file migr
 
 **Applying an image** replaces exactly that entity in `file`. For array entries this is the entry with the same `id` or `key`, inserted at its sorted position if absent. Applying an image also **removes the entity from any other file** where it is, so a relationship whose source was reconnected never ends up in two files.
 
-**Deleting an element.** A `deleted` image of `element:<id>` deletes the file `elements/<id>.toml`, and with it every entity in that file; the writer does not image those contained entities separately. Entities of the element that live in other files are imaged explicitly: its layout entry, its behavior layout, and relationships that point to it.
+**Deleting an element.** A `deleted` image of `element:<id>` deletes the files `elements/<id>.toml` and `layouts/<id>.toml`, and with them every entity in those files: its behavior, outgoing relationships, properties and final predicate, its position, the bend points of its outgoing relationships and its behavior layout. The writer does not image those contained entities separately. A `deleted` image of `layout:<id>` alone (a re-parent) removes only `[position]` and keeps the file. Entities of the element that live in other files are imaged explicitly: relationships that point to it, and their bend points in their sources' layout files.
 
 ### 13.4 Writer rules
 
@@ -1074,7 +1089,7 @@ After-images are idempotent. A torn Save, in which some files hold new bytes and
 
 ### 13.7 Example journal
 
-The lengths and hashes after `@record` are illustrative and shortened; real hashes have 64 hex digits. The `[files]` table of the base is elided. A real base lists all 14 files of §14, and a base that omits a file on disk would always mismatch in §13.5 step 3.
+The lengths and hashes after `@record` are illustrative and shortened; real hashes have 64 hex digits. The `[files]` table of the base is elided. A real base lists all 18 files of §14, and a base that omits a file on disk would always mismatch in §13.5 step 3.
 
 ```text
 petrinet-journal 1
@@ -1091,8 +1106,8 @@ created = 2026-11-02T14:03:11Z
 [files]
 "arch.toml" = "b3:6f1c…"
 "elements/fe1.toml" = "b3:0a9e…"
-"layouts/cognito.toml" = "b3:41d2…"
-# … 11 more files elided in this example
+"layouts/users.toml" = "b3:41d2…"
+# … 15 more files elided in this example
 ```
 ```text
 @record 498 c07b…
@@ -1140,11 +1155,6 @@ label = "Delete Users (stand-in)"
 entity = "element:users"
 file = "elements/users.toml"
 deleted = true
-
-[[images]]
-entity = "layout:cognito/users"
-file = "layouts/cognito.toml"
-deleted = true
 ```
 ```text
 @record 151 a4c2…
@@ -1157,10 +1167,10 @@ rev = 2
 [writes]
 "elements/fe1.toml" = "b3:77c0…"
 "elements/users.toml" = "deleted"
-"layouts/cognito.toml" = "b3:9b13…"
+"layouts/users.toml" = "deleted"
 ```
 
-Deleting `elements/users.toml` also deletes `behavior:users` and `relationship:sign-in`, which live in that file (§13.3). If the app dies after `save_begin`, restore accepts each of the three written files at either its base hash or its `writes` hash (step 3), and every other file at its base hash. N = 2.
+The `element:users` image deletes `elements/users.toml` and `layouts/users.toml`, and with them `behavior:users`, `relationship:sign-in` and `layout:users` (§13.3). Nothing else is imaged: `users` has no incoming relationship, and `sign-in` has no bend points. If the app dies after `save_begin`, restore accepts each of the three written files at either its base hash or its `writes` hash (step 3), and every other file at its base hash. N = 2.
 
 ## 14. Complete example: E5 case 2 (Kinesis), before the fix
 
@@ -1178,13 +1188,16 @@ The E5 case `docs/product/experiments/e5/case2_kinesis_bad.toml`, written in for
 - IDs use hyphens where natural (`fe-peers`, `membership-updates`); NS §13.2 writes the same design with underscores and `r1`–`r4`. Both are valid IDs (§4.1); only the bytewise transition order differs, and §19 re-ran the explorer on these IDs.
 - The built-in properties are explicit entries (PL §9.2).
 - The comments in `arch.toml`, `fe1.toml` and `cognito-web.toml` are user comments, which the writer keeps (§11.2).
+- Every placed element has its own layout file (§7, ADR 0024). `cognito` and `kinesis-data-streams` have no parent, so their `[position]` is in the landscape.
+- Each block below shows a file without its empty last line: the file on disk is the block's text followed by one more line break (§11.1 rule 1).
 
 ```text
 kinesis-incident/
   arch.toml
   elements/cognito.toml  cognito-web.toml  fe-peers.toml  fe1.toml
            kinesis-api.toml  kinesis-data-streams.toml  membership.toml  users.toml
-  layouts/_landscape.toml  cognito.toml  fe1.toml  kinesis-data-streams.toml
+  layouts/cognito.toml  cognito-web.toml  fe-peers.toml  fe1.toml
+          kinesis-api.toml  kinesis-data-streams.toml  membership.toml  users.toml
   suppressions.toml
 ```
 
@@ -1447,59 +1460,40 @@ pre = { up = 1 }
 post = { up = 1 }
 ```
 
-`layouts/_landscape.toml`
-```toml
-format = 1
-
-[elements.cognito]
-x = 480
-y = 0
-
-[elements.kinesis-data-streams]
-x = 0
-y = 0
-```
-
-`layouts/kinesis-data-streams.toml`
-```toml
-format = 1
-
-[elements.fe-peers]
-x = 0
-y = 160
-
-[elements.fe1]
-x = 320
-y = 80
-
-[elements.membership]
-x = 0
-y = 0
-
-[relationships.membership-updates]
-points = [[160, 40], [320, 40]]
-```
-
 `layouts/cognito.toml`
 ```toml
 format = 1
 
-[elements.cognito-web]
-x = 240
-y = 0
-
-[elements.kinesis-api]
+[position]
 x = 480
 y = 0
+```
 
-[elements.users]
-x = 0
+`layouts/cognito-web.toml`
+```toml
+format = 1
+
+[position]
+x = 240
 y = 0
+```
+
+`layouts/fe-peers.toml`
+```toml
+format = 1
+
+[position]
+x = 0
+y = 160
 ```
 
 `layouts/fe1.toml`
 ```toml
 format = 1
+
+[position]
+x = 320
+y = 80
 
 [behavior.places.map_entries]
 x = 200
@@ -1516,6 +1510,45 @@ y = 120
 [behavior.transitions.receive_info]
 x = 200
 y = 120
+```
+
+`layouts/kinesis-api.toml`
+```toml
+format = 1
+
+[position]
+x = 480
+y = 0
+```
+
+`layouts/kinesis-data-streams.toml`
+```toml
+format = 1
+
+[position]
+x = 0
+y = 0
+```
+
+`layouts/membership.toml`
+```toml
+format = 1
+
+[position]
+x = 0
+y = 0
+
+[relationships.membership-updates]
+points = [[160, 40], [320, 40]]
+```
+
+`layouts/users.toml`
+```toml
+format = 1
+
+[position]
+x = 0
+y = 0
 ```
 
 `suppressions.toml`
@@ -1618,45 +1651,67 @@ Each scenario was run with git 2.43.0 (default `ort` strategy) on the example pr
 
 "Clean" means git merged without a conflict. Scenarios marked "reasoned" were not run.
 
+S1–S20 were run on the revision 3 format: one layout file per view, and files ending in a single newline. Revision 4 changes both (ADR 0024). Spike E2 (`docs/product/experiments/e2-toml-merge.md`) re-ran the layout and end-of-file cases on the new format (its variant "+ both", git 2.43.0, `myers` and `histogram` alike); rows whose outcome changed say so and name the E2 scenario. S21 is new from E2.
+
 | # | Concurrent edits (main / b) | Git | What the app does afterwards |
 |---|---|---|---|
-| S1 | Move `fe1` / move `fe-peers` in the same view | clean | Loads. Layout only, so no CheckKey changes. |
-| S2 | Move `fe1` in x / move `fe1` in y | **conflict** (adjacent lines) | The user picks. Layout only. |
+| S1 | Move `fe1` / move `fe-peers` in the same view | clean | Loads. Layout only, so no CheckKey changes. Revision 4: two different files, `layouts/fe1.toml` and `layouts/fe-peers.toml` (E2 5a). |
+| S2 | Move `fe1` in x / move `fe1` in y | **conflict** (adjacent lines) | The user picks. Layout only. Revision 4: the same, in `layouts/fe1.toml` (E2 5b). |
 | S3 | Place capacity in `fe1.toml` / async pair capacity in `membership.toml` | clean | Loads; checks run on the combined design. |
 | S4 | Place capacity in `fe1.toml` / new relationship in `fe1.toml` | clean | Loads. Same file, different entities, separated by headers. |
 | S5a | Two new relationships from `membership` whose IDs sort to different places | clean | Loads |
-| S5b | Two new relationships from `membership` that both sort to the end | **conflict** (same insertion point) | Keep both tables; the loader validates the result. |
-| S6a | Two new layout entries in one view that sort apart | clean | Loads. The scripted test added only the layout entries, so both are `orphanLayout`; with the element files added too, nothing is reported. |
-| S6b | New layout entries `fe2` / `fe3`, both sorting before `membership` | **conflict** (same insertion point) | Keep both |
+| S5b | Two new relationships from `membership` that both sort to the end | **conflict** (same insertion point) | Rebuild both tables from the two sides (below); the loader validates the result. Revision 4: still a conflict (E2 3c); it stays until the merge driver (D-19). |
+| S6a | Two new layout entries in one view that sort apart | clean | Loads. The scripted test added only the layout entries, so both are `orphanLayout`; with the element files added too, nothing is reported. Revision 4: two new files (E2 3a). |
+| S6b | New layout entries `fe2` / `fe3`, both sorting before `membership` | **conflict** (same insertion point) | Revision 4: **clean**. Each new element brings its own layout file, so no file is shared (E2 3b). In revision 3, keeping both sides of the hunk lost a line (below). |
 | S7 | Delete `fe-peers` / edit `fe-peers` | **conflict** (modify/delete) | Correct: the user decides. |
 | S8 | Delete `membership` / add a relationship from `fe1` to `membership` | clean | A `dangling` relationship `to`. This script also leaves `orphanLayout` entries, which the app's delete would have removed. The touched scope fails lowering (L3) and is never checked smaller. |
 | S9 | Both create an element named "Billing" | **conflict** (add/add `elements/billing.toml`) | Both picked the same slug. If both are wanted, rename one file, which changes that ID (§4.4). |
 | S10 | Display rename of `fe1` / its capacity | clean | Loads. Only the capacity changes CheckKeys. |
 | S11 | The same capacity changed to 8 / to 6 | **conflict** | Correct |
 | S12a | Two suppressions whose keys sort apart | clean | Loads |
-| S12b | Two suppressions that both sort to the end | **conflict** (same insertion point) | Keep both entries |
+| S12b | Two suppressions that both sort to the end | **conflict** (same insertion point) | Rebuild both entries from the two sides (below) |
 | S13a | Two `[[property]]` entries on one element whose IDs sort apart | clean | Loads |
-| S13b | Two `[[property]]` entries that both sort to the end | **conflict** (same insertion point) | Keep both entries |
+| S13b | Two `[[property]]` entries that both sort to the end | **conflict** (same insertion point) | Rebuild both entries from the two sides (below) |
 | S14 | (reasoned) One branch upgrades `fe1.toml` to format 2; the other edits `membership.toml` | clean | Mixed formats are legal (§12.3). |
 | S15 | Both branches add a relationship `feed`, from different source elements | clean | `duplicateId`: neither enters the model, and every scope that could contain either is blocked until one is renamed (§10.3). |
 | S16 | Conflict markers committed by mistake | — | `parse` (checked with toml_edit 0.25.17 and Python `tomllib`). The file does not load, and §10.5 applies, so there is no wrong verdict. |
-| S17 | Two new binding pairs appended to the same relationship | **conflict** (same insertion point) | Keep both pairs; the loader checks L8 and L12. |
+| S17 | Two new binding pairs appended to the same relationship | **conflict** (same insertion point) | Rebuild both pairs from the two sides (below); the loader checks L8 and L12. |
 | S18 | Edit the predicate of one property / add a property that sorts before it in the same file | clean | Loads |
 | S19 | Display rename of place `fe1/peer_threads` / a new property that names `fe1/peer_threads` | clean | Loads. A display rename never changes the ID, so the new reference resolves. Revision 1's ID-changing place rename would have left it dangling. |
 | S20 | Change the `to` port of the `sign-in` pair / change the `initial` of `users/want` in the same file | clean | Loads. In this script the new pair targets `cognito-web/flush`, so lowering then reports L4 for `cognito-web/auth` and L7 for `cognito-web/flush`. The semantic checks run on every merge result. |
+| S21 | Edit the last line of a file / append a table after it: the last value of `fe1.toml` and a new relationship from `fe1` (E2 2e); in revision 3 also a move of the last layout entry and a new entry after it (E2 5f) | revision 3: **conflict** (adjacent lines); revision 4: clean | Revision 4: the empty last line (§11.1 rule 1) is an unchanged line between the edit and the append, as a blank line already is in the middle of a file (S4). |
+
+**Resolving an insertion conflict.** Do not just delete the conflict markers and keep both sides of the hunk. Git shrinks a conflict hunk by moving lines that both sides share out of it, so a block can lose a line. E2 3b, on the revision 3 layout, gave:
+
+```text
+<<<<<<< HEAD
+[elements.audit]
+x = 0
+=======
+[elements.billing]
+x = 320
+>>>>>>> b
+y = 320
+```
+
+Keeping both sides leaves `audit` without its `y`. Instead, rebuild each block whole from its own side: copy it from `git show :2:<path>` (ours) and `git show :3:<path>` (theirs), or take one side's file with `git checkout --ours <path>` and redo the other side's addition in the app. What a mistake costs depends on the file:
+
+- **A layout file** that then does not load leaves that element's position and bend points unplaced (§3.3). ELK places them again. It is never a wrong verdict.
+- **An element file** with a lost line either fails to load or reports a model problem when the line held a required key (§3.3, §10.3), and §10.5 blocks the scopes it could change. A lost line that held an optional key with a default (an async pair's `when_full`, for example) loads as the default instead, which is a different model. Review the merged file before running a check.
 
 **Conclusions.**
 
 - Edits to **different files always merge**.
 - Edits to **different entities in one file merge** as long as at least one unchanged line separates them. Multi-line tables with a header between entities guarantee this, for keyed tables and for arrays of tables alike. One-line inline entries would not, because git treats changes on adjacent lines as a conflict (S2).
+- Since revision 4, no file is shared by two elements' layouts, and an append at the end of a file is separated from the last value line by the empty last line (S6b, S21; E2: 17 of 18 disjoint edit pairs merge clean, and every clean merge was byte-identical to the writer's output for both edits).
 - The remaining conflicts are:
-  - **insertions at the same sorted position** (S5b, S6b, S12b, S13b, S17);
+  - **insertions at the same sorted position inside one file** (S5b, S12b, S13b, S17): two new relationships, properties, suppressions or binding pairs in one file whose IDs sort into the same gap;
   - real conflicts (S2, S7, S9, S11).
 
-  Sorting by ID spreads insertions; appending at the end would make every concurrent addition conflict. Resolving an insertion conflict means keeping both blocks, and the loader then checks the result.
+  Sorting by ID spreads insertions; appending at the end would make every concurrent addition conflict. Resolve an insertion conflict by rebuilding both blocks (above), and the loader then checks the result. No further file split is planned for these: one file per relationship was rejected in §6.7, and it would not cover properties, suppressions or binding pairs (ADR 0024).
 - **Textually clean but semantically broken** merges (S8, S15, S20) are caught by the loader or by lowering, and §10.5 keeps them from producing a smaller net.
 - Verdicts are never stored (ADR 0005), so a merge can never bring in a stale Proved; every check runs again on open.
-- A custom git merge driver that merges per entity (`petrinet merge-file %O %A %B`) would make the insertion conflicts clean. It is not in v1 (D-19, ADR 0020); revisit after slice 3 if the dogfooding journal shows insertion conflicts more than once a month.
+- A custom git merge driver that merges per entity (`petrinet merge-file %O %A %B`) would make the insertion conflicts clean. It is tooling, not format, so it can come after the freeze. It is not in v1 (D-19, ADR 0020); revisit after slice 3 if the dogfooding journal shows insertion conflicts more than once a month.
 - Recommended for user repositories (documented, not written by the app): `*.toml text eol=lf` in `.gitattributes`. Then §11.3 rarely has to restore CRLF at all.
 
 ## 16. Tests the `format` crate must have
@@ -1668,8 +1723,13 @@ Each scenario was run with git 2.43.0 (default `ort` strategy) on the example pr
   - A proptest covers random models, including state machines, multiple binding pairs and template properties.
   - A no-op render of every golden file equals its bytes, in LF and in CRLF (TEST-3, FMT-3).
 - **Writer snapshots** (TEST-3): insta snapshots of the canonical writer for every file kind.
+- **Empty last line** (§11.1 rule 1, §11.2 rule 9, ADR 0024). Slice 0 must have this test, because E2 did not run toml_edit:
+  - every file the canonical writer renders ends with `\n\n` (`\r\n\r\n` for a CRLF file);
+  - with the in-place writer (toml_edit 0.25), appending a keyed table, an array-of-tables entry and a key at the end of an existing file keeps the empty line last and gives the same bytes as the canonical writer;
+  - a file without the empty line gets it back when Save writes the file, and nothing else outside the edited entity changes.
+- **Layout files** (§7): a move, resize, bend-point edit or behavior-layout move changes only the layout file of the element moved (for bend points, of the relationship's source); creating an element writes `elements/<id>.toml` and `layouts/<id>.toml`, and deleting it deletes both; a top-level element's `[position]` is drawn in the landscape; `layouts/_landscape.toml` is `schema` "file name is not a valid ID"; a layout file whose stem names no element, and a `[relationships.<rid>]` entry in a file that is not `<rid>`'s source, are `orphanLayout` and kept verbatim.
 - **Comment survival:** add a comment, edit a value in the same table, save; the comment is still there. This covers the decor copy of §11.2 rule 2, which a naive assignment breaks.
-- **Insertion position:** a new place, relationship, layout entry, property, suppression or binding pair lands at its sorted position. In an unsorted hand-written group, the new item goes at the end.
+- **Insertion position:** a new place, relationship, relationship or behavior entry in a layout file, property, suppression or binding pair lands at its sorted position. In an unsorted hand-written group, the new item goes at the end.
 - **Strictness per section:** every misspelled key in a fixture gives the right problem, line and suggestion, and fails exactly the unit of §3.3:
   - element level → the file does not load;
   - behavior → `Unloaded` (SM V-19);
@@ -1704,13 +1764,14 @@ Each scenario was run with git 2.43.0 (default `ort` strategy) on the example pr
   - a journal golden per format version;
   - `TryLockError::WouldBlock` gives a read-only session, and `TryLockError::Error` gives a journaled one.
 - **Merge corpus** (in CI, where git is available): the S-scenarios of §15 as tests.
-  - S1, S3, S4, S5a, S6a, S10, S12a, S13a, S18 and S19 must merge clean, so a writer change cannot quietly make the format less mergeable.
+  - S1, S3, S4, S5a, S6a, S6b, S10, S12a, S13a, S18, S19 and S21 must merge clean, so a writer change cannot quietly make the format less mergeable.
+  - The E2 scenarios, rewritten for revision 4: every disjoint pair except 3c merges clean, and the merged tree is byte-identical to the writer's output for the model with both edits; every layout gesture touches only `layouts/`.
   - S8, S15 and S20 must produce `dangling`, `duplicateId` and the L4/L7 lowering failure respectively, and block lowering, so a broken merge is never checked.
 - **Oracle** (design §8): every derived value of a session after random edits equals the same function on a model loaded fresh from the rendered files.
 
 ## 17. Decisions applied, amendments and follow-ups
 
-### 17.1 Decisions applied in revision 3
+### 17.1 Decisions applied in revisions 3 and 4
 
 | Decision | What it changes here | Section |
 |---|---|---|
@@ -1726,14 +1787,15 @@ Each scenario was run with git 2.43.0 (default `ort` strategy) on the example pr
 | D-18 (ADR 0020, ADR 0021) | `suppressions.toml` in ADR 0001's file list; dispositions `accepted` / `not-real`; interaction stated by the user, never set by bindings | §6.7, §8 |
 | D-30, D-33 | "assumption" only for relationships; one kind spelling per layer | §6.7, §6.8 |
 | D-37 | per-file `FormatVersion`, per-entity conflicts, read-only session are in design §3–§5 | §9.3, §12.1, §13.1 |
+| D-70 (ADR 0024), revision 4 | one layout file per element, `layouts/_landscape.toml` removed; every file ends with an empty line; insertion conflicts are rebuilt, not kept on both sides; open time measured at 4,000 files | intro, §0 F1, F9, F12, §1, §2.1–§2.3, §3.3, §3.5, §4.1–§4.4, §6.1, §7, §9.1, §9.2, §10.3–§10.5, §11.1–§11.3, §12.3, §13.3, §13.7, §14, §15, §16, §19 |
 
-The journal format (§13) and the canonical writer (§11) are unchanged: no decision touches them. Format 1 is not yet frozen (§12.5), so none of these changes needs a migration.
+Revision 3 changed neither the journal format (§13) nor the canonical writer (§11). Revision 4 changes the canonical writer (the empty last line, §11.1 rule 1; the layout key order, rule 2) and the layout entity keys that journal images use (§9.1, §13.3); the journal's framing and records are unchanged. Format 1 is not yet frozen (§12.5), so none of these changes needs a migration.
 
 ### 17.2 Amendments in force
 
 The proposals of revision 2 are decided and recorded; this spec no longer proposes an ADR change.
 
-- **ADR 0001 file list** (revision 2 A1): ADR 0020 adds `suppressions.toml`, `layouts/_landscape.toml` and the per-file `format`.
+- **ADR 0001 file list** (revision 2 A1): ADR 0020 adds `suppressions.toml`, `layouts/_landscape.toml` and the per-file `format`. ADR 0024 then replaces the per-view layout files and `layouts/_landscape.toml` with one layout file per element, and adds the empty last line (D-70).
 - **NS §2.2 slug narrowing** (A2): ADR 0020 and NS §2.2 revision 3 (D-12).
 - **CODING_STANDARDS FMT-1, unknown element kind** (A3) and **FMT-2, temp-file name** (A4): applied in `CODING_STANDARDS.md` (D-36).
 - **Design §3–§5** (A5): per-file `FormatVersion` (`Model.versions`), per-entity reload conflicts, `EntityChange` keyed by §9.1, read-only session (D-37, done).
@@ -1763,6 +1825,8 @@ Closed before revision 2 and still valid: built-ins are explicit entries (D-20);
 
 ## 19. How this spec was checked (2026-11-02)
 
+**Revision 4 (2026-11-02).** The §14 layout files were rewritten for one file per element (8 layout files, 18 files in all), with the same positions, bend points and behavior layout as revision 3; no element file changed, so the verdicts and the load report stand. The merge claims of revision 4 come from spike E2 (§15), which ran its own canonical writer from §11.1 on a mock of §14 plus one state machine element, with git 2.43.0. All TOML blocks of this document were parsed again with Python 3.12 `tomllib`. Not verified: that toml_edit 0.25 keeps the empty last line when it appends (§11.2 rule 9, a slice 0 test), CRLF files and `core.autocrlf` in merges, and open time at 4,000 files (a slice 0 measurement).
+
 **Revision 3 re-run.** The §14 files were extracted from this document by a script, written to a temp directory and checked again by a throwaway reader and explorer (Python 3.12, `tomllib`, run with `-I`, not in the repo) under the revision 3 rules: L11 per pair in either direction, L12 by bare names, L7 with at most one async pair per port, L4, L5, L9 on the stored predicate and the final predicate, children by `parent`, and deadlock with F = none and with F = `users/signed_in = 4`. Results, all equal to §14: Kinesis 8 places, |R| 330, |O| 21, first overflow at stored 176 after 10 steps on `fe1/peer_threads` (5 of 4), no deadlock, always-reachable `fe1/map_entries = 5` Bad = ∅; Cognito 6 places, |R| 24, |O| 0, deadlock after 3 steps at stored 7 with both values of F; the block variant 5 places, no `overflow` place (so the certificate applies, `drop_places = []`), the same 3-step deadlock with the waiting payload of §14. All 28 TOML blocks of this document parse. The TOML of the §14 files did not change in revision 3, so the merge results of §15 and the toml_edit measurements below stand.
 
 Revision 2 checks:
@@ -1791,7 +1855,7 @@ Revision 2 checks:
 - **Journal framing:** a Python prototype of §13.2, with SHA-256 standing in for BLAKE3, recovered the correct prefix at all 361 truncation offsets of a 3-record journal. With one bit flipped, it stopped at that record as damaged.
 - **All TOML literals** in this document were parsed with `tomllib`. The journal example's elided `…` hashes are strings, so they parse.
 - **Not verified:**
-  - load time at 2,000 files (E4);
+  - load time at about 4,000 files (revision 4; a slice 0 measurement, `docs/product/v1-slices.md`);
   - Windows path lengths, rename retries and `File::try_lock` behavior on Windows (E3);
   - Tauri's `appDirectoriesOverride` behavior (taken from the researcher's citation of the Tauri `PathResolver` docs);
   - the restore algorithm end to end (no session code exists);

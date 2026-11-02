@@ -1,6 +1,6 @@
 # v1: walking skeleton and next slices
 
-As of 2026-11-02; applies `docs/specs/decisions.md` (D-01 to D-68) and `docs/specs/net-semantics.md` revision 3. Each slice cuts through UI, Tauri commands, `engine`, `verify`, `recheck` and `format`, is demoable on its own and ends in a dogfooding session on a real design. Order follows `opportunity-solution-tree.md`; E5 (paper replay) and the four spikes E1–E4 run before slice 0 code. **[proposal]** marks a sequencing choice that needs the product owner's yes. Terms follow `GLOSSARY.md`.
+As of 2026-11-02; applies `docs/specs/decisions.md` (D-01 to D-70) and `docs/specs/net-semantics.md` revision 3. Each slice cuts through UI, Tauri commands, `engine`, `verify`, `recheck` and `format`, is demoable on its own and ends in a dogfooding session on a real design. Order follows `opportunity-solution-tree.md`; E5 (paper replay) and the four spikes E1–E4 run before slice 0 code. **[proposal]** marks a sequencing choice that needs the product owner's yes. Terms follow `GLOSSARY.md`.
 
 ## Slice 0: walking skeleton, "find a deadlock between components I drew"
 
@@ -14,6 +14,7 @@ As of 2026-11-02; applies `docs/specs/decisions.md` (D-01 to D-68) and `docs/spe
 - Verdict panel: one verdict per property, with scope and assumptions. Proved: technique and number of reachable markings, or the "no overflow place" certificate with the drop places named (D-03). Disproved: replay step by step with involved elements highlighted (NS §6.7 rule, D-34), plus the steps as text. Unknown, with its reason and a next step: model incomplete, property cannot be checked (user properties, no dead transitions or templates already in a file; D-54), internal disagreement, internal error, budget exhausted, budget exhausted while re-checking, capacity exceeded first (with its run replayable) (D-08). Nothing to check when no child has a behavior model (D-13). Pending re-evaluation after an edit.
 - Explicit Save to the TOML directory with an unsaved-changes marker; open an existing project.
 - Dev-only differential corpus (E1) in CI: block encoded as complement places, drop nets excluded; a corpus disagreement fails CI and never feeds a verdict (D-35).
+- Dev-only measurement (E2, D-70, ADR 0024): project open time on a generated project of 2,000 elements with one element file and one layout file each (about 4,000 files) on an SSD, against the file-format §2.3 target of under 1 s. It is recorded with the slice; it is not a user-facing acceptance criterion.
 
 **Acceptance criteria:**
 - Given two sibling elements whose ports take two locks in opposite order, When the user checks deadlock-free, Then the verdict is Disproved and the replay ends in the marking where both wait, with both elements highlighted.

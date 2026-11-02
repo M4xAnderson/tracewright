@@ -345,10 +345,10 @@ Core crates are library code, so Google's API rules bind them (API-1). `app/src-
   - Element, relationship, view and property IDs are lowercase, start with a letter, do not end in `-`, have at most 48 characters and are never a Windows device name. Names inside a behavior model keep their case, contain no `__` and do not end in `-`. None is `and`, `or` or `not`. Display names keep any case.
   - The slug generator never reissues an ID that anything still references.
   - The writer is canonical: deterministic order (sorted keys, `BTreeMap`, no `HashMap` iteration in output) and explicit serde attributes.
-  - Layout goes only into the per-view layout files.
+  - Layout goes only into the layout files, one per element (`layouts/<id>.toml`).
   - Reading and writing an unchanged project produces byte-identical files (TEST-3).
 
-  (ADR 0001, ADR 0020, TigerStyle)
+  (ADR 0001, ADR 0020, ADR 0024, TigerStyle)
 
   Why: stable IDs and canonical output keep a git diff limited to the change the user made, and a rename that rewrites IDs touches every file that references the element.
 
