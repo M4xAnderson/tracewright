@@ -2,13 +2,14 @@
 //!
 //! `load` turns the bytes of the project files into a `Model`; it does no IO itself, so the engine
 //! reads the directory through its `Disk` port and tests use files in memory. So far the reader is
-//! strict: anything it does not read yet (state machines, scan attributes, templates, layout) or
-//! any schema defect makes the project not load, so a check never runs on a smaller net
+//! strict: anything it does not read yet (state machines, scan attributes, templates) or any
+//! schema defect of an element file makes the project not load, so a check never runs on a smaller net
 //! (file-format §10.5). The per-section problems of file-format §3.3 and §10 replace that with the
 //! Problems list in a later slice 0 ticket.
 #![forbid(unsafe_code)]
 
 mod element;
+mod layout;
 mod read;
 
 use std::collections::BTreeMap;
@@ -17,6 +18,7 @@ use tracewright_model::ElementId;
 use tracewright_model::Model;
 use tracewright_model::id::IdError;
 
+pub use layout::LAYOUT_FILE_BYTES_MAX;
 pub use read::read_dir;
 
 /// The format version this build reads and writes (file-format §3.2).
@@ -147,7 +149,8 @@ pub enum LoadError {
 }
 
 /// Reads a project from its files. Files outside the project set (file-format §2.1) are
-/// ignored; layout files are not read yet.
+/// ignored. A layout file that does not load, or names no element, leaves no layout
+/// (file-format §3.3, §7).
 ///
 /// # Errors
 ///
@@ -155,11 +158,14 @@ pub enum LoadError {
 pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
     let mut arch = None;
     let mut elements = BTreeMap::new();
+    let mut layouts = Vec::new();
     for file in files {
         if file.path == "arch.toml" {
             arch = Some(file);
-        } else if let Some(stem) = element_stem(&file.path) {
+        } else if let Some(stem) = stem_in("elements/", &file.path) {
             elements.insert(stem, file);
+        } else if let Some(stem) = stem_in("layouts/", &file.path) {
+            layouts.push((stem, file));
         }
     }
     let arch = arch.ok_or(LoadError::NotAProject)?;
@@ -191,12 +197,34 @@ pub fn load(files: &[ProjectFile]) -> Result<Model, LoadError> {
         }
     }
     check_namespaces(&model)?;
+    for (stem, file) in layouts {
+        read_layout(&mut model, stem, file);
+    }
     Ok(model)
 }
 
-// `elements/<stem>.toml`, not a dotfile.
-fn element_stem(path: &str) -> Option<&str> {
-    let name = path.strip_prefix("elements/")?;
+// file-format §3.3: a layout file that does not load leaves its element unplaced and touches
+// nothing else; one whose stem names no element is an orphan (§7), kept on disk and not read.
+fn read_layout(model: &mut Model, stem: &str, file: &ProjectFile) {
+    let Ok(id) = ElementId::parse(stem) else {
+        return;
+    };
+    if !model.elements.contains_key(&id) {
+        return;
+    }
+    let loaded = text(file, LAYOUT_FILE_BYTES_MAX).and_then(|text| layout::read(&file.path, text));
+    match loaded {
+        Ok(layout) => {
+            model.layouts.insert(id, layout);
+        }
+        // The element stays unplaced; the canvas places it (file-format §7, "missing entry").
+        Err(_unplaced) => {}
+    }
+}
+
+// `<folder><stem>.toml`, not a dotfile and not in a subfolder.
+fn stem_in<'p>(folder: &str, path: &'p str) -> Option<&'p str> {
+    let name = path.strip_prefix(folder)?;
     if name.contains('/') || name.starts_with('.') {
         return None;
     }
