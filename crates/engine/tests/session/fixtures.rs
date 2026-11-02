@@ -114,6 +114,36 @@ fn worker_pool() {
 }
 
 #[test]
+fn producer_consumer_drop() {
+    // Both kinds of drop place: the generated place of `orders` and a place inside Billing. The
+    // view is the producer-consumer view, because when full is not part of it.
+    let disk = MemDisk::fixture("producer-consumer")
+        .edit(
+            "elements/api.toml",
+            "capacity = 3\n",
+            "capacity = 3\nwhen_full = \"drop\"\n",
+        )
+        .edit(
+            "elements/billing.toml",
+            "when_full = \"block\"",
+            "when_full = \"drop\"",
+        );
+    let (_, events) = write("producer-consumer-drop", &disk);
+    assert_eq!(
+        verdict_event(&events, "no-overflow")["verdict"],
+        json!({
+            "assumptions": [],
+            "kind": "proved",
+            "technique": { "noOverflowPlace": { "dropPlaces": [
+                { "kind": "own", "element": "billing", "place": "idle" },
+                { "kind": "generated", "relationship": "orders" }
+            ] } },
+            "markings": 0
+        })
+    );
+}
+
+#[test]
 fn producer_consumer() {
     let (_, events) = write("producer-consumer", &MemDisk::fixture("producer-consumer"));
     let overflow = &verdict_event(&events, "no-overflow")["verdict"];
