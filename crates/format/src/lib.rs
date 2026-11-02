@@ -9,12 +9,15 @@
 #![forbid(unsafe_code)]
 
 mod element;
+mod read;
 
 use std::collections::BTreeMap;
 
 use tracewright_model::ElementId;
 use tracewright_model::Model;
 use tracewright_model::id::IdError;
+
+pub use read::read_dir;
 
 /// The format version this build reads and writes (file-format §3.2).
 pub const FORMAT_VERSION: u32 = 1;

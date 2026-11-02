@@ -2,6 +2,7 @@
 //! supervised worker threads and talks to the world through ports (ADR 0004, 0011, 0012).
 #![forbid(unsafe_code)]
 
+pub mod adapters;
 pub mod check;
 pub mod dto;
 pub mod key;
