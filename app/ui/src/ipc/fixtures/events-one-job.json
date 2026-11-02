@@ -2,26 +2,26 @@
   {
     "keys": {
       "no-deadlock": {
-        "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893"
+        "key": "key-1"
       }
     },
     "kind": "currentKeys",
     "rev": 0
   },
   {
-    "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893",
+    "key": "key-1",
     "kind": "checkQueued",
     "property": "no-deadlock"
   },
   {
-    "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893",
+    "key": "key-1",
     "kind": "checkProgress",
     "markings": 1,
     "phase": "main",
     "property": "no-deadlock"
   },
   {
-    "key": "040993bdffdb4a733cb83862ce461a8171f56e09d7f29a0735f7826cb6359893",
+    "key": "key-1",
     "kind": "verdict",
     "property": "no-deadlock",
     "verdict": {
