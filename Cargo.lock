@@ -3605,6 +3605,9 @@ version = "0.0.0"
 [[package]]
 name = "tracewright-net"
 version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "tracewright-recheck"
