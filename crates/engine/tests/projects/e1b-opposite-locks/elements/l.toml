@@ -1,0 +1,26 @@
+format = 1
+kind = "container"
+name = "Lock service"
+parent = "sys"
+
+[petri_net.places.x]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.places.y]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.transitions.acq_x]
+port = true
+pre = { x = 1 }
+
+[petri_net.transitions.acq_y]
+port = true
+pre = { y = 1 }
+
+[petri_net.transitions.rel_xy]
+port = true
+post = { x = 1, y = 1 }

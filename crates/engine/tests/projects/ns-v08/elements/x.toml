@@ -1,0 +1,22 @@
+format = 1
+kind = "container"
+parent = "sys"
+
+[petri_net.places.p]
+capacity = 1
+when_full = "block"
+initial = 1
+
+[petri_net.transitions.t]
+pre = { p = 1 }
+post = { p = 1 }
+
+[[property]]
+id = "x-no-deadlock"
+behavior = "own"
+kind = "deadlock_free"
+
+[[property]]
+id = "x-no-overflow"
+behavior = "own"
+kind = "no_capacity_exceeded"
