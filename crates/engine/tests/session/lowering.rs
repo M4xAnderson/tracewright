@@ -214,8 +214,40 @@ fn a_relationship_that_binds_nothing_is_an_assumption_not_a_failure() {
     assert_eq!(with_assumption.key("no-deadlock"), plain.key("no-deadlock"));
 }
 
+fn producer_consumer() -> MemDisk {
+    MemDisk::fixture("producer-consumer")
+}
+
+// A second asynchronous pair, from api/publish2 (a new port) to billing/receive2, on a new
+// relationship.
+fn with_second_sender(relationship: &str) -> MemDisk {
+    with_second_ports()
+        .edit(
+            "elements/api.toml",
+            "capacity = 3\n",
+            &format!(
+                "capacity = 3\n\n[relationships.{relationship}]\nto = \"billing\"\n\n[[relationships.{relationship}.binding]]\nmode = \"async\"\nfrom = \"api/publish2\"\nto = \"billing/receive2\"\ncapacity = 2\n"
+            ),
+        )
+}
+
+// The ports api/publish2 and billing/receive2, not bound yet.
+fn with_second_ports() -> MemDisk {
+    producer_consumer()
+        .edit(
+            "elements/api.toml",
+            "[relationships.orders]",
+            "[petri_net.transitions.publish2]\nport = true\npre = { ready = 1 }\npost = { ready = 1 }\n\n[relationships.orders]",
+        )
+        .edit(
+            "elements/billing.toml",
+            "post = { idle = 1 }\n",
+            "post = { idle = 1 }\n\n[petri_net.transitions.receive2]\nport = true\npre = { idle = 1 }\npost = { idle = 1 }\n",
+        )
+}
+
 #[test]
-fn drop_and_overflow_places_are_not_checked_yet() {
+fn drop_and_overflow_places_lower_into_the_checked_net() {
     let disk = pool().edit(
         "elements/w.toml",
         "when_full = \"block\"",
@@ -223,11 +255,81 @@ fn drop_and_overflow_places_are_not_checked_yet() {
     );
     let run = run_checks(&disk);
     assert!(
-        matches!(
-            run.key_state("no-deadlock"),
-            KeyState::Unknown(UnknownDto::PropertyNotCheckable { .. })
-        ),
+        matches!(run.key_state("no-deadlock"), KeyState::Key(_)),
         "{:?}",
         run.key_state("no-deadlock")
+    );
+}
+
+#[test]
+fn l8_two_asynchronous_pairs_on_one_relationship() {
+    let disk = with_second_ports().edit(
+        "elements/api.toml",
+        "capacity = 3\n",
+        "capacity = 3\n\n[[relationships.orders.binding]]\nmode = \"async\"\nfrom = \"api/publish2\"\nto = \"billing/receive2\"\ncapacity = 2\n",
+    );
+    let lines = incomplete(&disk, "no-overflow");
+    assert_eq!(lines, ["orders binds 2 asynchronous port pairs"]);
+}
+
+#[test]
+fn two_asynchronous_pairs_on_two_relationships_lower() {
+    let run = run_checks(&with_second_sender("refunds"));
+    assert!(
+        matches!(run.key_state("no-overflow"), KeyState::Key(_)),
+        "{:?}",
+        run.key_state("no-overflow")
+    );
+}
+
+#[test]
+fn l7_a_port_in_two_asynchronous_bindings() {
+    let disk = with_second_sender("refunds").edit(
+        "elements/api.toml",
+        "from = \"api/publish2\"",
+        "from = \"api/publish\"",
+    );
+    let lines = incomplete(&disk, "no-overflow");
+    assert!(
+        lines.contains(&"api/publish is in 2 asynchronous bindings: orders, refunds".to_owned()),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn l7_a_port_bound_synchronously_and_asynchronously() {
+    let disk = with_second_sender("refunds").edit(
+        "elements/api.toml",
+        "mode = \"async\"\nfrom = \"api/publish2\"\nto = \"billing/receive2\"\ncapacity = 2\n",
+        "mode = \"sync\"\nfrom = \"api/publish\"\nto = \"billing/receive2\"\n\n[[relationships.refunds.binding]]\nmode = \"sync\"\nfrom = \"api/publish2\"\nto = \"billing/receive2\"\n",
+    );
+    let lines = incomplete(&disk, "no-overflow");
+    assert!(
+        lines.contains(&"api/publish is both synchronously and asynchronously bound".to_owned()),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn l11_an_asynchronous_pair_must_connect_the_relationships_two_elements() {
+    let disk = pool()
+        .put(
+            "elements/x.toml",
+            "format = 1\nkind = \"container\"\nparent = \"sys\"\n\n[petri_net.places.s]\ncapacity = 1\nwhen_full = \"block\"\ninitial = 1\n\n[petri_net.transitions.go]\nport = true\npre = { s = 1 }\npost = { s = 1 }\n\n[petri_net.transitions.hear]\nport = true\npre = { s = 1 }\npost = { s = 1 }\n\n[relationships.r9]\nto = \"c\"\n\n[[relationships.r9.binding]]\nmode = \"async\"\nfrom = \"x/go\"\nto = \"w/acquire\"\ncapacity = 1\n",
+        );
+    let lines = incomplete(&disk, "no-deadlock");
+    assert!(
+        lines.contains(&"r9 (x ↔ c) binds x/go + w/acquire".to_owned()),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn l13_an_asynchronous_pair_without_capacity() {
+    // C14.
+    let disk = producer_consumer().edit("elements/api.toml", "capacity = 3\n", "");
+    assert_eq!(
+        incomplete(&disk, "no-overflow"),
+        ["orders is asynchronous but has no capacity"]
     );
 }

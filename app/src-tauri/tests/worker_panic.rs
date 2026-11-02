@@ -41,12 +41,15 @@ impl Spawner for FirstWorkerPanics {
     }
 }
 
-// Hands each verdict to the test thread.
+// Hands each verdict of no-deadlock, the first property checked, to the test thread; the worker
+// pool's no capacity exceeded is checked after it.
 struct Verdicts(Mutex<mpsc::Sender<VerdictDto>>);
 
 impl Sink for Verdicts {
     fn emit(&self, event: EngineEvent) {
-        if let EngineEvent::Verdict(verdict) = event {
+        if let EngineEvent::Verdict(verdict) = event
+            && verdict.property == "no-deadlock"
+        {
             self.0
                 .lock()
                 .expect("one sender")

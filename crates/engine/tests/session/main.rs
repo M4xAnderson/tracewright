@@ -2,10 +2,12 @@
 //! then the events and verdicts it emits.
 
 mod budget;
+mod capacity;
 mod check_key;
 mod checks;
 mod disk;
 mod events;
 mod fixtures;
 mod lowering;
+mod pipeline;
 mod support;

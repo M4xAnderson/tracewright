@@ -10,11 +10,13 @@ import type { View } from "../../ipc/bindings/view";
 import { assertNever, useAppStore } from "../../store/app-store";
 import {
   assumptionLine,
+  CERTIFICATE_LINE,
   deadlockHeadline,
   doesNotMean,
   elementName,
   exhaustiveLine,
   NO_FINAL_S0,
+  overflowLine,
   progressLine,
   propertyName,
   provedHeadline,
@@ -148,7 +150,7 @@ function Detail({
         </p>
       );
     case "unknownKey":
-      return <Lines lines={unknownLines(state.reason)} />;
+      return <Lines lines={unknownLines(view, property.kind, state.reason)} />;
     case "current": {
       const { verdict } = state;
       const assumptions = verdict.assumptions.map((r) => assumptionLine(view, r));
@@ -172,7 +174,9 @@ function Detail({
             />
           );
         case "unknown":
-          return <Lines lines={[...unknownLines(verdict.reason), ...assumptions]} />;
+          return (
+            <Lines lines={[...unknownLines(view, property.kind, verdict.reason), ...assumptions]} />
+          );
         default:
           return assertNever(verdict);
       }
@@ -196,7 +200,9 @@ function ProvedDetail(props: {
     <>
       {headline !== null && <p className="text-text-primary">{headline}</p>}
       {limits !== null && <p>{limits}</p>}
-      <p>{exhaustiveLine(proved.markings)}</p>
+      <p>
+        {proved.technique === "exhaustive" ? exhaustiveLine(proved.markings) : CERTIFICATE_LINE}
+      </p>
       <Lines lines={assumptions} />
       <p>{SCOPE_LINE}</p>
     </>
@@ -210,25 +216,10 @@ function DisprovedDetail(props: {
   assumptions: string[];
 }) {
   const { view, property, disproved, assumptions } = props;
-  const scope = elementName(view, property.scope.element);
-  const deadlock = disproved.violation;
   const frames = disproved.frames;
-  const scrolls = deadlock.waiting.length >= WAITING_SCROLL_FROM;
   return (
     <>
-      <p className="text-text-primary">{deadlockHeadline(scope, frames.length)}</p>
-      <ul
-        aria-label="Waiting steps"
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a list that scrolls inside its row must be reachable by keyboard (flows §4.8, A11Y-2)
-        tabIndex={scrolls ? 0 : undefined}
-        className={scrolls ? "max-h-[18em] space-y-1 overflow-y-auto" : "space-y-1"}
-      >
-        {deadlock.waiting.map((waiting) => {
-          const text = waitingLine(view, waiting);
-          return <li key={text}>{text}</li>;
-        })}
-      </ul>
-      {deadlock.finished && <p>{NO_FINAL_S0}</p>}
+      <Violation view={view} property={property} disproved={disproved} />
       <Lines lines={assumptions} />
       <p className="pt-1 font-medium text-text-primary">Counterexample</p>
       <ol aria-label="Counterexample steps" className="font-mono text-[12px]">
@@ -238,4 +229,38 @@ function DisprovedDetail(props: {
       </ol>
     </>
   );
+}
+
+// The violation sentence of flows §4.8: on deadlock-free V-DIS-T1, the waiting lines and the
+// done-when caveat; on no capacity exceeded V-DIS-CAP-*.
+function Violation(props: { view: View; property: PropertyView; disproved: DisprovedDto }) {
+  const { view, property, disproved } = props;
+  const violation = disproved.violation;
+  switch (violation.kind) {
+    case "overflow":
+      return <p className="text-text-primary">{overflowLine(view, violation)}</p>;
+    case "deadlock": {
+      const scope = elementName(view, property.scope.element);
+      const scrolls = violation.waiting.length >= WAITING_SCROLL_FROM;
+      return (
+        <>
+          <p className="text-text-primary">{deadlockHeadline(scope, disproved.frames.length)}</p>
+          <ul
+            aria-label="Waiting steps"
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a list that scrolls inside its row must be reachable by keyboard (flows §4.8, A11Y-2)
+            tabIndex={scrolls ? 0 : undefined}
+            className={scrolls ? "max-h-[18em] space-y-1 overflow-y-auto" : "space-y-1"}
+          >
+            {violation.waiting.map((waiting) => {
+              const text = waitingLine(view, waiting);
+              return <li key={text}>{text}</li>;
+            })}
+          </ul>
+          {violation.finished && <p>{NO_FINAL_S0}</p>}
+        </>
+      );
+    }
+    default:
+      return assertNever(violation);
+  }
 }

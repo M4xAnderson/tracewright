@@ -1,7 +1,8 @@
 //! Seam B on the engine side: `engine::lower::flatten` against the NS §14.3 composition vectors,
-//! and the property of NS §14.3 C16 and design §8: on random bounded `OpenNets`, the engine's
-//! flattening and recheck's composition encode to the same bytes, and `verify` on the one agrees
-//! with `recheck::explore` on the other.
+//! and the property of NS §14.3 C16 and design §8: on random bounded `OpenNets` with block, drop
+//! and overflow places, fusions and asynchronous bindings, the engine's flattening and recheck's
+//! composition encode to the same bytes, and `verify` on the one agrees with `recheck` on the
+//! other for both slice 0 properties.
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -12,6 +13,7 @@ use proptest::prop_assert_eq;
 use proptest::proptest;
 use serde::Deserialize;
 use tracewright_engine::lower::flatten;
+use tracewright_net::AsyncLink;
 use tracewright_net::Budget;
 use tracewright_net::Fusion;
 use tracewright_net::Marking;
@@ -21,6 +23,7 @@ use tracewright_net::NetVerdict;
 use tracewright_net::OpenNets;
 use tracewright_net::Place;
 use tracewright_net::QualifiedId;
+use tracewright_net::Technique;
 use tracewright_net::Transition;
 use tracewright_net::WhenFull;
 use tracewright_net::encode;
@@ -35,18 +38,40 @@ struct Vectors {
 struct Vector {
     id: String,
     parts: Vec<PartSpec>,
+    #[serde(default)]
     fusions: Vec<BTreeMap<String, String>>,
+    #[serde(default)]
+    links: Vec<BTreeMap<String, toml::Value>>,
     encoding: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct PartSpec {
     places: Vec<BTreeMap<String, toml::Value>>,
+    #[serde(default)]
     transitions: Vec<BTreeMap<String, toml::Value>>,
 }
 
 fn q(id: &str) -> QualifiedId {
     QualifiedId(id.to_owned())
+}
+
+fn when_full(value: Option<&toml::Value>) -> WhenFull {
+    match value.map(|v| v.as_str().expect("a string")) {
+        None | Some("block") => WhenFull::Block,
+        Some("drop") => WhenFull::Drop,
+        Some("overflow") => WhenFull::Overflow,
+        Some(other) => panic!("unknown when_full {other}"),
+    }
+}
+
+fn ids(value: &toml::Value) -> Vec<QualifiedId> {
+    value
+        .as_array()
+        .expect("a list")
+        .iter()
+        .map(|id| q(id.as_str().expect("an ID")))
+        .collect()
 }
 
 fn int(value: &toml::Value) -> u32 {
@@ -72,7 +97,7 @@ fn open_nets(vector: &Vector) -> OpenNets {
                 .map(|p| Place {
                     id: q(p["id"].as_str().expect("test fixture")),
                     capacity: int(&p["capacity"]),
-                    when_full: WhenFull::Block,
+                    when_full: when_full(p.get("when_full")),
                 })
                 .collect(),
             transitions: part
@@ -104,7 +129,22 @@ fn open_nets(vector: &Vector) -> OpenNets {
             callee: q(&f["callee"]),
         })
         .collect();
-    OpenNets { parts, fusions }
+    let links = vector
+        .links
+        .iter()
+        .map(|l| AsyncLink {
+            relationship: l["relationship"].as_str().expect("test fixture").to_owned(),
+            from: ids(&l["from"]),
+            to: ids(&l["to"]),
+            capacity: int(&l["capacity"]),
+            when_full: when_full(l.get("when_full")),
+        })
+        .collect();
+    OpenNets {
+        parts,
+        fusions,
+        links,
+    }
 }
 
 #[test]
@@ -124,14 +164,18 @@ fn flatten_produces_the_exact_encoding_of_every_valid_vector() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 4, "C1, C2, C3 and C21");
+    assert_eq!(
+        checked, 10,
+        "C1, C2, C3, C21, C4, C5, (h), C17, C18 and the asynchronous reply"
+    );
 }
 
-// A random bounded part: element `e<index>` with 1–2 block places of capacity 1–2 and 1–3
-// transitions whose arcs have weights 0–2. Small enough that every net explores in well under a
-// millisecond, large enough to deadlock, block and fuse in every combination.
+// A random bounded part: element `e<index>` with 1–2 places of capacity 1–2, each block, drop or
+// overflow, and 1–3 transitions whose arcs have weights 0–2. Small enough that every net explores
+// in well under a millisecond, large enough to deadlock, block, drop, overflow and fuse in every
+// combination.
 fn part(index: usize) -> impl Strategy<Value = Net> {
-    let places = proptest::collection::vec((1u32..=2, 0u32..=2), 1..=2);
+    let places = proptest::collection::vec((1u32..=2, 0u32..=2, 0usize..3), 1..=2);
     places.prop_flat_map(move |places| {
         let n = places.len();
         let transition = (
@@ -145,11 +189,11 @@ fn part(index: usize) -> impl Strategy<Value = Net> {
             .prop_map(move |(places, ts)| {
                 let place_id = |p: usize| q(&format!("e{index}/p{p}"));
                 let mut net = Net::default();
-                for (p, (capacity, initial)) in places.iter().enumerate() {
+                for (p, (capacity, initial, kind)) in places.iter().enumerate() {
                     net.places.push(Place {
                         id: place_id(p),
                         capacity: *capacity,
-                        when_full: WhenFull::Block,
+                        when_full: [WhenFull::Block, WhenFull::Drop, WhenFull::Overflow][*kind],
                     });
                     if (*initial).min(*capacity) > 0 {
                         net.initial.0.insert(place_id(p), (*initial).min(*capacity));
@@ -175,8 +219,13 @@ fn part(index: usize) -> impl Strategy<Value = Net> {
     })
 }
 
-// 1–3 parts and up to 4 candidate fusions between transitions of different parts. Candidates
-// that would break L6, L7 or L12 are dropped, as lowering would refuse them.
+// A candidate asynchronous binding: relationship number, sending part, receiving part, a bit mask
+// over the first three transitions of each, capacity 1–3 and when full.
+type LinkCandidate = (usize, usize, usize, u8, u8, u32, usize);
+
+// 1–3 parts, up to 4 candidate fusions between transitions of different parts and up to 2
+// candidate asynchronous bindings with sets of 1–3 transitions. Candidates that would break L6,
+// L7, L8 or L12 are dropped, as lowering would refuse them.
 #[expect(
     clippy::similar_names,
     reason = "caller and callee are the terms of NS §6.3"
@@ -186,7 +235,19 @@ fn open_nets_strategy() -> impl Strategy<Value = OpenNets> {
         let parts: Vec<_> = (0..count).map(part).collect();
         let fusions =
             proptest::collection::vec((0..count, 0usize..3, 0..count, 0usize..3, 0usize..2), 0..=4);
-        (parts, fusions).prop_map(|(parts, candidates)| {
+        let links = proptest::collection::vec(
+            (
+                0usize..2,
+                0..count,
+                0..count,
+                1u8..8,
+                1u8..8,
+                1u32..=3,
+                0usize..3,
+            ),
+            0..=2,
+        );
+        (parts, fusions, links).prop_map(|(parts, candidates, link_candidates)| {
             let mut fusions = Vec::new();
             let mut callers = BTreeSet::new();
             let mut callees = BTreeSet::new();
@@ -211,9 +272,57 @@ fn open_nets_strategy() -> impl Strategy<Value = OpenNets> {
                     callee,
                 });
             }
-            OpenNets { parts, fusions }
+            let bound: BTreeSet<QualifiedId> = callers.union(&callees).cloned().collect();
+            let links = pick_links(&parts, &bound, link_candidates);
+            OpenNets {
+                parts,
+                fusions,
+                links,
+            }
         })
     })
+}
+
+fn pick_links(
+    parts: &[Net],
+    bound: &BTreeSet<QualifiedId>,
+    candidates: Vec<LinkCandidate>,
+) -> Vec<AsyncLink> {
+    let mut taken = bound.clone();
+    let mut links = Vec::new();
+    let mut relationships = BTreeSet::new();
+    for (r, s, d, from_mask, to_mask, capacity, kind) in candidates {
+        let pick = |part: usize, mask: u8| -> Vec<QualifiedId> {
+            parts[part]
+                .transitions
+                .iter()
+                .enumerate()
+                .filter(|(t, _)| mask & (1 << t) != 0)
+                .map(|(_, t)| t.id.clone())
+                .collect()
+        };
+        let (from, to) = (pick(s, from_mask), pick(d, to_mask));
+        let relationship = format!("l{r}");
+        let members: Vec<&QualifiedId> = from.iter().chain(&to).collect();
+        let distinct: BTreeSet<&QualifiedId> = members.iter().copied().collect();
+        if from.is_empty()
+            || to.is_empty()
+            || distinct.len() != members.len()
+            || members.iter().any(|id| taken.contains(*id))
+            || !relationships.insert(relationship.clone())
+        {
+            continue;
+        }
+        taken.extend(members.into_iter().cloned());
+        links.push(AsyncLink {
+            relationship,
+            from,
+            to,
+            capacity,
+            when_full: [WhenFull::Block, WhenFull::Drop, WhenFull::Overflow][kind],
+        });
+    }
+    links
 }
 
 proptest! {
@@ -222,11 +331,37 @@ proptest! {
         let flat = flatten(&open).expect("the generator only builds valid OpenNets");
         let own = tracewright_recheck::compose(&open).expect("recheck composes what engine flattens");
         prop_assert_eq!(encode::canonical(&flat), encode::canonical(&own));
-        // At most 3 parts × 2 places × capacity 2: 3^6 = 729 markings, far below the budget.
-        let budget = Budget { max_markings: 100_000, ..Budget::default() };
+        // At most 3 parts × 2 places and 2 generated places, each with at most 4 counts in
+        // bounds: 4^8 = 65,536 in-bounds markings, below the budget.
+        let budget = Budget { max_markings: 1_000_000, ..Budget::default() };
         let main = tracewright_verify::check(&flat, &NetProperty::DeadlockFree, &budget);
         let second = tracewright_recheck::explore(&own, &NetProperty::DeadlockFree, &budget);
-        prop_assert!(!matches!(main, NetVerdict::Unknown(_)), "{:?}", main);
+        prop_assert!(
+            !matches!(main, NetVerdict::Unknown(tracewright_net::UnknownReason::BudgetExhausted { .. })),
+            "{:?}", main
+        );
         prop_assert_eq!(main, second);
+
+        let property = NetProperty::CapacityNeverExceeded;
+        let main = tracewright_verify::check(&flat, &property, &budget);
+        let second = tracewright_recheck::explore(&own, &property, &budget);
+        match main {
+            NetVerdict::Proved { technique: Technique::Certificate(certificate), markings } => {
+                prop_assert_eq!(markings, 0);
+                prop_assert!(tracewright_recheck::check_certificate(&own, &property, &certificate));
+                prop_assert!(
+                    matches!(second, NetVerdict::Proved { technique: Technique::Exhaustive, .. }),
+                    "{:?}", second
+                );
+            }
+            NetVerdict::Disproved(tracewright_net::Evidence::Counterexample(cx)) => {
+                prop_assert_eq!(tracewright_recheck::replay(&own, &cx, &property), Ok(()));
+                prop_assert_eq!(
+                    NetVerdict::Disproved(tracewright_net::Evidence::Counterexample(cx)),
+                    second
+                );
+            }
+            other => prop_assert_eq!(other, second),
+        }
     }
 }

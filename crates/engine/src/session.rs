@@ -228,9 +228,6 @@ impl Session {
                     Err(LowerError::ModelIncomplete(lines)) => KeyState::Unknown(
                         origin::unknown_dto(&UnknownReason::ModelIncomplete(lines.clone())),
                     ),
-                    Err(LowerError::NotCheckedYet(lines)) => KeyState::Unknown(
-                        origin::unknown_dto(&UnknownReason::PropertyNotCheckable(lines.clone())),
-                    ),
                     Ok(scope_net) => match lower_property(&property.kind) {
                         Ok(net_property) => {
                             let key = check_key(&scope_net.flat, &net_property);
@@ -301,13 +298,12 @@ fn property_kind(kind: &PropertyKind) -> dto::PropertyKind {
 }
 
 // The property of a scope that lowered (D-64). Slice 0 checks deadlock-free with `final none`
-// (D-25); the other kinds are not checked yet, with the line the user sees.
+// (D-25) and no capacity exceeded; user properties wait for slice 4, with the line the user sees
+// (V57).
 fn lower_property(kind: &PropertyKind) -> Result<NetProperty, Vec<String>> {
     match kind {
         PropertyKind::DeadlockFree => Ok(NetProperty::DeadlockFree),
-        PropertyKind::NoCapacityExceeded => {
-            Err(vec!["no capacity exceeded is not checked yet".to_owned()])
-        }
+        PropertyKind::NoCapacityExceeded => Ok(NetProperty::CapacityNeverExceeded),
         PropertyKind::NoDeadTransitions
         | PropertyKind::Never { .. }
         | PropertyKind::AlwaysReachable { .. } => {

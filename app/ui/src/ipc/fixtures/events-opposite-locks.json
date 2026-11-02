@@ -5,12 +5,7 @@
         "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4"
       },
       "no-overflow": {
-        "unknown": {
-          "category": "propertyNotCheckable",
-          "details": [
-            "no capacity exceeded is not checked yet"
-          ]
-        }
+        "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c"
       }
     },
     "kind": "currentKeys",
@@ -20,6 +15,11 @@
     "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
     "kind": "checkQueued",
     "property": "no-deadlock"
+  },
+  {
+    "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c",
+    "kind": "checkQueued",
+    "property": "no-overflow"
   },
   {
     "key": "f09e6538beda98ec19451d94a0ee59679a0dc284f9f7098caa06dbc911a616c4",
@@ -88,6 +88,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "has_1"
                 },
                 "reason": {
@@ -99,6 +100,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "idle"
                 },
                 "reason": {
@@ -110,6 +112,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "x"
                 },
                 "reason": {
@@ -137,6 +140,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "y"
                 },
                 "reason": {
@@ -164,6 +168,7 @@
               {
                 "place": {
                   "element": "a",
+                  "kind": "own",
                   "place": "has_2"
                 },
                 "reason": {
@@ -191,6 +196,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "has_1"
                 },
                 "reason": {
@@ -202,6 +208,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "idle"
                 },
                 "reason": {
@@ -213,6 +220,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "y"
                 },
                 "reason": {
@@ -240,6 +248,7 @@
               {
                 "place": {
                   "element": "l",
+                  "kind": "own",
                   "place": "x"
                 },
                 "reason": {
@@ -267,6 +276,7 @@
               {
                 "place": {
                   "element": "b",
+                  "kind": "own",
                   "place": "has_2"
                 },
                 "reason": {
@@ -278,6 +288,21 @@
             ]
           }
         ]
+      }
+    }
+  },
+  {
+    "key": "94563224a07c3908e22d566e1838fb9518f96db8d876cb10bd7e3476b498404c",
+    "kind": "verdict",
+    "property": "no-overflow",
+    "verdict": {
+      "assumptions": [],
+      "kind": "proved",
+      "markings": 0,
+      "technique": {
+        "noOverflowPlace": {
+          "dropPlaces": []
+        }
       }
     }
   }

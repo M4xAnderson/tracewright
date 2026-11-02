@@ -101,7 +101,7 @@ fn given_enough_markings_for_both_halves_then_proved() {
         panic!("not Proved: {:?}", run.verdict("no-deadlock"));
     };
     assert_eq!(
-        (proof.technique, proof.markings),
+        (proof.technique.clone(), proof.markings),
         (Technique::Exhaustive, 3)
     );
 }
@@ -207,7 +207,8 @@ fn a_proved_check_reports_the_recheck_phase_too() {
         progress(&run.events),
         [(Phase::Main, 1), (Phase::Recheck, 1)]
     );
-    // Progress comes after the check was queued and before its verdict.
+    // Progress comes after the check was queued and before its verdict. The second property, no
+    // capacity exceeded, is proved by the certificate without exploring, so it reports none.
     let kinds: Vec<&str> = run
         .events
         .iter()
@@ -218,5 +219,10 @@ fn a_proved_check_reports_the_recheck_phase_too() {
             EngineEvent::Verdict(_) => "verdict",
         })
         .collect();
-    assert_eq!(kinds, ["keys", "queued", "progress", "progress", "verdict"]);
+    assert_eq!(
+        kinds,
+        [
+            "keys", "queued", "queued", "progress", "progress", "verdict", "verdict"
+        ]
+    );
 }

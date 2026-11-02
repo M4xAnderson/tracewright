@@ -1,14 +1,17 @@
-//! The origin map (NS §6.7): where each qualified ID of a scope's flattened net comes from, and
-//! the conversion of a checked verdict into the element terms of the IPC contract. The explorers
-//! never see it.
+//! The origin map (NS §6.7): where each qualified ID of a scope's flattened net comes from (an
+//! element's place or transition, a fused transition, a relationship's generated place), and the
+//! conversion of a checked verdict into the element terms of the IPC contract. The explorers never
+//! see it.
 
 use std::collections::BTreeMap;
 
+use tracewright_net::Certificate;
 use tracewright_net::Counterexample;
 use tracewright_net::Evidence;
 use tracewright_net::Marking;
 use tracewright_net::OpenNets;
 use tracewright_net::QualifiedId;
+use tracewright_net::Step;
 use tracewright_net::UnknownReason;
 use tracewright_net::Violation;
 
@@ -16,7 +19,10 @@ use crate::check::Verdict;
 use crate::dto;
 use crate::dto::DeadlockDto;
 use crate::dto::DisprovedDto;
+use crate::dto::NoOverflowPlaceDto;
 use crate::dto::Outcome;
+use crate::dto::OverflowDto;
+use crate::dto::PlaceOrigin;
 use crate::dto::PlaceRef;
 use crate::dto::ProvedDto;
 use crate::dto::ReplayFrame;
@@ -32,6 +38,7 @@ use crate::lower::Lowered;
 use crate::lower::fused_id;
 
 struct OriginMap {
+    places: BTreeMap<QualifiedId, PlaceOrigin>,
     transitions: BTreeMap<QualifiedId, TransitionOrigin>,
 }
 
@@ -58,8 +65,25 @@ fn place_ref(id: &QualifiedId) -> PlaceRef {
 
 impl OriginMap {
     fn new(open: &OpenNets) -> OriginMap {
+        let mut places = BTreeMap::new();
         let mut transitions = BTreeMap::new();
+        for link in &open.links {
+            places.insert(
+                QualifiedId(link.relationship.clone()),
+                PlaceOrigin::Generated {
+                    relationship: link.relationship.clone(),
+                },
+            );
+        }
         for part in &open.parts {
+            for place in &part.places {
+                let previous =
+                    places.insert(place.id.clone(), PlaceOrigin::Own(place_ref(&place.id)));
+                assert!(
+                    previous.is_none(),
+                    "origin: an own ID never equals a generated ID (it contains '/')"
+                );
+            }
             for transition in &part.transitions {
                 transitions.insert(
                     transition.id.clone(),
@@ -81,7 +105,10 @@ impl OriginMap {
                 "origin: a fused ID never equals an own ID (it contains '+')"
             );
         }
-        OriginMap { transitions }
+        OriginMap {
+            places,
+            transitions,
+        }
     }
 
     fn transition(&self, id: &QualifiedId) -> TransitionOrigin {
@@ -89,6 +116,25 @@ impl OriginMap {
             .get(id)
             .cloned()
             .expect("origin: every transition of the flattened net comes from a part or a fusion")
+    }
+
+    fn place(&self, id: &QualifiedId) -> PlaceOrigin {
+        self.places
+            .get(id)
+            .cloned()
+            .expect("origin: every place of the flattened net comes from a part or a binding")
+    }
+
+    fn frames(&self, steps: &[Step]) -> Vec<ReplayFrame> {
+        steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| ReplayFrame {
+                step: u32::try_from(index + 1)
+                    .expect("a counterexample is shorter than its budget"),
+                fired: self.transition(&step.fired),
+            })
+            .collect()
     }
 }
 
@@ -101,16 +147,30 @@ pub(crate) fn verdict_dto(verdict: &Verdict, lowered: &Lowered) -> VerdictDto {
                 markings <= dto::JS_SAFE_INTEGER_MAX,
                 "verdict_dto: a marking count stays below 2^53 (IPC-2)"
             );
+            let technique = match proof.technique() {
+                tracewright_net::Technique::Exhaustive => dto::Technique::Exhaustive,
+                tracewright_net::Technique::Certificate(Certificate::NoOverflowPlace {
+                    drop_places,
+                }) => {
+                    let origin = OriginMap::new(&lowered.open);
+                    dto::Technique::NoOverflowPlace(NoOverflowPlaceDto {
+                        drop_places: drop_places.iter().map(|id| origin.place(id)).collect(),
+                    })
+                }
+            };
             Outcome::Proved(ProvedDto {
-                technique: match proof.technique() {
-                    tracewright_net::Technique::Exhaustive => dto::Technique::Exhaustive,
-                },
+                technique,
                 markings,
             })
         }
         Verdict::Disproved(violation) => {
             let Evidence::Counterexample(cx) = violation.evidence();
             Outcome::Disproved(disproved(cx, lowered))
+        }
+        Verdict::Unknown(UnknownReason::CapacityExceededFirst { place, steps }) => {
+            Outcome::Unknown(UnknownVerdict {
+                reason: capacity_exceeded_first(place, steps, lowered),
+            })
         }
         Verdict::Unknown(reason) => Outcome::Unknown(UnknownVerdict {
             reason: unknown_dto(reason),
@@ -126,22 +186,61 @@ pub(crate) fn verdict_dto(verdict: &Verdict, lowered: &Lowered) -> VerdictDto {
     }
 }
 
+// The run of a capacity exceeded first, replayed by recheck, with the place in element terms.
+fn capacity_exceeded_first(place: &QualifiedId, steps: &[Step], lowered: &Lowered) -> UnknownDto {
+    let origin = OriginMap::new(&lowered.open);
+    let capacity = lowered
+        .flat
+        .places
+        .iter()
+        .find(|p| p.id == *place)
+        .expect("capacity_exceeded_first: the place is a place of the checked net")
+        .capacity;
+    let count = steps
+        .last()
+        .and_then(|step| step.marking.0.get(place))
+        .copied()
+        .expect("capacity_exceeded_first: the replayed run ends above the capacity");
+    assert!(
+        count > capacity,
+        "capacity_exceeded_first: the replayed run ends above the capacity"
+    );
+    UnknownDto::CapacityExceededFirst {
+        place: origin.place(place),
+        capacity,
+        count,
+        frames: origin.frames(steps),
+    }
+}
+
 fn disproved(cx: &Counterexample, lowered: &Lowered) -> DisprovedDto {
     let origin = OriginMap::new(&lowered.open);
-    let frames = cx
-        .steps
-        .iter()
-        .enumerate()
-        .map(|(index, step)| ReplayFrame {
-            step: u32::try_from(index + 1).expect("a counterexample is shorter than its budget"),
-            fired: origin.transition(&step.fired),
-        })
-        .collect();
+    let frames = origin.frames(&cx.steps);
+    let waiting = match &cx.violation {
+        Violation::Deadlock { waiting } => waiting,
+        Violation::Overflow {
+            place,
+            capacity,
+            count,
+        } => {
+            assert!(
+                count > capacity,
+                "disproved: an overflow marking holds more than the capacity"
+            );
+            return DisprovedDto {
+                frames,
+                violation: ViolationDto::Overflow(OverflowDto {
+                    place: origin.place(place),
+                    capacity: *capacity,
+                    count: *count,
+                }),
+            };
+        }
+    };
     let last = cx
         .steps
         .last()
         .map_or(&lowered.flat.initial, |step| &step.marking);
-    let Violation::Deadlock { waiting } = &cx.violation;
     let waiting: Vec<WaitingDto> = waiting
         .iter()
         .map(|w| WaitingDto {
@@ -150,7 +249,7 @@ fn disproved(cx: &Counterexample, lowered: &Lowered) -> DisprovedDto {
                 .waits
                 .iter()
                 .map(|wait| WaitDto {
-                    place: place_ref(&wait.place),
+                    place: origin.place(&wait.place),
                     reason: match wait.reason {
                         tracewright_net::WaitReason::NeedsTokens { needed, holds } => {
                             dto::WaitReason::NeedsTokens { needed, holds }
@@ -190,7 +289,8 @@ fn finished(lowered: &Lowered, marking: &Marking) -> bool {
     })
 }
 
-/// The Unknown reason in the terms of the IPC contract.
+/// The Unknown reason in the terms of the IPC contract, for every reason that needs no net:
+/// capacity exceeded first is converted by `verdict_dto`, with the checked net.
 pub(crate) fn unknown_dto(reason: &UnknownReason) -> UnknownDto {
     match reason {
         UnknownReason::ModelIncomplete(details) => UnknownDto::ModelIncomplete {
@@ -215,8 +315,8 @@ pub(crate) fn unknown_dto(reason: &UnknownReason) -> UnknownDto {
                 markings: *markings,
             }
         }
-        UnknownReason::CapacityExceededFirst { place, .. } => UnknownDto::CapacityExceededFirst {
-            place: place.0.clone(),
-        },
+        UnknownReason::CapacityExceededFirst { .. } => {
+            panic!("unknown_dto: a capacity exceeded first comes only from a check (verdict_dto)")
+        }
     }
 }
